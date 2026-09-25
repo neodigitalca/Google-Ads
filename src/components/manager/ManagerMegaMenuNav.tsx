@@ -118,7 +118,9 @@ export function ManagerMegaMenuNav({
           <DropdownMenuSubTrigger
             className={cn(
               dropdownItemClass(index, subActive),
-              "[&>svg:last-child]:text-muted-foreground",
+              variant === "embedded"
+                ? "[&>svg:last-child]:text-muted-foreground [&>svg:last-child]:h-4 [&>svg:last-child]:w-4"
+                : "[&>svg:last-child]:text-muted-foreground",
             )}
           >
             <div className="flex w-full items-center gap-2.5">
@@ -129,9 +131,10 @@ export function ManagerMegaMenuNav({
             </div>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent
+            sideOffset={2}
             className={cn(
               variant === "embedded"
-                ? MANAGER_NAV_DROPDOWN_PANEL
+                ? cn(MANAGER_NAV_DROPDOWN_PANEL, "border border-white/[0.08]")
                 : "z-50 min-w-[12rem] rounded-xl border border-primary/45 bg-black/90 p-1.5 shadow-none backdrop-blur-md text-popover-foreground",
             )}
           >

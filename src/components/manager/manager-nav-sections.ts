@@ -20,6 +20,7 @@ import {
   Server,
   Target,
   TrendingUp,
+  Wrench,
   Zap,
 } from "lucide-react";
 import type { ManagerSettingsClusterId } from "@/components/manager/manager-settings-cluster";
@@ -142,71 +143,84 @@ export const MANAGER_NAV_SECTIONS: ManagerNavSection[] = [
     ],
   },
   {
-    id: "seo",
-    label: "SEO",
-    icon: Search,
+    id: "tools",
+    label: "Tools",
+    icon: Wrench,
     items: [
       {
-        value: "generator",
-        label: "Generator",
-        description: "Opt, CSV, prompt, import, PR, entity, pages, flow, image, research, and report",
-        icon: TrendingUp,
+        id: "tools-seo",
+        value: "seo",
+        label: "SEO",
+        description: "Search engine optimization and sitemaps",
+        icon: Search,
+        children: [
+          {
+            value: "generator",
+            label: "Generator",
+            description: "Opt, CSV, prompt, import, PR, entity, pages, flow, image, research, and report",
+            icon: TrendingUp,
+          },
+          {
+            value: "sitemap-optimizer",
+            label: "Sitemap",
+            description: "Cluster, merge, publish overlapping URLs, and URL optimization",
+            icon: GitMerge,
+          },
+          {
+            value: "vertical-benchmarks",
+            label: "Industry verticals",
+            description: "GSC top 10 per NEO Pulse property, bulk CSV packages",
+            icon: Layers,
+          },
+        ],
       },
       {
-        value: "sitemap-optimizer",
-        label: "Sitemap",
-        description: "Cluster, merge, publish overlapping URLs, and URL optimization",
-        icon: GitMerge,
+        id: "tools-social",
+        value: "social",
+        label: "Social",
+        description: "Social media and Google Business Profile",
+        icon: Share2,
+        children: [
+          {
+            value: "gbp-post",
+            label: "GBP",
+            description: "Keyword harness, site image match, money-page button, publish to Google Business Profile",
+            icon: Megaphone,
+          },
+          {
+            value: "content-calendar",
+            label: "Calendar",
+            description: "AI content calendar sheet",
+            icon: TrendingUp,
+          },
+          {
+            value: "social-creator",
+            label: "Creator",
+            description: "Organic post generator with visuals",
+            icon: Sparkles,
+          },
+        ],
       },
       {
-        value: "vertical-benchmarks",
-        label: "Industry verticals",
-        description: "GSC top 10 per NEO Pulse property, bulk CSV packages",
-        icon: Layers,
-      },
-    ],
-  },
-  {
-    id: "social",
-    label: "Social",
-    icon: Share2,
-    items: [
-      {
-        value: "gbp-post",
-        label: "GBP",
-        description: "Keyword harness, site image match, money-page button, publish to Google Business Profile",
-        icon: Megaphone,
-      },
-      {
-        value: "content-calendar",
-        label: "Calendar",
-        description: "AI content calendar sheet",
-        icon: TrendingUp,
-      },
-      {
-        value: "social-creator",
-        label: "Creator",
-        description: "Organic post generator with visuals",
-        icon: TrendingUp,
-      },
-    ],
-  },
-  {
-    id: "ppc",
-    label: "PPC",
-    icon: Target,
-    items: [
-      {
-        value: "ppc-google",
-        label: "Google",
-        description: "Search campaigns from WordPress pages and GSC queries",
-        icon: Crosshair,
-      },
-      {
-        value: "ppc-meta",
-        label: "Meta",
-        description: "Feed ads from WordPress page copy and Neo Digital creative",
-        icon: Megaphone,
+        id: "tools-ppc",
+        value: "ppc",
+        label: "PPC",
+        description: "Pay-per-click search and social campaigns",
+        icon: Target,
+        children: [
+          {
+            value: "ppc-google",
+            label: "Google",
+            description: "Search campaigns from WordPress pages and GSC queries",
+            icon: Crosshair,
+          },
+          {
+            value: "ppc-meta",
+            label: "Meta",
+            description: "Feed ads from WordPress page copy and Neo Digital creative",
+            icon: Megaphone,
+          },
+        ],
       },
     ],
   },
@@ -224,7 +238,9 @@ export function isManagerNavItemActive(
   dashboardCluster: ManagerSettingsClusterId | undefined,
 ): boolean {
   if (item.children?.length) {
-    return item.children.some((child) => isManagerNavItemSelected(managerTab, child, dashboardCluster));
+    return item.children.some((child) =>
+      isManagerNavItemActive(managerTab, child, dashboardCluster),
+    );
   }
   return isManagerNavItemSelected(managerTab, item, dashboardCluster);
 }
