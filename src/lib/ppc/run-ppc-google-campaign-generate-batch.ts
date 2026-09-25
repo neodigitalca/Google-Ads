@@ -20,10 +20,18 @@ export type PpcCampaignGenerateJob = {
   config: PpcGenerateConfig;
   adGroupKeywords?: string[];
   focusKeyword?: string;
+  adsCampaignId?: string;
 };
 
 export type PpcCampaignGenerateJobResult =
-  | { rowId: string; ok: true; campaign: PpcCampaign; campaignName: string; config: PpcGenerateConfig }
+  | {
+      rowId: string;
+      ok: true;
+      campaign: PpcCampaign;
+      campaignName: string;
+      recommendedDailyBudget: number;
+      config: PpcGenerateConfig;
+    }
   | { rowId: string; ok: false; config: PpcGenerateConfig; errorMessage: string };
 
 async function planUniquePpcCampaigns(options: {
@@ -158,6 +166,7 @@ export async function runPpcGoogleCampaignGenerateBatch(options: {
           config: job.config,
           adGroupKeywords: job.adGroupKeywords,
           focusKeyword: job.focusKeyword,
+          adsCampaignId: job.adsCampaignId,
           prefetchedWpPages: wpPages,
           prefetchedPlan,
           onProgress: (progress) => reporter.setCampaignProgress(campaignIndex, progress),
@@ -168,6 +177,7 @@ export async function runPpcGoogleCampaignGenerateBatch(options: {
           ok: true as const,
           campaign: result.campaign,
           campaignName: result.campaignName,
+          recommendedDailyBudget: result.recommendedDailyBudget,
           config: job.config,
         };
       } catch (err) {

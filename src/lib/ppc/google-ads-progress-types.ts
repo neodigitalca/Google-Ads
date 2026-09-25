@@ -4,9 +4,12 @@ export type PpcGenerateStepId =
   | "read-master-rules"
   | "load-wp"
   | "load-gsc"
+  | "load-research-signals"
+  | "load-campaign-insights"
   | "campaign-plan"
   | `ag-${number}-keywords`
-  | `ag-${number}-ad-${number}`;
+  | `ag-${number}-ad-${number}`
+  | `publish-${number}`;
 
 export type PpcGenerateProgressState = {
   steps: MetaPipelineStepUi[];
@@ -29,6 +32,7 @@ export function buildPpcGenerateStepPlan(config: {
   adGroupCount: number;
   adsPerAdGroup: number;
   includePrefetch?: boolean;
+  linkedAdsCampaignId?: string;
 }): Array<{ id: PpcGenerateStepId; label: string }> {
   const includePrefetch = config.includePrefetch !== false;
   const steps: Array<{ id: PpcGenerateStepId; label: string }> = [];
@@ -36,8 +40,12 @@ export function buildPpcGenerateStepPlan(config: {
     steps.push({ id: "read-master-rules", label: "Reading master rules" });
     steps.push({ id: "load-wp", label: "Load page bucket" });
   }
-  steps.push({ id: "campaign-plan", label: "Campaign plan" });
   steps.push({ id: "load-gsc", label: "Load GSC page queries" });
+  steps.push({ id: "load-research-signals", label: "Load research signals" });
+  if (config.linkedAdsCampaignId?.trim()) {
+    steps.push({ id: "load-campaign-insights", label: "Load live campaign insights" });
+  }
+  steps.push({ id: "campaign-plan", label: "Campaign plan" });
   for (let i = 1; i <= config.adGroupCount; i += 1) {
     steps.push({ id: ppcAdGroupKeywordsStepId(i), label: `Ad group ${i} · Keywords` });
     for (let j = 1; j <= config.adsPerAdGroup; j += 1) {
@@ -51,6 +59,7 @@ export function createInitialPpcGenerateProgress(config: {
   adGroupCount: number;
   adsPerAdGroup: number;
   includePrefetch?: boolean;
+  linkedAdsCampaignId?: string;
 }): PpcGenerateProgressState {
   const plan = buildPpcGenerateStepPlan(config);
   return {
@@ -74,6 +83,7 @@ export function createPpcAdGroupGenerateProgress(
   const steps = all.filter(
     (step) =>
       step.id === "load-gsc" ||
+      step.id === "load-research-signals" ||
       step.id === ppcAdGroupKeywordsStepId(adGroupIndex) ||
       step.id.startsWith(`ag-${adGroupIndex}-ad-`),
   );
@@ -83,6 +93,36 @@ export function createPpcAdGroupGenerateProgress(
     completed: 0,
     total: steps.length,
     label: `Ad group ${adGroupIndex}`,
+  };
+}
+
+export function ppcPublishStepId(index: number): PpcGenerateStepId {
+  return `publish-${index}`;
+}
+
+export function createPpcPublishProgress(campaignNames: string[]): PpcGenerateProgressState {
+  const steps = campaignNames.map((name, index) => ({
+    id: ppcPublishStepId(index),
+    label: name.trim() ? `Publish ${name.trim()}` : `Publish campaign ${index + 1}`,
+    status: "waiting" as const,
+  }));
+  return {
+    steps,
+    activeStepId: null,
+    completed: 0,
+    total: steps.length,
+    label: "Publish campaign",
+  };
+}
+
+export function createPpcPublishValidationProgress(message: string): PpcGenerateProgressState {
+  return {
+    steps: [{ id: ppcPublishStepId(0), label: "Publish campaign", status: "error" }],
+    activeStepId: ppcPublishStepId(0),
+    completed: 0,
+    total: 1,
+    label: "Publish campaign",
+    statusMessage: message,
   };
 }
 

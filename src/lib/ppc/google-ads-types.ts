@@ -39,6 +39,10 @@ export type PpcCampaignRow = {
   focusKeyword?: string;
   adGroupKeywords?: string[];
   landingPageUrl?: string;
+  dailyBudget?: number;
+  adsCampaignId?: string;
+  /** Google Ads campaign status (ENABLED, PAUSED, REMOVED). */
+  googleAdsCampaignStatus?: string;
   status: PpcCampaignRowStatus;
   createdAt: string;
   config?: PpcGenerateConfig;
@@ -73,6 +77,7 @@ export const PPC_DEFAULT_CAMPAIGN_COUNT = 1;
 export const PPC_AD_GROUP_COUNT_MIN = 1;
 export const PPC_AD_GROUP_COUNT_MAX = 20;
 export const PPC_DEFAULT_AD_GROUP_COUNT = 3;
+export const PPC_DEFAULT_DAILY_BUDGET = 1;
 export const PPC_ADS_PER_GROUP_MIN = 1;
 export const PPC_ADS_PER_GROUP_MAX = 20;
 
@@ -151,10 +156,18 @@ export function resolvePpcRowCampaignName(row: PpcCampaignRow): string {
   return keyword.trim() ? formatPpcGoogleCampaignName(keyword) : "";
 }
 
+export function resolvePpcRowDailyBudgetOrDefault(dailyBudget: number | undefined): number {
+  if (typeof dailyBudget === "number" && Number.isFinite(dailyBudget) && dailyBudget >= PPC_DEFAULT_DAILY_BUDGET) {
+    return dailyBudget;
+  }
+  return PPC_DEFAULT_DAILY_BUDGET;
+}
+
 export function ppcRowPatchFromGeneratedCampaign(
   campaign: PpcCampaign,
-  preserve?: Partial<Pick<PpcCampaignRow, "focusKeyword" | "adGroupKeywords" | "landingPageUrl" | "campaignName">>,
-): Pick<PpcCampaignRow, "focusKeyword" | "adGroupKeywords" | "landingPageUrl" | "campaignName"> {
+  preserve?: Partial<Pick<PpcCampaignRow, "focusKeyword" | "adGroupKeywords" | "landingPageUrl" | "campaignName" | "dailyBudget">>,
+  generatedDailyBudget?: number,
+): Pick<PpcCampaignRow, "focusKeyword" | "adGroupKeywords" | "landingPageUrl" | "campaignName" | "dailyBudget"> {
   const generatedFocusKeyword = resolvePpcRowFocusKeyword({
     id: "",
     campaignName: "",
@@ -188,17 +201,31 @@ export function ppcRowPatchFromGeneratedCampaign(
     adGroupKeywords: resolvedAdGroupKeywords,
     landingPageUrl,
     campaignName,
+    dailyBudget:
+      typeof preserve?.dailyBudget === "number" &&
+      Number.isFinite(preserve.dailyBudget) &&
+      preserve.dailyBudget >= PPC_DEFAULT_DAILY_BUDGET
+        ? preserve.dailyBudget
+        : typeof generatedDailyBudget === "number" &&
+            Number.isFinite(generatedDailyBudget) &&
+            generatedDailyBudget >= PPC_DEFAULT_DAILY_BUDGET
+          ? generatedDailyBudget
+          : undefined,
   };
 }
 
 export function ppcRowUserInputPreserve(
   row: PpcCampaignRow,
-): Partial<Pick<PpcCampaignRow, "focusKeyword" | "campaignName" | "landingPageUrl">> {
-  return {
+): Partial<Pick<PpcCampaignRow, "focusKeyword" | "campaignName" | "landingPageUrl" | "dailyBudget">> {
+  const preserve: Partial<Pick<PpcCampaignRow, "focusKeyword" | "campaignName" | "landingPageUrl" | "dailyBudget">> = {
     focusKeyword: row.focusKeyword,
     campaignName: row.campaignName,
     landingPageUrl: row.landingPageUrl,
   };
+  if (typeof row.dailyBudget === "number" && Number.isFinite(row.dailyBudget) && row.dailyBudget >= PPC_DEFAULT_DAILY_BUDGET) {
+    preserve.dailyBudget = row.dailyBudget;
+  }
+  return preserve;
 }
 
 export function createEmptyPpcCampaignRow(): PpcCampaignRow {

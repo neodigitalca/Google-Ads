@@ -1,4 +1,5 @@
 import type { PpcCampaignRow } from "@/lib/ppc/google-ads-types";
+import { ensurePpcRowDailyBudget } from "@/lib/ppc/ppc-row-generate-patch";
 
 function cacheKey(siteId: string): string {
   return `neo-pulse-ppc-google-campaigns-v1:${siteId}`;
@@ -7,10 +8,10 @@ function cacheKey(siteId: string): string {
 const memoryBySiteId = new Map<string, PpcCampaignRow[]>();
 
 function normalizeStoredRow(row: PpcCampaignRow): PpcCampaignRow {
-  return {
+  return ensurePpcRowDailyBudget({
     ...row,
     status: row.status === "generating" ? "idle" : row.status,
-  };
+  });
 }
 
 export function getPpcGoogleCampaignsSessionCache(siteId: string): PpcCampaignRow[] | null {

@@ -14,6 +14,7 @@ import { loadPpcGoogleWpContext } from "@/lib/ppc/google-ads-wp-context";
 import { runGoogleAdsAdGroupKeywords } from "@/lib/ppc/run-google-ads-ad-group-keywords";
 import type { PpcCampaignPlanAdGroup } from "@/lib/ppc/run-google-ads-campaign-plan";
 import { runGoogleAdsRsaCopy } from "@/lib/ppc/run-google-ads-rsa-copy";
+import { loadPpcGoogleResearchSignals } from "@/lib/ppc/load-ppc-google-research-signals";
 import { normalizePageUrlKey } from "@/lib/sitemap-optimizer/normalize-page-url";
 
 export type RunPpcGoogleAdGroupGenerateOptions = {
@@ -94,6 +95,17 @@ export async function runPpcGoogleAdGroupGenerate(
   );
   const gscPage = gscPages[0];
 
+  const focusKeyword = adGroupKeywordSeed?.trim() || planGroup.theme?.trim() || planGroup.name.trim();
+  const researchSignals = await runStep("load-research-signals", () =>
+    loadPpcGoogleResearchSignals({
+      site,
+      focusKeyword,
+      landingPageUrls: [planGroup.landingPageUrl],
+      gscPages,
+      signal,
+    }),
+  );
+
   const keywordsStepId = ppcAdGroupKeywordsStepId(adGroupIndex);
   const keywordsResult = await runStep(keywordsStepId, () =>
     runGoogleAdsAdGroupKeywords({
@@ -105,6 +117,7 @@ export async function runPpcGoogleAdGroupGenerate(
       landingPage,
       gscPage,
       focusKeyword: adGroupKeywordSeed,
+      researchSignals,
       signal,
     }),
   );
@@ -123,6 +136,7 @@ export async function runPpcGoogleAdGroupGenerate(
         keywords: keywordsResult.keywords,
         adIndex,
         adsPerAdGroup,
+        researchSignals,
         signal,
       }),
     );

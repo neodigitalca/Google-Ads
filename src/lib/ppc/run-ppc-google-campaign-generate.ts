@@ -21,6 +21,15 @@ import { loadPpcGoogleWpContext, resolvePpcAllowedLandingPages } from "@/lib/ppc
 import { runGoogleAdsAdGroupKeywords } from "@/lib/ppc/run-google-ads-ad-group-keywords";
 import { runGoogleAdsCampaignPlan, type PpcCampaignPlanAvoidanceInput, type PpcCampaignPlanResult } from "@/lib/ppc/run-google-ads-campaign-plan";
 import { runGoogleAdsRsaCopy } from "@/lib/ppc/run-google-ads-rsa-copy";
+import { resolvePpcGeneratedDailyBudget } from "@/lib/ppc/compute-ppc-optimized-daily-budget";
+import { loadPpcCampaignInsights } from "@/lib/ppc/load-ppc-campaign-insights";
+import { loadPpcGoogleResearchSignals } from "@/lib/ppc/load-ppc-google-research-signals";
+import {
+  ppcCampaignInsightsLast30DayRange,
+  type PpcCampaignInsights,
+} from "@/lib/ppc/ppc-campaign-insights-types";
+import type { PpcGoogleResearchSignals } from "@/lib/ppc/ppc-google-research-signals";
+import { normalizeGoogleAdsCustomerId } from "@/lib/ads-reporting/ads-reporting-metrics";
 import { normalizePageUrlKey } from "@/lib/sitemap-optimizer/normalize-page-url";
 
 export type RunPpcGoogleCampaignGenerateOptions = {
@@ -33,6 +42,7 @@ export type RunPpcGoogleCampaignGenerateOptions = {
   prefetchedWpPages?: PpcWpPageContext[];
   prefetchedPlan?: PpcCampaignPlanResult;
   avoidCampaignPlans?: PpcCampaignPlanAvoidanceInput[];
+  adsCampaignId?: string;
   onProgress: (progress: PpcGenerateProgressState) => void;
   signal?: AbortSignal;
 };
@@ -76,14 +86,16 @@ function findGscContext(gscPages: PpcGscPageContext[], url: string): PpcGscPageC
 
 export async function runPpcGoogleCampaignGenerate(
   options: RunPpcGoogleCampaignGenerateOptions,
-): Promise<{ campaign: PpcCampaign; campaignName: string }> {
+): Promise<{ campaign: PpcCampaign; campaignName: string; recommendedDailyBudget: number }> {
   const { site, apiKey, model, config, adGroupKeywords, focusKeyword, prefetchedWpPages, prefetchedPlan, avoidCampaignPlans, onProgress, signal } =
     options;
   const skipPrefetch = Boolean(prefetchedWpPages);
+  const linkedAdsCampaignId = options.adsCampaignId?.trim();
   let progress = createInitialPpcGenerateProgress({
     adGroupCount: config.adGroupCount,
     adsPerAdGroup: config.adsPerAdGroup,
     includePrefetch: !skipPrefetch,
+    linkedAdsCampaignId,
   });
   if (prefetchedPlan) {
     progress = patchStep(progress, "campaign-plan", "done");
@@ -120,7 +132,57 @@ export async function runPpcGoogleCampaignGenerate(
 
   const keywordSeeds = (adGroupKeywords ?? []).map((keyword) => keyword.trim()).filter(Boolean);
   const campaignFocusKeyword = focusKeyword?.trim() || keywordSeeds[0] || undefined;
-  let campaignName = formatPpcGoogleCampaignName(campaignFocusKeyword || "");
+  if (!campaignFocusKeyword) {
+    throw new Error("Focus keyword is required to generate a PPC campaign.");
+  }
+  let campaignName = formatPpcGoogleCampaignName(campaignFocusKeyword);
+
+  const gscSeedPages =
+    config.landingPageUrls.length > 0
+      ? allowedLandingPages.filter((p) =>
+          config.landingPageUrls.some((u) => normalizePageUrlKey(u) === normalizePageUrlKey(p.url)),
+        )
+      : allowedLandingPages;
+
+  let gscPages = prefetchedPlan
+    ? []
+    : await runStep("load-gsc", () => loadPpcGoogleGscContext(site, gscSeedPages, signal));
+
+  let researchSignals: PpcGoogleResearchSignals | undefined;
+  let campaignLiveInsights: PpcCampaignInsights | undefined;
+
+  const loadLinkedCampaignInsights = async (): Promise<PpcCampaignInsights> => {
+    const customerId = normalizeGoogleAdsCustomerId(site.googleAdsCustomerId ?? "");
+    if (!customerId) {
+      throw new Error("Google Ads customer ID is required to load live campaign insights.");
+    }
+    if (!linkedAdsCampaignId) {
+      throw new Error("Linked Google Ads campaign ID is missing.");
+    }
+    const range = ppcCampaignInsightsLast30DayRange();
+    return loadPpcCampaignInsights({
+      customerId,
+      campaignId: linkedAdsCampaignId,
+      startDate: range.startDate,
+      endDate: range.endDate,
+      signal,
+    });
+  };
+
+  if (!prefetchedPlan) {
+    researchSignals = await runStep("load-research-signals", () =>
+      loadPpcGoogleResearchSignals({
+        site,
+        focusKeyword: campaignFocusKeyword,
+        landingPageUrls: config.landingPageUrls.length > 0 ? config.landingPageUrls : gscSeedPages.map((p) => p.url),
+        gscPages,
+        signal,
+      }),
+    );
+    if (linkedAdsCampaignId) {
+      campaignLiveInsights = await runStep("load-campaign-insights", () => loadLinkedCampaignInsights());
+    }
+  }
 
   const plan = prefetchedPlan
     ? prefetchedPlan
@@ -134,7 +196,9 @@ export async function runPpcGoogleCampaignGenerate(
           focusKeyword: campaignFocusKeyword,
           adGroupKeywordSeeds: keywordSeeds,
           landingPages: allowedLandingPages,
-          gscPages: [],
+          gscPages,
+          researchSignals,
+          campaignLiveInsights,
           userSelectedLandingUrls: config.landingPageUrls,
           totalCampaigns: (avoidCampaignPlans?.length ?? 0) > 0 ? (avoidCampaignPlans?.length ?? 0) + 1 : undefined,
           avoidCampaignPlans,
@@ -156,9 +220,29 @@ export async function runPpcGoogleCampaignGenerate(
     return page;
   });
 
-  const gscPages = await runStep("load-gsc", () =>
-    loadPpcGoogleGscContext(site, planLandingPages, signal),
-  );
+  if (prefetchedPlan) {
+    gscPages = await runStep("load-gsc", () => loadPpcGoogleGscContext(site, planLandingPages, signal));
+    researchSignals = await runStep("load-research-signals", () =>
+      loadPpcGoogleResearchSignals({
+        site,
+        focusKeyword: campaignFocusKeyword,
+        landingPageUrls: planLandingPages.map((p) => p.url),
+        gscPages,
+        signal,
+      }),
+    );
+    if (linkedAdsCampaignId) {
+      campaignLiveInsights = await runStep("load-campaign-insights", () => loadLinkedCampaignInsights());
+    }
+  } else {
+    const missingPlanPages = planLandingPages.filter(
+      (p) => !gscPages.some((g) => normalizePageUrlKey(g.url) === normalizePageUrlKey(p.url)),
+    );
+    if (missingPlanPages.length > 0) {
+      const extra = await loadPpcGoogleGscContext(site, missingPlanPages, signal);
+      gscPages = [...gscPages, ...extra];
+    }
+  }
 
   const adGroups: PpcCampaign["adGroups"] = [];
 
@@ -181,6 +265,8 @@ export async function runPpcGoogleCampaignGenerate(
           i === 0 && campaignFocusKeyword
             ? campaignFocusKeyword
             : adGroupKeywords?.[i]?.trim() || keywordSeeds[i] || undefined,
+        researchSignals,
+        campaignLiveInsights,
         signal,
       }),
     );
@@ -200,6 +286,8 @@ export async function runPpcGoogleCampaignGenerate(
           keywords: keywordsResult.keywords,
           adIndex,
           adsPerAdGroup: config.adsPerAdGroup,
+          researchSignals,
+          campaignLiveInsights,
           signal,
         }),
       );
@@ -233,10 +321,16 @@ export async function runPpcGoogleCampaignGenerate(
     adGroups,
   };
 
+  const recommendedDailyBudget = resolvePpcGeneratedDailyBudget({
+    planRecommendedDailyBudget: plan.recommendedDailyBudget,
+    researchSignals,
+    adGroupCount: config.adGroupCount,
+  });
+
   progress = { ...progress, activeStepId: null, label: "Generate campaign", statusMessage: "Complete" };
   onProgress(progress);
 
-  return { campaign, campaignName };
+  return { campaign, campaignName, recommendedDailyBudget };
 }
 
 export type { PpcCampaignRow };

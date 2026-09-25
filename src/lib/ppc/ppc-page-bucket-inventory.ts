@@ -4,9 +4,12 @@ import {
   inventoryFieldString,
   inventoryUrlForRow,
 } from "@/lib/bulk/inventory-json-slim";
-import { fetchOverviewInventoryForSource } from "@/lib/overview/overview-parallel-inventory-fetch";
+import { filterInventorySitemapRows } from "@/lib/bulk/inventory-url-filter";
+import { overviewInventoryCollectionsFromSource } from "@/lib/overview/overview-sitemap-source";
+import { filterOverviewUtilityInventoryRows } from "@/lib/overview/overview-utility-page-filter";
 import type { PpcWpPageContext } from "@/lib/ppc/google-ads-types";
 import { normalizePageUrlKey } from "@/lib/sitemap-optimizer/normalize-page-url";
+import { getSiteInventoryBulk } from "@/lib/wordpress-api";
 
 export type PpcPageBucketHostedLink = {
   label: string;
@@ -47,6 +50,25 @@ export function mapOverviewRowToPpcWpPageContext(row: {
   };
 }
 
+/** WordPress pages plus any Pages-tagged CPT collections. */
+export function ppcPageBucketCollections(site: WordPressSite): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (col: string) => {
+    const key = col.trim();
+    if (!key) return;
+    const lower = key.toLowerCase();
+    if (seen.has(lower)) return;
+    seen.add(lower);
+    out.push(key);
+  };
+  push("pages");
+  for (const col of overviewInventoryCollectionsFromSource("pages", site)) {
+    push(col);
+  }
+  return out;
+}
+
 export async function loadPpcPageBucketContext(site: WordPressSite): Promise<PpcWpPageContext[]> {
   const username = typeof site.username === "string" ? site.username : "";
   const appPassword = typeof site.appPassword === "string" ? site.appPassword : "";
@@ -54,16 +76,23 @@ export async function loadPpcPageBucketContext(site: WordPressSite): Promise<Ppc
     throw new Error("WordPress credentials are required to load page bucket inventory.");
   }
 
-  const { rows, errors } = await fetchOverviewInventoryForSource(site, "pages", {
+  const bulk = await getSiteInventoryBulk(site.siteUrl, username, appPassword, {
+    includeRawAcf: true,
     includeScheduled: true,
+    collections: ppcPageBucketCollections(site),
   });
 
-  const pages = rows
+  const pages = filterInventorySitemapRows(
+    filterOverviewUtilityInventoryRows(bulk.rows ?? []),
+  )
     .map(mapOverviewRowToPpcWpPageContext)
     .filter((page): page is PpcWpPageContext => Boolean(page));
 
   if (!pages.length) {
-    const errText = Object.values(errors).filter(Boolean).join(" · ");
+    const errText = [bulk.error, ...Object.values(bulk.errors ?? {})]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean)
+      .join(" · ");
     throw new Error(errText || "Page bucket inventory returned no URLs.");
   }
 

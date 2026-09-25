@@ -3,6 +3,13 @@ import { getCompetitorReportMaxOutputTokens } from "@/lib/competitor-research/co
 import { appendMasterInstructionsToSystemPrompt, ensureMasterInstructionsInMemory } from "@/lib/master-instructions-storage";
 import { GOOGLE_ADS_KEYWORD_LIMITS_PROMPT, GOOGLE_ADS_KEYWORD_MAX } from "@/lib/ppc/google-ads-field-limits";
 import type { PpcGscPageContext, PpcWpPageContext } from "@/lib/ppc/google-ads-types";
+import { ppcCampaignInsightsForPrompt } from "@/lib/ppc/ppc-campaign-insights-for-prompt";
+import type { PpcCampaignInsights } from "@/lib/ppc/ppc-campaign-insights-types";
+import {
+  ppcResearchKeywordUnion,
+  ppcResearchSignalsForPrompt,
+  type PpcGoogleResearchSignals,
+} from "@/lib/ppc/ppc-google-research-signals";
 import type { PpcCampaignPlanAdGroup } from "@/lib/ppc/run-google-ads-campaign-plan";
 
 export type PpcAdGroupKeywordsResult = {
@@ -11,8 +18,10 @@ export type PpcAdGroupKeywordsResult = {
 
 const SYSTEM = `You are a Google Ads keyword strategist.
 
-Pick exact-match and phrase-match style keywords for one Search ad group.
+Pick Search ad group keywords as plain query text. Phrase match is applied at publish. Do not wrap keywords in quotes, brackets, plus signs, or other match-type symbols.
 Prefer real GSC queries when provided. Do not invent branded queries unrelated to the page.
+When researchSignals lists are non-empty, at least 3 keywords MUST be chosen verbatim or as close variants from the union of gscQueries, dfsKeywordIdeas, dfsGoogleAdsKeywords, accountKeywords, and accountSearchTerms (each item has a source tag).
+When campaignLiveInsights.campaignKeywords or campaignSearchTerms are non-empty, at least 3 keywords MUST come from those campaign_live lists (verbatim or close variants) before generic guesses.
 ${GOOGLE_ADS_KEYWORD_LIMITS_PROMPT}
 Return ONLY valid JSON matching outputSchema.
 keywords.length MUST be between 5 and 15.`;
@@ -26,6 +35,8 @@ export async function runGoogleAdsAdGroupKeywords(options: {
   landingPage: PpcWpPageContext | undefined;
   gscPage: PpcGscPageContext | undefined;
   focusKeyword?: string;
+  researchSignals?: PpcGoogleResearchSignals;
+  campaignLiveInsights?: PpcCampaignInsights;
   signal?: AbortSignal;
 }): Promise<PpcAdGroupKeywordsResult> {
   if (!options.apiKey?.trim()) {
@@ -42,6 +53,9 @@ export async function runGoogleAdsAdGroupKeywords(options: {
     focusKeyword: options.focusKeyword?.trim() || undefined,
     landingPage: options.landingPage,
     gscQueries: options.gscPage?.queries?.slice(0, 20) ?? [],
+    researchSignals: options.researchSignals ? ppcResearchSignalsForPrompt(options.researchSignals) : undefined,
+    researchKeywordUnion: options.researchSignals ? ppcResearchKeywordUnion(options.researchSignals) : undefined,
+    campaignLiveInsights: ppcCampaignInsightsForPrompt(options.campaignLiveInsights),
     outputSchema: {
       keywords: [`string, maxLength ${GOOGLE_ADS_KEYWORD_MAX}`],
     },

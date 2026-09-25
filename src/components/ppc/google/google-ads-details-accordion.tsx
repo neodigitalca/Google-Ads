@@ -2,13 +2,18 @@ import { useState, type ReactNode, type SyntheticEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { GoogleAdsRowEndRail } from "@/components/ppc/google/GoogleAdsRowEndRail";
-import { PPC_ROW_CONTENT_SPAN_CLASS } from "@/components/ppc/google/google-ads-row-constants";
+import {
+  PPC_CAMPAIGN_ROW_GRID_COLS,
+  PPC_ROW_CONTENT_SPAN_CLASS,
+} from "@/components/ppc/google/google-ads-row-constants";
 import { cn } from "@/lib/utils";
 
 export const PPC_DETAILS_ACCORDION_STACK = "flex flex-col gap-2.5 rounded-none pt-1";
 
-export const PPC_DETAILS_TRIGGER =
-  "grid w-full min-w-0 min-h-[3rem] grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,0.85fr)_7rem] items-center gap-x-2 rounded-none border-0 bg-zinc-950 py-1.5 text-left text-base font-medium text-white sm:min-h-[3.25rem] sm:gap-x-3";
+export const PPC_DETAILS_TRIGGER = cn(
+  "grid w-full min-w-0 min-h-[3rem] items-center gap-x-2 rounded-none border-0 bg-zinc-950 py-1.5 text-left text-base font-medium text-white sm:min-h-[3.25rem] sm:gap-x-3",
+  PPC_CAMPAIGN_ROW_GRID_COLS,
+);
 
 export const PPC_DETAILS_SUBTRIGGER = cn(PPC_DETAILS_TRIGGER, "bg-zinc-900/80");
 
@@ -32,6 +37,7 @@ export type GoogleAdsDetailsSectionProps = {
   deleteLabel?: string;
   children: ReactNode;
   contentClassName?: string;
+  onOpenChange?: (open: boolean) => void;
 };
 
 function stopFieldActivation(e: SyntheticEvent) {
@@ -77,8 +83,14 @@ export function GoogleAdsDetailsSection({
   deleteLabel,
   children,
   contentClassName,
+  onOpenChange,
 }: GoogleAdsDetailsSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
+
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    onOpenChange?.(next);
+  };
   const triggerClass = nested ? PPC_DETAILS_SUBTRIGGER : PPC_DETAILS_TRIGGER;
 
   const endRail = (chevronAsCollapsibleTrigger: boolean) => (
@@ -145,7 +157,7 @@ export function GoogleAdsDetailsSection({
   );
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible open={open} onOpenChange={handleOpenChange}>
       {header}
       <CollapsibleContent className={cn("space-y-2 pt-2", contentClassName)}>{children}</CollapsibleContent>
     </Collapsible>

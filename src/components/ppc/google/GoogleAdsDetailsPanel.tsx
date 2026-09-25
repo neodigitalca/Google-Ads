@@ -7,6 +7,7 @@ import type { PpcPageBucketHostedLink } from "@/lib/ppc/ppc-page-bucket-inventor
 export type GoogleAdsDetailsPanelProps = {
   generateProgress: PpcGenerateProgressState | null;
   isGenerating: boolean;
+  isPublishing?: boolean;
   pageBucketHostedLink?: PpcPageBucketHostedLink | null;
 };
 
@@ -29,6 +30,7 @@ function PageBucketJsonLink({ link }: { link: PpcPageBucketHostedLink }) {
 export function GoogleAdsDetailsPanel({
   generateProgress,
   isGenerating,
+  isPublishing = false,
   pageBucketHostedLink,
 }: GoogleAdsDetailsPanelProps) {
   const hasSteps = Boolean(generateProgress?.steps.length);
@@ -43,7 +45,11 @@ export function GoogleAdsDetailsPanel({
             </div>
           ) : null}
           <p className="px-3 py-2 text-base text-muted-foreground">
-            {isGenerating ? "Starting campaign generation…" : "No generation run yet."}
+            {isGenerating
+              ? "Starting campaign generation…"
+              : isPublishing
+                ? "Starting campaign publish…"
+                : "No generation or publish run yet."}
           </p>
         </>
       ) : (
@@ -64,10 +70,12 @@ export function googleAdsDetailsCanOpen(
   generateProgress: PpcGenerateProgressState | null,
   isGenerating: boolean,
   pageBucketHostedLink?: PpcPageBucketHostedLink | null,
+  isPublishing = false,
 ): boolean {
   return (
     Boolean(pageBucketHostedLink) ||
     isGenerating ||
+    isPublishing ||
     Boolean(generateProgress?.steps.some((s) => s.status !== "waiting"))
   );
 }

@@ -132,6 +132,10 @@ class Neo_Pulse_App_Loader {
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-credentials.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-api.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-reporting-bundle.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-campaign-publisher.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-ppc-research.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-campaign-insights.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-campaign-import.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-ads/class-google-ads-route-handlers.php';
 
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/google-mcp/class-google-mcp-oauth.php';

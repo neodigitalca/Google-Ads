@@ -1,6 +1,8 @@
+import { useCallback, useMemo, useState } from "react";
 import { AlignLeft, ChevronDown, Heading2, LayoutGrid, Link, Megaphone } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAdsCampaignLiveInsightsSection } from "@/components/ppc/google/GoogleAdsCampaignLiveInsightsSection";
 import { GoogleAdsCampaignRowGenerateButton } from "@/components/ppc/google/GoogleAdsCampaignRowGenerateButton";
 import { GoogleAdsCampaignRowCompact } from "@/components/ppc/google/GoogleAdsCampaignRowCompact";
 import {
@@ -24,6 +26,14 @@ import {
   GOOGLE_ADS_RSA_PATH_MAX,
 } from "@/lib/ppc/google-ads-field-limits";
 import { PPC_AD_GROUP_COUNT_MIN, type PpcCampaignRow, type PpcResponsiveSearchAd, type PpcWpPageContext } from "@/lib/ppc/google-ads-types";
+import {
+  buildPpcInsightsScopeFromRowFocus,
+  keywordLineFromTextareaValue,
+  parsePpcAdDailySeriesKey,
+  ppcAdDailySeriesKey,
+  resolvePpcAdGroupIdForIndex,
+} from "@/lib/ppc/ppc-campaign-insights-scope";
+import type { PpcCampaignStructureAd, PpcCampaignStructureAdGroup } from "@/lib/ppc/ppc-campaign-insights-types";
 import { cn } from "@/lib/utils";
 
 export type GoogleAdsCampaignRowDetailsProps = {
@@ -40,6 +50,7 @@ export type GoogleAdsCampaignRowDetailsProps = {
   onUpdateCampaign: (patch: Partial<PpcCampaignRow>) => void;
   onKeywordChange?: (keyword: string) => void;
   onLandingPageChange?: (url: string) => void;
+  onDailyBudgetChange?: (budget: number | undefined) => void;
   onLoadWpPages?: () => void;
   onAdGroupKeywordChange?: (index: number, keyword: string) => void;
   generateDisabled?: boolean;
@@ -47,6 +58,7 @@ export type GoogleAdsCampaignRowDetailsProps = {
   onGenerate?: () => void;
   generatingAdGroupKey?: string | null;
   onGenerateAdGroup?: (adGroupIndex: number) => void;
+  adsCustomerId?: string;
 };
 
 function PpcCountedInputField({
@@ -95,6 +107,7 @@ export function GoogleAdsCampaignRowDetails({
   onUpdateCampaign,
   onKeywordChange,
   onLandingPageChange,
+  onDailyBudgetChange,
   onLoadWpPages,
   onAdGroupKeywordChange,
   generateDisabled = false,
@@ -102,8 +115,74 @@ export function GoogleAdsCampaignRowDetails({
   onGenerate,
   generatingAdGroupKey = null,
   onGenerateAdGroup,
+  adsCustomerId,
 }: GoogleAdsCampaignRowDetailsProps) {
   const campaign = row.campaign;
+  const [openAdGroupIndex, setOpenAdGroupIndex] = useState<number | null>(null);
+  const [focusedKeyword, setFocusedKeyword] = useState<{ agIndex: number; text: string } | null>(null);
+  const [structureAdGroups, setStructureAdGroups] = useState<PpcCampaignStructureAdGroup[]>([]);
+  const [liveCampaignStatus, setLiveCampaignStatus] = useState<string | undefined>();
+  const [selectedLiveAdKey, setSelectedLiveAdKey] = useState<string | null>(null);
+  const [selectedLiveAd, setSelectedLiveAd] = useState<{
+    adGroupId: string;
+    adId: string;
+    label: string;
+  } | null>(null);
+  const [expandedAdKey, setExpandedAdKey] = useState<string | null>(null);
+
+  const handleLiveAdSelect = useCallback(
+    (key: string | null, ad: PpcCampaignStructureAd | null) => {
+      setSelectedLiveAdKey(key);
+      if (!ad) {
+        setSelectedLiveAd(null);
+        setExpandedAdKey(null);
+        return;
+      }
+      setSelectedLiveAd({ adGroupId: ad.adGroupId, adId: ad.adId, label: ad.label });
+      setFocusedKeyword(null);
+      const agIndex =
+        campaign?.adGroups.findIndex(
+          (group) =>
+            group.id === ad.adGroupId ||
+            resolvePpcAdGroupIdForIndex(campaign.adGroups.indexOf(group), campaign, structureAdGroups) ===
+              ad.adGroupId,
+        ) ??
+        structureAdGroups.findIndex((group) => group.id === ad.adGroupId);
+      if (agIndex >= 0) {
+        setOpenAdGroupIndex(agIndex);
+        const localAd = campaign?.adGroups[agIndex]?.ads.find((row) => row.id === ad.adId);
+        const localAdIndex = campaign?.adGroups[agIndex]?.ads.findIndex((row) => row.id === ad.adId) ?? -1;
+        const expandKey =
+          localAd && localAdIndex >= 0
+            ? `${agIndex}:${localAd.id}`
+            : `${agIndex}:${ad.adId}`;
+        setExpandedAdKey(expandKey);
+      }
+    },
+    [campaign, structureAdGroups],
+  );
+
+  const insightsScope = useMemo(
+    () =>
+      buildPpcInsightsScopeFromRowFocus({
+        openAdGroupIndex,
+        focusedKeyword,
+        selectedLiveAd,
+        campaign,
+        structureAdGroups,
+      }),
+    [campaign, focusedKeyword, openAdGroupIndex, selectedLiveAd, structureAdGroups],
+  );
+
+  const handleKeywordFieldFocus = useCallback((agIndex: number, value: string, selectionStart: number) => {
+    const text = keywordLineFromTextareaValue(value, selectionStart);
+    if (text) {
+      setFocusedKeyword({ agIndex, text });
+    } else {
+      setFocusedKeyword(null);
+    }
+  }, []);
+
   const nameReadOnly = row.status === "generating";
   const keywordReadOnly = row.status === "generating";
   const adCopyReadOnly = row.status === "generating";
@@ -222,19 +301,40 @@ export function GoogleAdsCampaignRowDetails({
         onNameChange={handleNameChange}
         onKeywordChange={onKeywordChange}
         onLandingPageChange={onLandingPageChange}
+        onDailyBudgetChange={onDailyBudgetChange}
         onLoadWpPages={onLoadWpPages}
         generateDisabled={generateDisabled}
         isRowGenerating={isRowGenerating}
         onGenerate={onGenerate}
+        adsCustomerId={adsCustomerId}
+        googleAdsCampaignStatus={liveCampaignStatus ?? row.googleAdsCampaignStatus}
       />
 
-      {row.errorMessage || campaign || row.status === "generating" || showIdleAdGroups ? (
+      {campaign || row.status === "generating" || showIdleAdGroups ? (
         <div className="space-y-2 pb-2 pt-1">
-          {row.errorMessage ? (
-            <p className="text-base text-destructive">{row.errorMessage}</p>
+          {row.adsCampaignId && adsCustomerId ? (
+            <GoogleAdsCampaignLiveInsightsSection
+              customerId={adsCustomerId}
+              campaignId={row.adsCampaignId}
+              campaignName={row.campaignName || campaign?.name || "Campaign"}
+              scope={insightsScope}
+              campaign={campaign}
+              selectedLiveAdKey={selectedLiveAdKey}
+              onSelectedLiveAdKeyChange={handleLiveAdSelect}
+              onStructureAdGroups={setStructureAdGroups}
+              onInsightsReady={(insights) => {
+                const nextStatus = insights.campaignStatus?.trim();
+                if (nextStatus) {
+                  setLiveCampaignStatus(nextStatus);
+                  if (nextStatus !== row.googleAdsCampaignStatus) {
+                    onUpdateCampaign({ googleAdsCampaignStatus: nextStatus });
+                  }
+                }
+              }}
+            />
           ) : null}
 
-          {row.status === "generating" && !campaign && !row.errorMessage ? (
+          {row.status === "generating" && !campaign ? (
             <p className="text-base text-muted-foreground">Generating campaign…</p>
           ) : null}
 
@@ -294,6 +394,17 @@ export function GoogleAdsCampaignRowDetails({
                   onDelete={() => handleDeleteAdGroup(agIndex)}
                   deleteDisabled={adGroupDeleteDisabled}
                   deleteLabel={`Delete ad group ${agIndex + 1}`}
+                  onOpenChange={(open) => {
+                    if (open) {
+                      setOpenAdGroupIndex(agIndex);
+                      setFocusedKeyword(null);
+                      setSelectedLiveAdKey(null);
+                      setSelectedLiveAd(null);
+                    } else if (openAdGroupIndex === agIndex) {
+                      setOpenAdGroupIndex(null);
+                      setFocusedKeyword(null);
+                    }
+                  }}
                 >
                   <PpcCountedInputField
                     label="Landing page"
@@ -310,18 +421,54 @@ export function GoogleAdsCampaignRowDetails({
                       rows={Math.min(8, Math.max(3, adGroup.keywords.length))}
                       className={PPC_DETAIL_TEXTAREA_CLASS}
                       onChange={(e) => handleAdGroupKeywordsChange(agIndex, e.target.value)}
+                      onFocus={(e) =>
+                        handleKeywordFieldFocus(agIndex, e.currentTarget.value, e.currentTarget.selectionStart)
+                      }
+                      onClick={(e) =>
+                        handleKeywordFieldFocus(
+                          agIndex,
+                          e.currentTarget.value,
+                          e.currentTarget.selectionStart,
+                        )
+                      }
+                      onKeyUp={(e) =>
+                        handleKeywordFieldFocus(
+                          agIndex,
+                          e.currentTarget.value,
+                          e.currentTarget.selectionStart,
+                        )
+                      }
                     />
                   </PpcInlineField>
 
                   <div className={PPC_DETAILS_ACCORDION_STACK}>
-                    {adGroup.ads.map((ad, adIndex) => (
+                    {adGroup.ads.map((ad, adIndex) => {
+                      const adGroupId = resolvePpcAdGroupIdForIndex(agIndex, campaign, structureAdGroups);
+                      const adsKey = ppcAdDailySeriesKey(adGroupId || adGroup.id, ad.id);
+                      const rowAdKey = `${agIndex}:${ad.id}`;
+                      const isSelectedAd =
+                        selectedLiveAdKey === adsKey || expandedAdKey === rowAdKey;
+                      return (
                       <GoogleAdsDetailsSection
-                        key={ad.id}
+                        key={`${ad.id}-${isSelectedAd ? "open" : "closed"}`}
                         nested
                         icon={<Megaphone aria-hidden />}
                         title={`Responsive search ad ${adIndex + 1}`}
                         badge={ad.headlines.length.toLocaleString()}
-                        defaultOpen={false}
+                        defaultOpen={isSelectedAd}
+                        onOpenChange={(open) => {
+                          if (!open) return;
+                          const parsed = parsePpcAdDailySeriesKey(adsKey);
+                          if (parsed) {
+                            handleLiveAdSelect(adsKey, {
+                              adGroupId: parsed.adGroupId,
+                              adGroupName: adGroup.name,
+                              adId: parsed.adId,
+                              status: "",
+                              label: `${adGroup.name} · Responsive search ad ${adIndex + 1}`,
+                            });
+                          }
+                        }}
                       >
                         <GoogleAdsDetailsSection
                           nested
@@ -403,7 +550,8 @@ export function GoogleAdsCampaignRowDetails({
                           />
                         </GoogleAdsDetailsSection>
                       </GoogleAdsDetailsSection>
-                    ))}
+                    );
+                    })}
                   </div>
                 </GoogleAdsDetailsSection>
               ))}

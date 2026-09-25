@@ -38,4 +38,4 @@ export function formatPpcGoogleCampaignName(
 }
 
 export const GOOGLE_ADS_KEYWORD_LIMITS_PROMPT = `${GOOGLE_ADS_GENERATION_COUNT_RULE}
-keywords[]: each max ${GOOGLE_ADS_KEYWORD_MAX} characters.`;
+keywords[]: each max ${GOOGLE_ADS_KEYWORD_MAX} characters. Plain query text only. Do not wrap keywords in quotes, brackets, plus signs, or other match-type symbols.`;

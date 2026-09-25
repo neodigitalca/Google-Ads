@@ -10,6 +10,7 @@ import { overviewGridPageSlice } from "@/components/overview/OverviewGridPaginat
 import {
   buildPpcGoogleGridRows,
 } from "@/components/ppc/google/google-ads-row-constants";
+import { normalizeGoogleAdsCustomerId } from "@/lib/ads-reporting/ads-reporting-metrics";
 import { resolvePpcRowAdGroupKeywords } from "@/lib/ppc/google-ads-types";
 import { cn } from "@/lib/utils";
 import type { PpcGoogleWorkspaceController } from "@/hooks/ppc/use-ppc-google-workspace";
@@ -19,6 +20,8 @@ export type GoogleAdsCampaignsSectionProps = {
 };
 
 export function GoogleAdsCampaignsSection({ ctrl }: GoogleAdsCampaignsSectionProps) {
+  const adsCustomerId = normalizeGoogleAdsCustomerId(ctrl.site.googleAdsCustomerId ?? "");
+
   const gridRows = useMemo(
     () => buildPpcGoogleGridRows(ctrl.displayCampaigns),
     [ctrl.displayCampaigns],
@@ -27,10 +30,6 @@ export function GoogleAdsCampaignsSection({ ctrl }: GoogleAdsCampaignsSectionPro
   const paginatedGridRows = useMemo(
     () => overviewGridPageSlice(gridRows, ctrl.gridPageIndex),
     [gridRows, ctrl.gridPageIndex],
-  );
-
-  const renderPlaceholderStripe = (stripeIndex: number) => (
-    <div className={cn(contentOptimizerRowStripeClass(stripeIndex), "flex-1")} aria-hidden />
   );
 
   const realRowCount = paginatedGridRows.filter(Boolean).length;
@@ -74,7 +73,11 @@ export function GoogleAdsCampaignsSection({ ctrl }: GoogleAdsCampaignsSectionPro
       ctrl.updateCampaign(row.id, { landingPageUrl });
     };
 
-    const generateDisabled = ctrl.isGenerating && row.status !== "generating";
+    const handleDailyBudgetChange = (dailyBudget: number | undefined) => {
+      ctrl.updateCampaign(row.id, { dailyBudget });
+    };
+
+    const generateDisabled = (ctrl.isGenerating && row.status !== "generating") || ctrl.isPublishing;
     const isRowGenerating = row.status === "generating";
     const rowGenerateProps = {
       generateDisabled,
@@ -104,7 +107,10 @@ export function GoogleAdsCampaignsSection({ ctrl }: GoogleAdsCampaignsSectionPro
           onNameChange={handleNameChange}
           onKeywordChange={handleKeywordChange}
           onLandingPageChange={handleLandingPageChange}
+          onDailyBudgetChange={handleDailyBudgetChange}
           onLoadWpPages={() => void ctrl.loadWpPagesForPicker()}
+          adsCustomerId={adsCustomerId}
+          googleAdsCampaignStatus={row.googleAdsCampaignStatus}
           {...rowGenerateProps}
         />
       );
@@ -125,8 +131,10 @@ export function GoogleAdsCampaignsSection({ ctrl }: GoogleAdsCampaignsSectionPro
         onUpdateCampaign={(patch) => ctrl.updateCampaign(row.id, patch)}
         onKeywordChange={handleKeywordChange}
         onLandingPageChange={handleLandingPageChange}
+        onDailyBudgetChange={handleDailyBudgetChange}
         onLoadWpPages={() => void ctrl.loadWpPagesForPicker()}
         onAdGroupKeywordChange={handleAdGroupKeywordChange}
+        adsCustomerId={adsCustomerId}
         {...rowGenerateProps}
         {...adGroupGenerateProps}
       />
@@ -138,19 +146,26 @@ export function GoogleAdsCampaignsSection({ ctrl }: GoogleAdsCampaignsSectionPro
       className={cn(CONTENT_OPTIMIZER_MULTI_SITE_ROW_STACK_CLASS, "flex min-h-full min-w-0 flex-1 flex-col")}
       aria-label="Campaign rows"
     >
-      {paginatedGridRows.map((row, index) => {
-        if (!row) return null;
-        return (
+      {paginatedGridRows
+        .map((row, index) => ({ row, index }))
+        .filter((item): item is { row: NonNullable<typeof item.row>; index: number } => Boolean(item.row))
+        .map(({ row, index }) => (
           <div key={row.id} className={cn(CONTENT_OPTIMIZER_MULTI_SITE_ROW_WRAPPER_CLASS, "shrink-0")}>
             {renderCampaignRow(row, index)}
           </div>
-        );
-      })}
+        ))}
       {placeholderCount > 0 ? (
         <div className="flex min-h-0 flex-1 flex-col" aria-hidden>
-          {Array.from({ length: placeholderCount }, (_, offset) =>
-            renderPlaceholderStripe(realRowCount + offset),
-          )}
+          {Array.from({ length: placeholderCount }, (_, offset) => {
+            const stripeIndex = realRowCount + offset;
+            return (
+              <div
+                key={`ppc-placeholder-${stripeIndex}`}
+                className={cn(contentOptimizerRowStripeClass(stripeIndex), "flex-1")}
+                aria-hidden
+              />
+            );
+          })}
         </div>
       ) : null}
     </div>

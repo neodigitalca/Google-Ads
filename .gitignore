@@ -82,6 +82,9 @@ wordpress-plugins/.deploy/run-flowbie-homepage-draft.mjs
 # Template client migrate job files (may include local paths)
 var/template-client-migrate/
 
+# Nested clones
+pulse/
+
 # Windows reserved-name junk file sometimes created in repo root
 NUL
 

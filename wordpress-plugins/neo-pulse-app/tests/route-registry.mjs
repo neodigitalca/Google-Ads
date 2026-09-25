@@ -16,6 +16,11 @@ export const NEO_PULSE_APP_VISIBLE_TAB_ROUTES = [
   { method: "POST", path: "gmb/performance" },
   { method: "GET", path: "google-ads/config-status" },
   { method: "POST", path: "google-ads/fetch-reporting-bundle" },
+  { method: "POST", path: "google-ads/publish-campaign" },
+  { method: "POST", path: "google-ads/sync-campaign" },
+  { method: "POST", path: "google-ads/fetch-ppc-research-signals" },
+  { method: "POST", path: "google-ads/fetch-campaign-insights" },
+  { method: "POST", path: "google-ads/import-search-campaigns" },
 ];
 
 export const NEO_PULSE_APP_PHASE1_ROUTES = NEO_PULSE_APP_VISIBLE_TAB_ROUTES;

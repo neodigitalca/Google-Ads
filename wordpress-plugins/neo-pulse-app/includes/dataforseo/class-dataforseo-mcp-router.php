@@ -14,6 +14,7 @@ class Neo_Pulse_App_Dataforseo_Mcp_Router {
 		'DataForSEO_dataforseo_labs_google_keyword_overview'       => 'dataforseo_labs/google/keyword_overview/live',
 		'DataForSEO_dataforseo_labs_google_keyword_ideas'          => 'dataforseo_labs/google/keyword_ideas/live',
 		'DataForSEO_dataforseo_labs_google_related_keywords'       => 'dataforseo_labs/google/related_keywords/live',
+		'DataForSEO_kw_data_google_ads_keywords_for_keywords'      => 'keywords_data/google_ads/keywords_for_keywords/live',
 		'DataForSEO_kw_data_dfs_trends_explore'                    => 'keywords_data/dataforseo_trends/explore/live',
 		'DataForSEO_serp_organic_live_advanced'                    => 'serp/google/organic/live/advanced',
 		'DataForSEO_serp_google_maps_live_advanced'                  => 'serp/google/maps/live/advanced',
@@ -162,6 +163,30 @@ class Neo_Pulse_App_Dataforseo_Mcp_Router {
 							'location_code'  => Neo_Pulse_App_Dataforseo_Client::location_code_from_name( $body['location_name'] ?? null ),
 							'language_code'  => Neo_Pulse_App_Dataforseo_Client::ensure_language_code( $body['language_code'] ?? 'en' ),
 							'depth'          => isset( $body['limit'] ) ? min( (int) $body['limit'], 4 ) : 1,
+						),
+					),
+				);
+
+			case 'DataForSEO_kw_data_google_ads_keywords_for_keywords':
+				if ( empty( $body['keywords'] ) || ! is_array( $body['keywords'] ) ) {
+					return new WP_Error( 'neo-pulse_dfs_validate', 'keywords array is required', array( 'status' => 400 ) );
+				}
+				$kw = array();
+				foreach ( array_slice( $body['keywords'], 0, 20 ) as $k ) {
+					$t = trim( (string) $k );
+					if ( $t !== '' ) {
+						$kw[] = $t;
+					}
+				}
+				if ( $kw === array() ) {
+					return new WP_Error( 'neo-pulse_dfs_validate', 'keywords must contain at least one non-empty string', array( 'status' => 400 ) );
+				}
+				return array(
+					'tasks' => array(
+						array(
+							'keywords'       => $kw,
+							'location_code'  => Neo_Pulse_App_Dataforseo_Client::location_code_from_name( $body['location_name'] ?? null ),
+							'language_code'  => Neo_Pulse_App_Dataforseo_Client::ensure_language_code( $body['language_code'] ?? 'en' ),
 						),
 					),
 				);

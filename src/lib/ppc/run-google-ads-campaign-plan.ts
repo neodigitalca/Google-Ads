@@ -7,6 +7,9 @@ import {
   GOOGLE_ADS_CAMPAIGN_NAME_MAX,
 } from "@/lib/ppc/google-ads-field-limits";
 import type { PpcGscPageContext, PpcWpPageContext } from "@/lib/ppc/google-ads-types";
+import { ppcCampaignInsightsForPrompt } from "@/lib/ppc/ppc-campaign-insights-for-prompt";
+import type { PpcCampaignInsights } from "@/lib/ppc/ppc-campaign-insights-types";
+import { ppcResearchSignalsForPrompt, type PpcGoogleResearchSignals } from "@/lib/ppc/ppc-google-research-signals";
 
 export type PpcCampaignPlanAdGroup = {
   name: string;
@@ -24,6 +27,7 @@ export type PpcCampaignPlanAvoidanceInput = {
 export type PpcCampaignPlanResult = {
   campaignName: string;
   adGroups: PpcCampaignPlanAdGroup[];
+  recommendedDailyBudget?: number;
 };
 
 const SYSTEM = `You are a senior Google Ads Search strategist.
@@ -39,7 +43,13 @@ For each ad group, pick the landingPageUrl that best matches that ad group's the
 When adGroupKeywordSeeds has a value for an ad group index, align that ad group's landingPageUrl and theme to that seed.
 Different ad groups should use different URLs when allowedLandingUrls contains distinct relevant pages.
 When totalCampaigns is greater than 1, each campaignIndex must plan a distinct service line, intent theme, and primary landing page from the page bucket.
-When avoidCampaignPlans is non-empty, do not reuse any avoided focusTheme, primaryLandingPageUrl, or ad group name set. Pick a materially different campaign angle from allowedLandingUrls.`;
+When avoidCampaignPlans is non-empty, do not reuse any avoided focusTheme, primaryLandingPageUrl, or ad group name set. Pick a materially different campaign angle from allowedLandingUrls.
+
+When researchSignals is present, ground ad group themes and landing choices in ranked GSC queries, DataForSEO ideas, account keywords/search terms, and SERP paid themes. Do not ignore provided signal lists in favor of generic guesses.
+
+When campaignLiveInsights lists are non-empty, prefer campaignKeywords and campaignSearchTerms (source campaign_live) for ad group themes and keyword angles over generic guesses.
+
+Set recommendedDailyBudget to one integer daily campaign budget (account currency) sized for Search on this focus keyword: use researchSignals CPC and volume, requiredAdGroupCount, and competitive intent. Use at least 10 for a meaningful test budget.`;
 
 export async function runGoogleAdsCampaignPlan(options: {
   apiKey: string;
@@ -51,6 +61,8 @@ export async function runGoogleAdsCampaignPlan(options: {
   adGroupKeywordSeeds?: string[];
   landingPages: PpcWpPageContext[];
   gscPages: PpcGscPageContext[];
+  researchSignals?: PpcGoogleResearchSignals;
+  campaignLiveInsights?: PpcCampaignInsights;
   userSelectedLandingUrls?: string[];
   campaignIndex?: number;
   totalCampaigns?: number;
@@ -100,8 +112,11 @@ export async function runGoogleAdsCampaignPlan(options: {
       url: g.url,
       topQueries: g.queries.slice(0, 12),
     })),
+    researchSignals: options.researchSignals ? ppcResearchSignalsForPrompt(options.researchSignals) : undefined,
+    campaignLiveInsights: ppcCampaignInsightsForPrompt(options.campaignLiveInsights),
     outputSchema: {
       campaignName: `string, maxLength ${GOOGLE_ADS_CAMPAIGN_NAME_MAX}`,
+      recommendedDailyBudget: "integer, daily campaign budget, minimum 10",
       adGroups: [
         {
           name: `string, maxLength ${GOOGLE_ADS_CAMPAIGN_NAME_MAX}`,
@@ -152,6 +167,12 @@ export async function runGoogleAdsCampaignPlan(options: {
     }
   }
 
+  let recommendedDailyBudget: number | undefined;
+  const rawBudget = (root as { recommendedDailyBudget?: unknown }).recommendedDailyBudget;
+  if (typeof rawBudget === "number" && Number.isFinite(rawBudget) && rawBudget >= 1) {
+    recommendedDailyBudget = Math.round(rawBudget);
+  }
+
   return {
     campaignName: formatPpcGoogleCampaignName(
       options.focusKeyword?.trim() ||
@@ -159,6 +180,7 @@ export async function runGoogleAdsCampaignPlan(options: {
         root.adGroups[0]?.name?.trim() ||
         "",
     ),
+    recommendedDailyBudget,
     adGroups: root.adGroups.map((ag) => ({
       name: ag.name.trim(),
       landingPageUrl: ag.landingPageUrl.trim(),

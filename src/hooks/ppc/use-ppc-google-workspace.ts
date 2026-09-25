@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WordPressSite } from "@/components/integrations/types";
+import { useManagerErrorLog } from "@/contexts/manager-error-log-context";
 import { overviewGridPageSlice } from "@/components/overview/OverviewGridPagination";
 import type { MetaBulkMicroSnapshot } from "@/components/overview/OverviewBulkMicroProgress";
 import {
@@ -12,10 +13,15 @@ import {
   resolvePpcRowAdGroupKeywords,
   resolvePpcRowCampaignName,
   resolvePpcRowLandingPageUrl,
-  ppcRowPatchFromGeneratedCampaign,
-  ppcRowUserInputPreserve,
 } from "@/lib/ppc/google-ads-types";
-import type { PpcGenerateProgressState } from "@/lib/ppc/google-ads-progress-types";
+import { applyPpcGenerateResultToRow, ensurePpcRowDailyBudget } from "@/lib/ppc/ppc-row-generate-patch";
+import {
+  createPpcPublishValidationProgress,
+  type PpcGenerateProgressState,
+} from "@/lib/ppc/google-ads-progress-types";
+import { normalizeGoogleAdsCustomerId } from "@/lib/ads-reporting/ads-reporting-metrics";
+
+import { publishPpcGoogleCampaigns } from "@/lib/ppc/publish-google-ads-campaigns";
 import {
   getPpcGoogleCampaignsSessionCache,
   setPpcGoogleCampaignsSessionCache,
@@ -50,6 +56,16 @@ import {
   readPpcGenerateConfig,
   writePpcGenerateConfig,
 } from "@/lib/ppc/google-ads-generate-config-storage";
+import {
+  loadGoogleAdsSearchCampaignImports,
+  mergeGoogleAdsImportsIntoPpcRows,
+  ppcCampaignCountAfterImport,
+} from "@/lib/ppc/import-google-ads-search-campaigns";
+import {
+  PPC_GOOGLE_ADS_STATUS_FILTER_DEFAULT,
+  ppcRowMatchesGoogleAdsStatusFilter,
+  type PpcGoogleAdsCampaignStatusFilter,
+} from "@/lib/ppc/ppc-google-ads-status-filter";
 
 export type UsePpcGoogleWorkspaceOptions = {
   site: WordPressSite;
@@ -59,19 +75,38 @@ export type UsePpcGoogleWorkspaceOptions = {
 
 export type PpcGoogleSortColumn = "title" | "date" | null;
 
+function stripPpcCampaignRowErrors(rows: PpcCampaignRow[]): PpcCampaignRow[] {
+  return rows.map((row) =>
+    ensurePpcRowDailyBudget(
+      row.errorMessage || row.status === "error"
+        ? {
+            ...row,
+            errorMessage: undefined,
+            status: row.status === "error" ? (row.campaign ? "ready" : "idle") : row.status,
+          }
+        : row,
+    ),
+  );
+}
+
 export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoogleWorkspaceOptions) {
+  const { reportError } = useManagerErrorLog();
   const [campaigns, setCampaigns] = useState<PpcCampaignRow[]>(() => {
-    return getPpcGoogleCampaignsSessionCache(site.id) ?? [];
+    return stripPpcCampaignRowErrors(getPpcGoogleCampaignsSessionCache(site.id) ?? []);
   });
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
   const [gridPageIndex, setGridPageIndex] = useState(0);
   const [sortColumn, setSortColumn] = useState<PpcGoogleSortColumn>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [adsCampaignStatusFilter, setAdsCampaignStatusFilter] =
+    useState<PpcGoogleAdsCampaignStatusFilter>(PPC_GOOGLE_ADS_STATUS_FILTER_DEFAULT);
   const [generateConfig, setGenerateConfig] = useState<PpcGenerateConfig>(() =>
     readPpcGenerateConfig(site.id),
   );
   const [generateProgress, setGenerateProgress] = useState<PpcGenerateProgressState | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isImportingFromAds, setIsImportingFromAds] = useState(false);
   const [generatingAdGroupKey, setGeneratingAdGroupKey] = useState<string | null>(null);
   const [wpPages, setWpPages] = useState<PpcWpPageContext[]>([]);
   const [wpPagesLoading, setWpPagesLoading] = useState(false);
@@ -80,11 +115,23 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
   const pageBucketLinkRef = useRef<string | null>(null);
 
   useEffect(() => {
+    setCampaigns((prev) => {
+      let changed = false;
+      const next = prev.map((row) => {
+        const fixed = ensurePpcRowDailyBudget(row);
+        if (fixed.dailyBudget !== row.dailyBudget) changed = true;
+        return fixed;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  useEffect(() => {
     const config = readPpcGenerateConfig(site.id);
     const adGroupCount = clampPpcAdGroupCount(config.adGroupCount);
     setCampaigns(
       syncPpcCampaignRowsToCount(
-        getPpcGoogleCampaignsSessionCache(site.id) ?? [],
+        stripPpcCampaignRowErrors(getPpcGoogleCampaignsSessionCache(site.id) ?? []),
         clampPpcCampaignCount(config.campaignCount),
         adGroupCount,
       ),
@@ -93,6 +140,7 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
     setGridPageIndex(0);
     setGenerateProgress(null);
     setIsGenerating(false);
+    setIsPublishing(false);
     setGenerateConfig(config);
   }, [site.id]);
 
@@ -112,8 +160,10 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
         pageBucketLinkRef.current = link.href;
         setPageBucketHostedLink(link);
       })
-      .catch(() => {
-        if (!cancelled) setWpPages([]);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setWpPages([]);
+        reportError(err instanceof Error ? err.message : "Page bucket inventory failed.");
       })
       .finally(() => {
         if (!cancelled) setWpPagesLoading(false);
@@ -123,7 +173,7 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
       revokePpcPageBucketHostedLink(pageBucketLinkRef.current);
       pageBucketLinkRef.current = null;
     };
-  }, [site.id, site.siteUrl, site.username, site.appPassword]);
+  }, [reportError, site.appPassword, site.id, site.siteUrl, site.username]);
 
   useEffect(() => {
     writePpcGenerateConfig(site.id, generateConfig);
@@ -145,10 +195,13 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
 
   useEffect(() => {
     setGridPageIndex(0);
-  }, [sortColumn, sortDir, campaigns.length]);
+  }, [sortColumn, sortDir, campaigns.length, adsCampaignStatusFilter]);
 
   const displayCampaigns = useMemo(() => {
-    const sorted = [...campaigns];
+    const filtered = campaigns.filter((row) =>
+      ppcRowMatchesGoogleAdsStatusFilter(row, adsCampaignStatusFilter),
+    );
+    const sorted = [...filtered];
     if (sortColumn === "title") {
       sorted.sort((a, b) => {
         const av = (a.campaignName || a.campaign?.name || "").toLowerCase();
@@ -163,7 +216,7 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
       });
     }
     return sorted;
-  }, [campaigns, sortColumn, sortDir]);
+  }, [adsCampaignStatusFilter, campaigns, sortColumn, sortDir]);
 
   const paginatedCampaigns = useMemo(
     () => overviewGridPageSlice(displayCampaigns, gridPageIndex),
@@ -180,7 +233,7 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
 
   const handleDeleteCampaign = useCallback(
     (id: string) => {
-      if (isGenerating) return;
+      if (isGenerating || isPublishing) return;
       const targetCount = clampPpcCampaignCount(generateConfig.campaignCount);
       const adGroupCount = clampPpcAdGroupCount(generateConfig.adGroupCount);
       setCampaigns((prev) =>
@@ -192,7 +245,7 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
       );
       setExpandedCampaignId((prev) => (prev === id ? null : prev));
     },
-    [isGenerating, generateConfig.campaignCount, generateConfig.adGroupCount],
+    [isGenerating, isPublishing, generateConfig.campaignCount, generateConfig.adGroupCount],
   );
 
   const loadWpPagesForPicker = useCallback(async () => {
@@ -209,7 +262,11 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
   }, [site, wpPages.length, wpPagesLoading]);
 
   const handleGenerateCampaign = useCallback(async () => {
-    if (isGenerating || !apiKey?.trim()) return;
+    if (isGenerating || isPublishing) return;
+    if (!apiKey?.trim()) {
+      reportError("OpenRouter API key is missing.");
+      return;
+    }
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -247,11 +304,9 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           } satisfies PpcGenerateConfig,
           adGroupKeywords: resolvePpcRowAdGroupKeywords(sourceRow, config.adGroupCount),
           focusKeyword: sourceRow.focusKeyword?.trim() || undefined,
+          adsCampaignId: sourceRow.adsCampaignId,
         };
       });
-
-      const patchRowFromCampaign = (row: PpcCampaignRow, campaign: PpcCampaign) =>
-        ppcRowPatchFromGeneratedCampaign(campaign, ppcRowUserInputPreserve(row));
 
       if (jobs.length === 1) {
         const job = jobs[0]!;
@@ -263,6 +318,8 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           config: job.config,
           adGroupKeywords: job.adGroupKeywords,
           focusKeyword: job.focusKeyword,
+          adsCampaignId: job.adsCampaignId,
+          prefetchedWpPages: wpPages.length ? wpPages : undefined,
           onProgress: setGenerateProgress,
           signal: controller.signal,
         });
@@ -272,7 +329,12 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           campaign: result.campaign,
           config: job.config,
           errorMessage: undefined,
-          ...patchRowFromCampaign(sourceRow, result.campaign),
+          ...applyPpcGenerateResultToRow(
+            sourceRow,
+            result.campaign,
+            result.recommendedDailyBudget,
+            job.config.adGroupCount,
+          ),
         });
       } else {
         const results = await runPpcGoogleCampaignGenerateBatch({
@@ -293,14 +355,25 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
               config: outcome.config,
               errorMessage: undefined,
               ...(sourceRow
-                ? patchRowFromCampaign(sourceRow, outcome.campaign)
-                : ppcRowPatchFromGeneratedCampaign(outcome.campaign)),
+                ? applyPpcGenerateResultToRow(
+                    sourceRow,
+                    outcome.campaign,
+                    outcome.recommendedDailyBudget,
+                    outcome.config.adGroupCount,
+                  )
+                : applyPpcGenerateResultToRow(
+                    { id: outcome.rowId, campaignName: "", status: "ready", createdAt: "" },
+                    outcome.campaign,
+                    outcome.recommendedDailyBudget,
+                    outcome.config.adGroupCount,
+                  )),
             });
           } else {
+            reportError(outcome.errorMessage);
             updateCampaign(outcome.rowId, {
-              status: "error",
+              status: "idle",
               config: outcome.config,
-              errorMessage: outcome.errorMessage,
+              errorMessage: undefined,
             });
           }
         }
@@ -308,10 +381,11 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
     } catch (err) {
       if (controller.signal.aborted) return;
       const message = err instanceof Error ? err.message : "Campaign generation failed";
+      reportError(message);
       setCampaigns((prev) =>
         prev.map((row) =>
           rowIds.includes(row.id) && row.status === "generating"
-            ? { ...row, status: "error", errorMessage: message }
+            ? { ...row, status: "idle", errorMessage: undefined }
             : row,
         ),
       );
@@ -323,9 +397,12 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
     campaigns,
     generateConfig,
     isGenerating,
+    isPublishing,
     selectedModel,
+    reportError,
     site,
     updateCampaign,
+    wpPages,
   ]);
 
   const handleGenerateCampaignRow = useCallback(
@@ -366,7 +443,9 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           config: rowConfig,
           adGroupKeywords: resolvePpcRowAdGroupKeywords(sourceRow, rowConfig.adGroupCount),
           focusKeyword: sourceRow.focusKeyword?.trim() || undefined,
+          adsCampaignId: sourceRow.adsCampaignId,
           avoidCampaignPlans,
+          prefetchedWpPages: wpPages.length ? wpPages : undefined,
           onProgress: setGenerateProgress,
           signal: controller.signal,
         });
@@ -376,26 +455,36 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           campaign: result.campaign,
           config: rowConfig,
           errorMessage: undefined,
-          ...ppcRowPatchFromGeneratedCampaign(result.campaign, ppcRowUserInputPreserve(sourceRow)),
+          ...applyPpcGenerateResultToRow(
+            sourceRow,
+            result.campaign,
+            result.recommendedDailyBudget,
+            rowConfig.adGroupCount,
+          ),
         });
       } catch (err) {
         if (controller.signal.aborted) return;
         const message = err instanceof Error ? err.message : "Campaign generation failed";
+        reportError(message);
         updateCampaign(rowId, {
-          status: "error",
+          status: "idle",
           config: rowConfig,
-          errorMessage: message,
+          errorMessage: undefined,
         });
       } finally {
         setIsGenerating(false);
       }
     },
-    [apiKey, campaigns, generateConfig, isGenerating, selectedModel, site, updateCampaign, wpPages],
+    [apiKey, campaigns, generateConfig, isGenerating, isPublishing, reportError, selectedModel, site, updateCampaign, wpPages],
   );
 
   const handleGenerateAdGroup = useCallback(
     async (rowId: string, adGroupIndex: number) => {
-      if (isGenerating || !apiKey?.trim()) return;
+      if (isGenerating || isPublishing) return;
+      if (!apiKey?.trim()) {
+        reportError("OpenRouter API key is missing.");
+        return;
+      }
 
       const sourceRow = campaigns.find((row) => row.id === rowId);
       if (!sourceRow) return;
@@ -484,19 +573,76 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           status: "ready",
           campaign: mergedCampaign,
           errorMessage: undefined,
-          ...ppcRowPatchFromGeneratedCampaign(mergedCampaign, ppcRowUserInputPreserve(sourceRow)),
+          ...applyPpcGenerateResultToRow(
+            sourceRow,
+            mergedCampaign,
+            undefined,
+            adGroupCount,
+          ),
         });
       } catch (err) {
         if (controller.signal.aborted) return;
         const message = err instanceof Error ? err.message : "Ad group generation failed";
-        updateCampaign(rowId, { errorMessage: message });
+        reportError(message);
+        updateCampaign(rowId, { errorMessage: undefined });
       } finally {
         setGeneratingAdGroupKey(null);
         setIsGenerating(false);
       }
     },
-    [apiKey, campaigns, generateConfig, isGenerating, selectedModel, site, updateCampaign, wpPages],
+    [apiKey, campaigns, generateConfig, isGenerating, isPublishing, reportError, selectedModel, site, updateCampaign, wpPages],
   );
+
+  const handlePullFromGoogleAds = useCallback(async () => {
+    if (isGenerating || isPublishing || isImportingFromAds) return;
+
+    const customerId = normalizeGoogleAdsCustomerId(site.googleAdsCustomerId ?? "");
+    if (customerId.length !== 10) {
+      reportError("Set a 10-digit Google Ads customer ID on this property before pulling campaigns.");
+      return;
+    }
+
+    setIsImportingFromAds(true);
+    try {
+      const imported = await loadGoogleAdsSearchCampaignImports(customerId);
+      if (imported.length === 0) {
+        reportError("No Search campaigns found in this Google Ads account.");
+        return;
+      }
+
+      const { rows, importedCount, updatedCount } = mergeGoogleAdsImportsIntoPpcRows(campaigns, imported);
+      const adGroupCount = clampPpcAdGroupCount(generateConfig.adGroupCount);
+      const nextCount = ppcCampaignCountAfterImport(rows, generateConfig.campaignCount);
+      const synced = syncPpcCampaignRowsToCount(rows, nextCount, adGroupCount);
+
+      setGenerateConfig((prev) => ({ ...prev, campaignCount: nextCount }));
+      setCampaigns(synced);
+      setGridPageIndex(0);
+
+      if (importedCount === 0 && updatedCount === 0) {
+        reportError("No campaigns were merged. Check that imported campaigns include ad groups.");
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to pull campaigns from Google Ads.";
+      reportError(message);
+    } finally {
+      setIsImportingFromAds(false);
+    }
+  }, [
+    campaigns,
+    generateConfig.adGroupCount,
+    generateConfig.campaignCount,
+    isGenerating,
+    isImportingFromAds,
+    isPublishing,
+    reportError,
+    site.googleAdsCustomerId,
+  ]);
+
+  const canPullFromGoogleAds = useMemo(() => {
+    const customerId = normalizeGoogleAdsCustomerId(site.googleAdsCustomerId ?? "");
+    return customerId.length === 10;
+  }, [site.googleAdsCustomerId]);
 
   const handleExportGoogleAdsCsv = useCallback(() => {
     const csv = buildGoogleAdsEditorCsv(campaigns);
@@ -508,8 +654,118 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
     [campaigns],
   );
 
+  const canPublish = useMemo(() => {
+    const customerId = normalizeGoogleAdsCustomerId(site.googleAdsCustomerId ?? "");
+    return customerId.length === 10 && campaigns.length > 0;
+  }, [campaigns.length, site.googleAdsCustomerId]);
+
+  const handlePublishCampaigns = useCallback(async () => {
+    if (isGenerating || isPublishing) return;
+
+    const unpublished = campaigns.filter((row) => !row.adsCampaignId?.trim());
+    const publishedReady = campaigns.filter(
+      (row) => row.adsCampaignId?.trim() && row.status === "ready" && row.campaign,
+    );
+    if (!unpublished.length && !publishedReady.length) {
+      reportError("Run Generate on at least one campaign before publishing to Google Ads.");
+      return;
+    }
+
+    const needsGenerate = unpublished.filter((row) => row.status !== "ready" || !row.campaign);
+    if (needsGenerate.length && !apiKey?.trim()) {
+      reportError("OpenRouter API key is missing.");
+      return;
+    }
+
+    setIsPublishing(true);
+    let rowsForPublish = campaigns;
+
+    try {
+      if (needsGenerate.length) {
+        setIsGenerating(true);
+        for (const sourceRow of needsGenerate) {
+          const rowConfig: PpcGenerateConfig = {
+            campaignCount: 1,
+            adGroupCount: clampPpcAdGroupCount(generateConfig.adGroupCount),
+            landingPageUrls: sourceRow.landingPageUrl?.trim() ? [sourceRow.landingPageUrl.trim()] : [],
+            adsPerAdGroup: clampPpcAdsPerAdGroup(generateConfig.adsPerAdGroup),
+          };
+          const avoidCampaignPlans = rowsForPublish
+            .filter((row) => row.id !== sourceRow.id && row.campaign)
+            .map((row) => summarizePpcCampaignForAvoidance(row.campaign!));
+
+          const result = await runPpcGoogleCampaignGenerate({
+            site,
+            apiKey,
+            model: selectedModel,
+            config: rowConfig,
+            adGroupKeywords: resolvePpcRowAdGroupKeywords(sourceRow, rowConfig.adGroupCount),
+            focusKeyword: sourceRow.focusKeyword?.trim() || undefined,
+            adsCampaignId: sourceRow.adsCampaignId,
+            avoidCampaignPlans,
+            prefetchedWpPages: wpPages.length ? wpPages : undefined,
+            onProgress: setGenerateProgress,
+          });
+
+          const patch: Partial<PpcCampaignRow> = {
+            status: "ready",
+            campaign: result.campaign,
+            config: rowConfig,
+            errorMessage: undefined,
+            ...applyPpcGenerateResultToRow(
+              sourceRow,
+              result.campaign,
+              result.recommendedDailyBudget,
+              rowConfig.adGroupCount,
+            ),
+          };
+          rowsForPublish = rowsForPublish.map((row) =>
+            row.id === sourceRow.id ? { ...row, ...patch } : row,
+          );
+          setCampaigns(rowsForPublish);
+        }
+        setIsGenerating(false);
+      }
+
+      await publishPpcGoogleCampaigns({
+        customerId: site.googleAdsCustomerId,
+        rows: rowsForPublish,
+        onProgress: setGenerateProgress,
+        onRowPublished: (rowId, campaignId) => {
+          updateCampaign(rowId, {
+            adsCampaignId: campaignId,
+            googleAdsCampaignStatus: "ENABLED",
+            errorMessage: undefined,
+          });
+        },
+        onRowError: (_rowId, message) => {
+          reportError(message);
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Google Ads publish failed.";
+      reportError(message);
+      setGenerateProgress(createPpcPublishValidationProgress(message));
+    } finally {
+      setIsGenerating(false);
+      setIsPublishing(false);
+    }
+  }, [
+    apiKey,
+    campaigns,
+    generateConfig.adGroupCount,
+    generateConfig.adsPerAdGroup,
+    isGenerating,
+    isPublishing,
+    reportError,
+    selectedModel,
+    site,
+    updateCampaign,
+    wpPages,
+  ]);
+
   const bulkMicroSnapshot = useMemo((): MetaBulkMicroSnapshot | null => {
-    if (!isGenerating || !generateProgress) return null;
+    if ((!isGenerating && !isPublishing) || !generateProgress) return null;
     const active = generateProgress.steps.find((s) => s.status === "running");
     return {
       label: active?.label ?? generateProgress.label,
@@ -521,13 +777,16 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
           ? Math.round((generateProgress.completed / generateProgress.total) * 100)
           : 0,
     };
-  }, [generateProgress, isGenerating]);
+  }, [generateProgress, isGenerating, isPublishing]);
 
   const canOpenDetails = Boolean(
-    pageBucketHostedLink || isGenerating || (generateProgress && generateProgress.completed > 0),
+    pageBucketHostedLink ||
+      isGenerating ||
+      isPublishing ||
+      (generateProgress && generateProgress.completed > 0),
   );
 
-  const workspaceBusy = isGenerating;
+  const workspaceBusy = isGenerating || isPublishing || isImportingFromAds;
 
   const gridPaginationTotal = useMemo(
     () => ppcGoogleGridRowCount(displayCampaigns.length),
@@ -549,10 +808,13 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
     setSortColumn,
     sortDir,
     setSortDir,
+    adsCampaignStatusFilter,
+    setAdsCampaignStatusFilter,
     generateConfig,
     setGenerateConfig,
     generateProgress,
     isGenerating,
+    isPublishing,
     wpPages,
     wpPagesLoading,
     pageBucketHostedLink,
@@ -564,6 +826,11 @@ export function usePpcGoogleWorkspace({ site, apiKey, selectedModel }: UsePpcGoo
     generatingAdGroupKey,
     handleExportGoogleAdsCsv,
     canExportGoogleAdsCsv,
+    handlePublishCampaigns,
+    canPublish,
+    handlePullFromGoogleAds,
+    canPullFromGoogleAds,
+    isImportingFromAds,
     updateCampaign,
     bulkMicroSnapshot,
     canOpenDetails,

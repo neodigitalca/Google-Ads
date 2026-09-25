@@ -66,6 +66,46 @@ class Neo_Pulse_App_Google_Ads_Route_Handlers {
 			return;
 		}
 
+		if ( $subpath === 'publish-campaign' && $method === 'POST' ) {
+			$result = Neo_Pulse_App_Google_Ads_Campaign_Publisher::publish_campaign( $body );
+			$status = ! empty( $result['success'] ) ? 200 : (int) ( $result['statusCode'] ?? 502 );
+			unset( $result['statusCode'] );
+			Neo_Pulse_App_Api_Dispatcher::send_json( $result, $status );
+			return;
+		}
+
+		if ( $subpath === 'sync-campaign' && $method === 'POST' ) {
+			$result = Neo_Pulse_App_Google_Ads_Campaign_Publisher::sync_campaign( $body );
+			$status = ! empty( $result['success'] ) ? 200 : (int) ( $result['statusCode'] ?? 502 );
+			unset( $result['statusCode'] );
+			Neo_Pulse_App_Api_Dispatcher::send_json( $result, $status );
+			return;
+		}
+
+		if ( $subpath === 'fetch-ppc-research-signals' && $method === 'POST' ) {
+			$result = Neo_Pulse_App_Google_Ads_Ppc_Research::fetch_signals( $body );
+			$status = ! empty( $result['success'] ) ? 200 : (int) ( $result['statusCode'] ?? 502 );
+			unset( $result['statusCode'] );
+			Neo_Pulse_App_Api_Dispatcher::send_json( $result, $status );
+			return;
+		}
+
+		if ( $subpath === 'fetch-campaign-insights' && $method === 'POST' ) {
+			$result = Neo_Pulse_App_Google_Ads_Campaign_Insights::fetch_campaign_insights( $body );
+			$status = ! empty( $result['success'] ) ? 200 : (int) ( $result['statusCode'] ?? 502 );
+			unset( $result['statusCode'] );
+			Neo_Pulse_App_Api_Dispatcher::send_json( $result, $status );
+			return;
+		}
+
+		if ( $subpath === 'import-search-campaigns' && $method === 'POST' ) {
+			$result = Neo_Pulse_App_Google_Ads_Campaign_Import::import_search_campaigns( $body );
+			$status = ! empty( $result['success'] ) ? 200 : (int) ( $result['statusCode'] ?? 502 );
+			unset( $result['statusCode'] );
+			Neo_Pulse_App_Api_Dispatcher::send_json( $result, $status );
+			return;
+		}
+
 		Neo_Pulse_App_Api_Dispatcher::send_json(
 			array(
 				'error' => 'Not found',

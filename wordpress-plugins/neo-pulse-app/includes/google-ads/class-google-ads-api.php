@@ -1,6 +1,6 @@
 <?php
 /**
- * Google Ads REST (GAQL search + accessible customers).
+ * Google Ads REST (GAQL search, accessible customers, mutate).
  *
  * @package Neo_Pulse_App
  */
@@ -90,6 +90,42 @@ class Neo_Pulse_App_Google_Ads_Api {
 		return array(
 			'ok'      => true,
 			'results' => $results,
+		);
+	}
+
+	/**
+	 * @param array<int,array<string,mixed>> $operations
+	 * @return array{ok:bool,statusCode?:int,error?:string,data?:array<string,mixed>}
+	 */
+	public static function mutate( string $customer_id, array $operations ): array {
+		$customer_id = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( $customer_id );
+		if ( $customer_id === '' || strlen( $customer_id ) !== 10 ) {
+			return array( 'ok' => false, 'statusCode' => 400, 'error' => 'Google Ads customer ID is required.' );
+		}
+		if ( ! $operations ) {
+			return array( 'ok' => false, 'statusCode' => 400, 'error' => 'Google Ads mutate operations are required.' );
+		}
+		$auth = self::authorized_headers();
+		if ( isset( $auth['error'] ) ) {
+			return $auth;
+		}
+		$url      = 'https://googleads.googleapis.com/' . self::API_VERSION . '/customers/' . $customer_id . '/googleAds:mutate';
+		$response = wp_remote_post(
+			$url,
+			array(
+				'timeout' => 120,
+				'headers' => $auth['headers'],
+				'body'    => wp_json_encode( array( 'mutateOperations' => $operations ) ),
+			)
+		);
+		$parsed = self::parse_response( $response );
+		if ( empty( $parsed['ok'] ) ) {
+			return $parsed;
+		}
+		$data = is_array( $parsed['data'] ) ? $parsed['data'] : array();
+		return array(
+			'ok'   => true,
+			'data' => $data,
 		);
 	}
 

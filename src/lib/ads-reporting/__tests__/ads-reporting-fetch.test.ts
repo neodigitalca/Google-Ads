@@ -4,7 +4,11 @@ import {
   buildAdsSiteTotalsCsv,
   filesFromAdsReportingBundle,
 } from "@/lib/ads-reporting/ads-reporting-fetch";
-import { normalizeGoogleAdsCustomerId } from "@/lib/ads-reporting/ads-reporting-metrics";
+import {
+  formatGoogleAdsCustomerId,
+  googleAdsAccountUrl,
+  normalizeGoogleAdsCustomerId,
+} from "@/lib/ads-reporting/ads-reporting-metrics";
 import type { AdsMetrics, AdsReportingBundle } from "@/lib/ads-reporting/ads-reporting-types";
 
 const emptyMetrics: AdsMetrics = {
@@ -44,6 +48,17 @@ function bundle(partial: Partial<AdsReportingBundle>): AdsReportingBundle {
 describe("normalizeGoogleAdsCustomerId", () => {
   it("strips hyphens from the MCC format", () => {
     expect(normalizeGoogleAdsCustomerId("393-713-6350")).toBe("3937136350");
+  });
+});
+
+describe("googleAdsAccountUrl", () => {
+  it("formats a 10-digit customer ID and builds an Ads account URL", () => {
+    expect(formatGoogleAdsCustomerId("4542208772")).toBe("454-220-8772");
+    expect(googleAdsAccountUrl("454-220-8772")).toBe("https://ads.google.com/aw/campaigns?__c=4542208772");
+    expect(googleAdsAccountUrl("4542208772", "393-713-6350")).toBe(
+      "https://ads.google.com/aw/campaigns?__c=4542208772&__u=3937136350",
+    );
+    expect(googleAdsAccountUrl("")).toBeNull();
   });
 });
 
