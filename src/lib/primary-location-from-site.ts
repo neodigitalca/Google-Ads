@@ -4,6 +4,7 @@
 
 import type { Location, WordPressSite } from '@/components/integrations/types';
 import { fetchLocationDiscovery } from '@/lib/fetch-location-discovery';
+import { cityStateFromNapAddress, resolveSiteLocationLabel } from '@/lib/llm-audit/resolve-site-location-label';
 
 function pickLocation(locations: Location[] | undefined): Location | null {
   if (!locations?.length) return null;
@@ -41,14 +42,40 @@ export function getPrimaryLocationLabel(site: WordPressSite): string | null {
   return null;
 }
 
-/** Location field first, then Integrations / NAP city + state. */
+function clusterLocationFromLooseLabel(label: string | null | undefined): string {
+  const t = label?.trim() ?? "";
+  if (!t) return "";
+  const fromNap = cityStateFromNapAddress(t);
+  if (fromNap) return fromNap;
+  return t;
+}
+
+/** Location field first, then Integrations / NAP city + state (incl. nap address line). */
 export function resolveEntityClusterLocationLabel(
   site: WordPressSite,
   focusLocation?: string | null,
 ): string {
   const focus = focusLocation?.trim();
   if (focus) return focus;
-  return getPrimaryCityStateLabel(site)?.trim() ?? "";
+  return resolveSiteLocationLabel(site).trim() || getPrimaryCityStateLabel(site)?.trim() || "";
+}
+
+/**
+ * When sync Integrations data has no city, read homepage JSON-LD / discovery (same as profile “Find location”).
+ */
+export async function resolveEntityClusterLocationLabelAsync(
+  site: WordPressSite,
+  focusLocation?: string | null,
+  cachedDiscoveryLabel?: string | null,
+): Promise<string> {
+  const sync = resolveEntityClusterLocationLabel(site, focusLocation);
+  if (sync) return sync;
+
+  const cached = clusterLocationFromLooseLabel(cachedDiscoveryLabel);
+  if (cached) return cached;
+
+  const discovered = await resolvePrimaryLocationLabel(site).catch(() => null);
+  return clusterLocationFromLooseLabel(discovered);
 }
 
 /** City + state (or city) from Integrations / NAP - for SAP market hints when no manual override. */

@@ -1252,6 +1252,30 @@ try {
       companyName,
       location: serpLocation || undefined,
       siteId: serpSite?.id ?? connectedSite?.id,
+      onClassifierJsonFailure: (detail) => {
+        const artifactBody = JSON.stringify(
+          {
+            error: detail.error,
+            repairSteps: detail.repairSteps,
+            rawLlmOutput: detail.rawText,
+          },
+          null,
+          2,
+        );
+        const failureFile: BulkGeneratedFile = {
+          id: BulkFileManager.createFileId(rowIndex, "llm-audit-classifier-raw", timestamp),
+          rowIndex,
+          fileName: BulkFileManager.generateFileName(enrichedRow, "llm_audit_classifier_raw", timestamp),
+          content: artifactBody,
+          mimeType: "application/json",
+          status: "error",
+          timestamp,
+          rowData: enrichedRow,
+        };
+        fileManager.addFile(failureFile);
+        generatedFiles.push(failureFile);
+        console.warn("[Bulk] LLM audit authority classifier JSON failed; continuing row:", detail.error);
+      },
     });
     rowExplicitExternalPairs = buildRowExplicitExternalAllowlist({
       modifierExternalLinks,

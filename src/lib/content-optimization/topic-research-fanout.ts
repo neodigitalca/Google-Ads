@@ -258,12 +258,13 @@ export async function extractIllustrativeExample(input: {
   pageLocalContext?: PageLocalContext;
   /** Published Answer HTML: scenario must illustrate this topic, not another vertical. */
   answerSectionHtml?: string;
-}): Promise<IllustrativeExample> {
+}): Promise<IllustrativeExample | undefined> {
   const keyword = input.keyword.trim();
   const companyName = input.companyName.trim();
   const location = input.location.trim();
   if (!keyword || !companyName) {
-    throw new Error("Illustrative persona extract requires keyword and company name.");
+    console.warn("[Illustrative extract] missing keyword or company name; skipping persona extract");
+    return undefined;
   }
   const pageCtx =
     input.pageLocalContext
@@ -321,16 +322,24 @@ export async function extractIllustrativeExample(input: {
       json_schema: { name: "illustrative_example_extract", strict: true, schema: ILLUSTRATIVE_EXTRACT_SCHEMA },
     },
   });
-  let cleaned = content.trim();
-  if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.replace(/^```json\s*/i, "").replace(/\s*```$/i, "");
-  } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```\s*/i, "").replace(/\s*```$/i, "");
+  let parsed: unknown;
+  try {
+    const { parsed: repaired } = parseJsonWithRepair<unknown>(content, {
+      onParseFailure: "storeRaw",
+    });
+    if (repaired == null) {
+      console.warn("[Illustrative extract] JSON parse failed; continuing without stored persona");
+      return undefined;
+    }
+    parsed = repaired;
+  } catch (err) {
+    console.warn("[Illustrative extract] JSON repair failed; continuing without stored persona:", err);
+    return undefined;
   }
-  const parsed = JSON.parse(cleaned) as unknown;
   const normalized = normalizeIllustrativeExample(parsed, input.researchAsOf, input.illustrativeH2Title);
   if (!normalized) {
-    throw new Error("Illustrative persona extract returned invalid JSON shape.");
+    console.warn("[Illustrative extract] invalid persona shape; continuing without stored persona");
+    return undefined;
   }
   return normalized;
 }

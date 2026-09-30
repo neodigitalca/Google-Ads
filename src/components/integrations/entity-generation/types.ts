@@ -18,6 +18,8 @@ export interface EntityWithCriteria {
   wikipediaUrl: string;
   wikipediaTitle?: string;
   criteriaData?: CriteriaData;
+  /** Search Console queries appended after generation (when GSC is available). */
+  gscKeywords?: string[];
 }
 
 export interface CriteriaData {

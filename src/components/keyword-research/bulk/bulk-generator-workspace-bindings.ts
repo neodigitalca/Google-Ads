@@ -5,11 +5,9 @@ import type { CSVRow, WordPressPostDestination } from "@/lib/bulk-auto-generate"
 import type { ConnectedSiteSummary } from "@/components/integrations/types";
 import type { ScheduleOccupancy } from "@/lib/bulk-schedule-gap";
 import type { ScheduleFrequency } from "@/lib/wordpress-scheduler";
-import type { BulkRowSitemapType, BulkSitemapMode } from "@/lib/bulk/bulk-sitemap-mode";
+import type { BulkSiteSitemapConfig } from "@/components/keyword-research/bulk/BulkGeneratorSitemapMenu";
 
-interface SiteConfig {
-  sitemapType: BulkSitemapMode;
-}
+type SiteConfig = BulkSiteSitemapConfig;
 
 export type BulkGeneratorWorkspaceBindings = {
   inputMode: "csv" | "prompt";

@@ -188,17 +188,17 @@ describe("resolveLlmAuditAuthorityLinksForChecklist", () => {
     ).rejects.toThrow("OpenRouter timeout");
   });
 
-  it("throws on invalid JSON (no repair path)", async () => {
+  it("returns no links on invalid JSON (fail-open)", async () => {
     vi.mocked(callOpenRouterChatCompletion).mockResolvedValue({
       content: '{ "links": [ { ] "url": "https://www.edmonton.ca/" } ] }',
     } as never);
 
-    await expect(
-      classifyLlmAuditAuthorityLinksOpenRouter({
-        urls: ["https://www.edmonton.ca/"],
-        siteUrl: "https://ridgelinesolar.ca",
-      }),
-    ).rejects.toThrow(/invalid JSON/i);
+    const out = await classifyLlmAuditAuthorityLinksOpenRouter({
+      urls: ["https://www.edmonton.ca/"],
+      siteUrl: "https://ridgelinesolar.ca",
+      onClassifierJsonFailure: () => {},
+    });
+    expect(out).toEqual([]);
   });
 });
 

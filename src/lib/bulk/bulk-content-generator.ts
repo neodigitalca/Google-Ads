@@ -607,23 +607,33 @@ export async function generateMarkdownContentHarnessed(
         location: location || researchTopic,
         asOfLabel: researchAsOf,
       });
-    const persona: IllustrativeExample = await extractIllustrativeExample({
-      keyword: harnessPrimaryKeyword,
-      location,
-      researchAsOf,
-      companyName,
-      illustrativeExampleQuery,
-      pageUrl: promptEnv?.currentPageUrl,
-      entity,
-      serpByQuery: brief?.queryFanout?.serpByQuery,
-      chatGptByQuery: brief?.queryFanout?.chatGptByQuery,
-      illustrativeH2Title: illustrativeTitle,
-      pageTitle: blueprint.title || row.title,
-      siteId: promptEnv?.siteId,
-      site: promptEnv?.wordpressSite,
-      pageLocalContext: pageCtx,
-      answerSectionHtml,
-    });
+    const personaFromBrief = brief?.queryFanout?.illustrativeExample;
+    let persona: IllustrativeExample | undefined =
+      personaFromBrief?.illustrativeH2Title?.trim() ? personaFromBrief : undefined;
+    if (!persona) {
+      try {
+        persona = await extractIllustrativeExample({
+          keyword: harnessPrimaryKeyword,
+          location,
+          researchAsOf,
+          companyName,
+          illustrativeExampleQuery,
+          pageUrl: promptEnv?.currentPageUrl,
+          entity,
+          serpByQuery: brief?.queryFanout?.serpByQuery,
+          chatGptByQuery: brief?.queryFanout?.chatGptByQuery,
+          illustrativeH2Title: illustrativeTitle,
+          pageTitle: blueprint.title || row.title,
+          siteId: promptEnv?.siteId,
+          site: promptEnv?.wordpressSite,
+          pageLocalContext: pageCtx,
+          answerSectionHtml,
+        });
+      } catch (err) {
+        console.warn("[Harness] Illustrative persona extract failed; continuing article plan:", err);
+        persona = undefined;
+      }
+    }
     const cityPlace =
       entity?.trim()
       || pageCtx.prosePlaceLabel
@@ -632,17 +642,32 @@ export async function generateMarkdownContentHarnessed(
     const cityServiceArea = wordPressPosts?.length
       ? findServiceAreaPageForPlace(wordPressPosts, cityPlace)
       : undefined;
-    cachedIllustrativePersonaBlock = [
-      formatPageLocalContextPromptBlock(pageCtx),
-      formatIllustrativePersonaPromptBlock(
-        persona,
-        researchAsOf,
-        cityServiceArea
-          ? { pageTitle: cityServiceArea.title, anchor: cityServiceArea.anchor }
-          : undefined,
-      ),
-    ].join("\n\n");
-    cachedOverviewPersonaTeaser = formatOverviewPersonaTeaserBlock(persona.personaName ?? "");
+    if (persona?.illustrativeH2Title?.trim()) {
+      cachedIllustrativePersonaBlock = [
+        formatPageLocalContextPromptBlock(pageCtx),
+        formatIllustrativePersonaPromptBlock(
+          persona,
+          researchAsOf,
+          cityServiceArea
+            ? { pageTitle: cityServiceArea.title, anchor: cityServiceArea.anchor }
+            : undefined,
+        ),
+      ].join("\n\n");
+      cachedOverviewPersonaTeaser = formatOverviewPersonaTeaserBlock(persona.personaName ?? "");
+    } else {
+      cachedIllustrativePersonaBlock = [
+        formatPageLocalContextPromptBlock(pageCtx),
+        [
+          "--- ILLUSTRATIVE EXAMPLE (planner fallback — persona extract unavailable) ---",
+          `target H2: ${illustrativeTitle} (exact — use this checklist title verbatim in <h2>)`,
+          `Connected business: ${companyName}`,
+          "Write the [ILLUSTRATIVE] section from the Answer section and blueprint. One named local homeowner scenario, blockquote story, then site-first recommendation from the connected business. Do not stop the article; complete the full section.",
+          "--- END ILLUSTRATIVE EXAMPLE ---",
+        ].join("\n"),
+      ].join("\n\n");
+      cachedOverviewPersonaTeaser = "";
+      console.warn("[Harness] Using illustrative planner fallback (no DFS/OpenRouter persona JSON)");
+    }
   };
 
   const runBlogHarnessSection = async (
@@ -677,10 +702,10 @@ export async function generateMarkdownContentHarnessed(
     );
     let illustrativePersonaBlock = "";
     if (agentHasIllustrativeFeature(agent)) {
-      if (!cachedIllustrativePersonaBlock) {
-        throw new Error("Harness: illustrative persona must be pre-extracted before [ILLUSTRATIVE] section");
+      illustrativePersonaBlock = cachedIllustrativePersonaBlock ?? "";
+      if (!illustrativePersonaBlock.trim()) {
+        console.warn("[Harness] [ILLUSTRATIVE] section running without persona block; using blueprint only");
       }
-      illustrativePersonaBlock = cachedIllustrativePersonaBlock;
     }
     let userPrompt = buildBulkHarnessSectionUserPrompt(
       blueprint.title || row.title,

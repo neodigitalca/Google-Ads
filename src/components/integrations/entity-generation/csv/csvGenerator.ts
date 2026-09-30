@@ -7,6 +7,7 @@ import { notify } from "@/lib/app-notifications";
 import { NOTIFY_NO_ENTITIES_TO_GENERATE_CSV_FROM, notifyCsvTemplateWithXEntitiesDownloaded } from "@/lib/notify-messages";
 import { stripPipeBrandSuffixFromTitle } from "@/lib/sap-title-pipe-brand";
 import type { WordPressSite } from "../../types";
+import { mergeEntityKeywordWithGsc } from "@/lib/entity/entity-gsc-keywords";
 
 /**
  * Replaces template variables in a string
@@ -36,6 +37,7 @@ export interface CSVGenerationOptions {
   /** Maps to bulk CSV column `modifier` */
   optionalModifier: string;
   featuredImage: string;
+  gscKeywordsByEntity?: Record<string, string[]>;
 }
 
 /**
@@ -58,8 +60,13 @@ export function generateCSVTemplate(
       : entity;
     title = stripPipeBrandSuffixFromTitle(title, site.name);
 
+    const gscForEntity = options.gscKeywordsByEntity?.[entity];
+    const keywordCell = gscForEntity?.length
+      ? mergeEntityKeywordWithGsc(options.keyword, gscForEntity)
+      : options.keyword || "";
+
     return {
-      keyword: options.keyword || '',
+      keyword: keywordCell,
       entity: entity,
       title: title,
       modifier: options.optionalModifier || '',

@@ -72,10 +72,11 @@ describe("resolveBulkWordPressPostTitle", () => {
         focusKeyword: "blinds old naples florida",
         candidates: { csvTitle: "Blinds In Old Naples" },
       }),
-    ).rejects.toThrow(/invalid JSON/);
+    ).resolves.toBe("Blinds In Old Naples");
+    expect(mockCall).toHaveBeenCalledTimes(3);
   });
 
-  it("fails when wordpress_title is empty", async () => {
+  it("falls back when wordpress_title is empty after retries", async () => {
     mockCall.mockResolvedValue({ content: JSON.stringify({ wordpress_title: "   " }) });
 
     await expect(
@@ -84,7 +85,8 @@ describe("resolveBulkWordPressPostTitle", () => {
         focusKeyword: "blinds old naples florida",
         candidates: { csvTitle: "Blinds In Old Naples" },
       }),
-    ).rejects.toThrow(/empty wordpress_title/);
+    ).resolves.toBe("Blinds In Old Naples");
+    expect(mockCall).toHaveBeenCalledTimes(3);
   });
 
   it("returns the full OpenRouter title without truncating", async () => {

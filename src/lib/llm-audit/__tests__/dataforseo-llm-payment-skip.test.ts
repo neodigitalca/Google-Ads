@@ -6,6 +6,7 @@ import {
   isDfsPaymentLatched,
   resetDfsPaymentLatch,
   DFS_LLM_PAYMENT_SKIP,
+  DFS_LLM_UNAVAILABLE_SKIP,
 } from "@/lib/llm-audit/dataforseo-llm-responses-live";
 
 const liveParams = {
@@ -37,6 +38,17 @@ describe("DFS payment latch", () => {
   afterEach(() => {
     resetDfsPaymentLatch();
     vi.unstubAllGlobals();
+  });
+
+  it("returns unavailable skip on HTTP 502 without throwing", async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 502,
+      text: async () => "Bad Gateway",
+    } as Response);
+
+    const result = await dataforseoLlmResponsesLive(liveParams);
+    expect(result).toEqual(DFS_LLM_UNAVAILABLE_SKIP);
   });
 
   it("skips later live calls after the first 402", async () => {

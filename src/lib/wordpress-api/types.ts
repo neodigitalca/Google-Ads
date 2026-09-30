@@ -85,7 +85,7 @@ export interface OptimizationActivityTileStats {
   remaining: number | null;
   countsPeriodAfterIso?: string;
   countsPeriodEndExclusiveIso?: string;
-  countsPeriodMode?: "quarter" | "rolling";
+  countsPeriodMode?: "quarter" | "rolling" | "month";
 }
 
 /** POST /api/wordpress/get-quarter-editorial-counts */
@@ -123,7 +123,7 @@ export interface QuarterEditorialTileStats {
   countsPeriodAfterIso?: string;
   /** WordPress REST `before` (exclusive end); next editorial period starts here (ISO). */
   countsPeriodEndExclusiveIso?: string;
-  countsPeriodMode?: "quarter" | "rolling";
+  countsPeriodMode?: "quarter" | "rolling" | "month";
 }
 
 /** Single row in site inventory JSON (bulk prompt generator). */

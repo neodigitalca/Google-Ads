@@ -1,4 +1,5 @@
 import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
+import { parseJsonWithRepair } from "@/lib/json-repair-utility";
 import { getResearchModel } from "@/lib/optimization-settings-storage";
 import { resolveOpenRouterApiKeyForHarness } from "@/lib/openrouter-api-key-resolve";
 import type { SeoContentBriefV1 } from "@/lib/overview-seo-content-brief";
@@ -135,6 +136,12 @@ function normalizeClassifiedLink(raw: unknown): LlmAuditAuthorityLink | null {
   };
 }
 
+export type LlmAuditClassifierJsonFailure = {
+  rawText: string;
+  error: string;
+  repairSteps: string[];
+};
+
 export function normalizeClassifiedAuthorityLinks(raw: unknown, inputUrls: string[]): LlmAuditAuthorityLink[] {
   if (!raw || typeof raw !== "object") {
     throw new Error("LLM audit authority classifier returned invalid JSON");
@@ -158,19 +165,32 @@ export function normalizeClassifiedAuthorityLinks(raw: unknown, inputUrls: strin
   return out;
 }
 
-function parseClassifierJson(content: string): unknown {
+function parseClassifierJson(
+  content: string,
+  onFailure?: (detail: LlmAuditClassifierJsonFailure) => void,
+): unknown | null {
   const trimmed = content.trim();
   if (!trimmed) {
-    throw new Error("LLM audit authority classifier returned empty content");
+    onFailure?.({ rawText: "", error: "empty content", repairSteps: [] });
+    return null;
   }
-  try {
-    return JSON.parse(trimmed) as unknown;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `LLM audit authority classifier returned invalid JSON (${message}). Preview: ${trimmed.slice(0, 240)}`,
-    );
+  const result = parseJsonWithRepair<unknown>(trimmed, {
+    onParseFailure: onFailure ? "storeRaw" : "throw",
+  });
+  if (result.parsed != null) return result.parsed;
+  if (onFailure) {
+    onFailure({
+      rawText: result.rawText ?? trimmed,
+      error: result.parseError ?? "parse failed",
+      repairSteps: result.repairSteps,
+    });
+    return null;
   }
+  throw new Error(
+    result.parseError
+      ? `LLM audit authority classifier returned invalid JSON (${result.parseError})`
+      : "LLM audit authority classifier returned invalid JSON",
+  );
 }
 
 async function classifyLlmAuditAuthorityLinkBatchOpenRouter(input: {
@@ -179,6 +199,7 @@ async function classifyLlmAuditAuthorityLinkBatchOpenRouter(input: {
   companyName?: string;
   location?: string;
   siteId?: string;
+  onClassifierJsonFailure?: (detail: LlmAuditClassifierJsonFailure) => void;
 }): Promise<LlmAuditAuthorityLink[]> {
   const urls = [...new Set(input.urls.map((u) => u.trim()).filter(Boolean))];
   if (urls.length === 0) return [];
@@ -210,7 +231,8 @@ async function classifyLlmAuditAuthorityLinkBatchOpenRouter(input: {
     },
   });
 
-  const parsed = parseClassifierJson(content);
+  const parsed = parseClassifierJson(content, input.onClassifierJsonFailure);
+  if (parsed == null) return [];
   return normalizeClassifiedAuthorityLinks(parsed, urls);
 }
 
@@ -220,6 +242,7 @@ export async function classifyLlmAuditAuthorityLinksOpenRouter(input: {
   companyName?: string;
   location?: string;
   siteId?: string;
+  onClassifierJsonFailure?: (detail: LlmAuditClassifierJsonFailure) => void;
 }): Promise<LlmAuditAuthorityLink[]> {
   const urls = [...new Set(input.urls.map((u) => u.trim()).filter(Boolean))];
   if (urls.length === 0) return [];
@@ -232,6 +255,7 @@ export async function classifyLlmAuditAuthorityLinksOpenRouter(input: {
     const classified = await classifyLlmAuditAuthorityLinkBatchOpenRouter({
       ...input,
       urls: batch,
+      onClassifierJsonFailure: input.onClassifierJsonFailure,
     });
     for (const link of classified) {
       const key = link.url.trim().toLowerCase();
@@ -253,6 +277,7 @@ export async function resolveLlmAuditAuthorityLinksForChecklist(input: {
   companyName?: string;
   location?: string;
   siteId?: string;
+  onClassifierJsonFailure?: (detail: LlmAuditClassifierJsonFailure) => void;
 }): Promise<LlmAuditAuthorityLink[]> {
   const collected = collectLiveLinksFromBrief(input.brief);
   const filtered = filterOwnSiteLiveLinks(collected, input.siteUrl).slice(
@@ -267,5 +292,6 @@ export async function resolveLlmAuditAuthorityLinksForChecklist(input: {
     companyName: input.companyName,
     location: input.location,
     siteId: input.siteId,
+    onClassifierJsonFailure: input.onClassifierJsonFailure,
   });
 }

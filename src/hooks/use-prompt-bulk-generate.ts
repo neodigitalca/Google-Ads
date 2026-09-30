@@ -26,6 +26,11 @@ import {
 import { aiRejectBrandOrBlockedTexts } from '@/lib/content-brand-ai-gate';
 import { mergePromptBulkIdeaSlots } from '@/lib/bulk/merge-prompt-bulk-idea-slots';
 import { fillPromptBulkIdeaTitlesFromAgent } from '@/lib/bulk/fill-prompt-bulk-idea-titles';
+import {
+  normalizeBulkSitemapScopeTags,
+  type BulkSitemapScopeTag,
+} from '@/lib/bulk/bulk-sitemap-mode';
+import type { BulkSiteSitemapConfig } from '@/components/keyword-research/bulk/BulkGeneratorSitemapMenu';
 
 export interface UsePromptBulkGenerateProps {
   apiKey?: string;
@@ -51,6 +56,8 @@ export interface UsePromptBulkGenerateProps {
   featuredImagePerBlog?: boolean;
   // Connected WordPress site (for target topic)
   connectedSite?: ConnectedSiteSummary;
+  siteConfigs?: Record<string, BulkSiteSitemapConfig>;
+  selectedWordPressSites?: Set<string>;
   // Progress callback for sub-step tracking
   onProgress?: (step: string, progress: number) => void;
   // Keyword analysis results from Content Optimizer module
@@ -78,6 +85,8 @@ export function usePromptBulkGenerate({
   numberList = '',
   featuredImagePerBlog = true,
   connectedSite,
+  siteConfigs,
+  selectedWordPressSites,
   gscExactKeywords = [],
   onProgress,
   keywordAnalysisResults,
@@ -200,9 +209,12 @@ export function usePromptBulkGenerate({
         }
 
         onProgress?.('Loading Posts, Pages, and SAP sitemap inventory…', 10);
+        const siteIdForScope = Array.from(selectedWordPressSites ?? [])[0] ?? wordPressSite.id;
+        const scopeTags = normalizeBulkSitemapScopeTags(siteConfigs?.[siteIdForScope]?.scopeTags);
         const inventory: LoadBulkSitemapInventoryResult = await loadBulkSitemapInventoryForSite(
           wordPressSite,
           (msg) => onProgress?.(msg, 12),
+          scopeTags.length > 0 ? { scopeTags } : undefined,
         );
 
         revokeBulkSitemapInventoryLinks(sitemapLinksRef.current);

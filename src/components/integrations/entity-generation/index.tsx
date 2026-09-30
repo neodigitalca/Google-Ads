@@ -22,6 +22,7 @@ export const EntityGenerationFeature: React.FC<EntityGenerationFeatureProps> = (
     isGeneratingEntities,
     entityGenerationProgress,
     generatedEntities,
+    entityRecordsByKey,
     wikipediaLinks,
     criteriaInfo,
     generalCriteriaInfo,
@@ -103,6 +104,7 @@ export const EntityGenerationFeature: React.FC<EntityGenerationFeatureProps> = (
     : null;
 
   const entities = storageKey ? (generatedEntities[storageKey] || []) : [];
+  const entityRecords = storageKey ? (entityRecordsByKey[storageKey] || []) : [];
   const wikiLinks = storageKey ? (wikipediaLinks[storageKey] || {}) : {};
   const criteria = storageKey ? (criteriaInfo[storageKey] || {}) : {};
   const generalCriteria = storageKey ? (generalCriteriaInfo[storageKey]) : undefined;
@@ -203,6 +205,7 @@ export const EntityGenerationFeature: React.FC<EntityGenerationFeatureProps> = (
         pendingEntitySite={pendingEntitySite || generationContextRef.current.site}
         pendingEntitySitemap={pendingEntitySitemap || generationContextRef.current.sitemap}
         entities={entities}
+        entityRecords={entityRecords}
         initialTitleFormat={csvTitleFormat}
       />
     </>

@@ -6,6 +6,7 @@ import {
   type PromptBulkSitemapInventoryLink,
   type PromptBulkSitemapInventoryResult,
 } from "@/lib/bulk/prompt-bulk-sitemap-inventory";
+import type { BulkSitemapScopeTag } from "@/lib/bulk/bulk-sitemap-mode";
 
 export type BulkSitemapPostsMetadata = {
   id: number;
@@ -51,6 +52,7 @@ function postsMetadataFromInventory(inventory: PromptBulkSitemapInventoryResult)
 export async function loadBulkSitemapInventoryForSite(
   site: WordPressSite,
   onProgress?: (message: string) => void,
+  options?: { scopeTags?: BulkSitemapScopeTag[] },
 ): Promise<LoadBulkSitemapInventoryResult> {
   if (!site.siteUrl?.trim() || !site.username?.trim() || !site.appPassword?.trim()) {
     throw new Error(
@@ -58,6 +60,8 @@ export async function loadBulkSitemapInventoryForSite(
     );
   }
   onProgress?.("Loading Posts, Pages, and SAP sitemap inventory");
-  const inventory = await fetchPromptBulkSitemapInventory(site, onProgress);
+  const inventory = await fetchPromptBulkSitemapInventory(site, onProgress, {
+    scopeTags: options?.scopeTags,
+  });
   return { ...inventory, postsMetadata: postsMetadataFromInventory(inventory) };
 }

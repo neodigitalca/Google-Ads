@@ -2,21 +2,29 @@ import { WorkspacePill } from "@/components/shared/WorkspacePill";
 import { getStoredSites, type WordPressSite } from "@/components/IntegrationsTab";
 import type { ConnectedSiteSummary } from "@/components/integrations/types";
 import type { WordPressPostDestination } from "@/lib/bulk-auto-generate";
-import { defaultBulkSitemapMode, type BulkRowSitemapType, type BulkSitemapMode } from "@/lib/bulk/bulk-sitemap-mode";
+import {
+  defaultBulkSitemapMode,
+  normalizeBulkSitemapScopeTags,
+  type BulkSitemapScopeTag,
+} from "@/lib/bulk/bulk-sitemap-mode";
+
+export type BulkSiteSitemapConfig = {
+  sitemapType: BulkSitemapMode;
+  scopeTags?: BulkSitemapScopeTag[];
+};
 
 export type BulkGeneratorSitemapMenuProps = {
   postDestination: WordPressPostDestination;
   connectedSite?: ConnectedSiteSummary | null;
   selectedWordPressSites: Set<string>;
-  siteConfigs: Record<string, { sitemapType: BulkSitemapMode }>;
+  siteConfigs: Record<string, BulkSiteSitemapConfig>;
   setSiteConfigs: (
     value:
-      | Record<string, { sitemapType: BulkSitemapMode }>
+      | Record<string, BulkSiteSitemapConfig>
       | ((
-          prev: Record<string, { sitemapType: BulkSitemapMode }>,
-        ) => Record<string, { sitemapType: BulkSitemapMode }>),
+          prev: Record<string, BulkSiteSitemapConfig>,
+        ) => Record<string, BulkSiteSitemapConfig>),
   ) => void;
-  onSwitchToCustom?: (defaultRowType: BulkRowSitemapType) => void;
   isDisabled?: boolean;
   /** Keep pills visible when export destination is local (blog import). */
   showWhenLocal?: boolean;
@@ -31,13 +39,18 @@ function resolveTargetSite(connectedSite?: ConnectedSiteSummary | null): WordPre
   return sites.find((s) => normalize(s.siteUrl) === normalize(connectedSite.siteUrl)) ?? null;
 }
 
+const SCOPE_PILLS: Array<{ tag: BulkSitemapScopeTag; label: string }> = [
+  { tag: "pages", label: "Pages" },
+  { tag: "posts", label: "Posts" },
+  { tag: "entities", label: "Entities" },
+];
+
 export function BulkGeneratorSitemapMenu({
   postDestination,
   connectedSite,
   selectedWordPressSites,
   siteConfigs,
   setSiteConfigs,
-  onSwitchToCustom,
   isDisabled = false,
   showWhenLocal = false,
 }: BulkGeneratorSitemapMenuProps) {
@@ -52,49 +65,42 @@ export function BulkGeneratorSitemapMenu({
 
   const selectedId = Array.from(selectedWordPressSites)[0] ?? targetSite.id;
   const entityAvailable = Boolean(targetSite.entitySitemapUrl?.trim());
-  const sitemapType =
-    siteConfigs[selectedId]?.sitemapType ?? defaultBulkSitemapMode();
+  const scopeTags = normalizeBulkSitemapScopeTags(siteConfigs[selectedId]?.scopeTags);
 
-  const setSitemapType = (value: BulkSitemapMode) => {
-    if (isDisabled || value === sitemapType) return;
-    if (value === "custom" && sitemapType !== "custom") {
-      const defaultRowType: BulkRowSitemapType =
-        sitemapType === "entity" ? "entity" : "post";
-      onSwitchToCustom?.(defaultRowType);
-    }
-    setSiteConfigs((prev) => ({
-      ...prev,
-      [selectedId]: {
-        ...prev[selectedId],
-        sitemapType: value,
-      },
-    }));
+  const toggleScopeTag = (tag: BulkSitemapScopeTag) => {
+    if (isDisabled) return;
+    if (tag === "entities" && !entityAvailable) return;
+    setSiteConfigs((prev) => {
+      const current = normalizeBulkSitemapScopeTags(prev[selectedId]?.scopeTags);
+      const next = current.includes(tag)
+        ? current.filter((t) => t !== tag)
+        : [...current, tag];
+      return {
+        ...prev,
+        [selectedId]: {
+          ...prev[selectedId],
+          sitemapType: prev[selectedId]?.sitemapType ?? defaultBulkSitemapMode(),
+          scopeTags: next,
+        },
+      };
+    });
   };
 
   return (
     <div
       className="flex min-w-0 shrink-0 flex-nowrap items-center gap-1"
       role="group"
-      aria-label="Sitemap"
+      aria-label="Sitemap scope"
     >
-      <WorkspacePill
-        label="Posts"
-        active={sitemapType === "post"}
-        disabled={isDisabled}
-        onClick={() => setSitemapType("post")}
-      />
-      <WorkspacePill
-        label="Entity"
-        active={sitemapType === "entity"}
-        disabled={isDisabled || !entityAvailable}
-        onClick={() => setSitemapType("entity")}
-      />
-      <WorkspacePill
-        label="Custom"
-        active={sitemapType === "custom"}
-        disabled={isDisabled || !entityAvailable}
-        onClick={() => setSitemapType("custom")}
-      />
+      {SCOPE_PILLS.map(({ tag, label }) => (
+        <WorkspacePill
+          key={tag}
+          label={label}
+          active={scopeTags.includes(tag)}
+          disabled={isDisabled || (tag === "entities" && !entityAvailable)}
+          onClick={() => toggleScopeTag(tag)}
+        />
+      ))}
     </div>
   );
 }

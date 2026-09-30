@@ -1,7 +1,52 @@
 import type { CSVRow, WordPressPostingOptions } from "@/lib/bulk-auto-generate";
+import type { OverviewSitemapSource } from "@/lib/overview/overview-sitemap-source";
+import type { PromptBulkSitemapInventoryBuckets } from "@/lib/bulk/prompt-bulk-sitemap-inventory";
 
 export type BulkSitemapMode = "post" | "entity" | "custom";
 export type BulkRowSitemapType = "post" | "entity";
+export type BulkSitemapScopeTag = "pages" | "posts" | "entities";
+
+const EMPTY_SCOPE_BUCKET: PromptBulkSitemapInventoryBuckets[OverviewSitemapSource] = {
+  json: "",
+  rowCount: 0,
+};
+
+export function scopeTagToOverviewSource(tag: BulkSitemapScopeTag): OverviewSitemapSource {
+  if (tag === "pages") return "pages";
+  if (tag === "posts") return "posts";
+  return "sap";
+}
+
+export function normalizeBulkSitemapScopeTags(raw: unknown): BulkSitemapScopeTag[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BulkSitemapScopeTag[] = [];
+  for (const item of raw) {
+    const v = String(item).trim().toLowerCase();
+    if (v === "pages" || v === "posts" || v === "entities") {
+      if (!out.includes(v)) out.push(v);
+    }
+  }
+  return out;
+}
+
+/** When scopes are set, include only those inventory buckets (strict — no implicit widening). */
+export function filterPromptBulkSitemapBucketsByScopes(
+  buckets: PromptBulkSitemapInventoryBuckets,
+  scopes: BulkSitemapScopeTag[] | undefined,
+): PromptBulkSitemapInventoryBuckets {
+  const selected = normalizeBulkSitemapScopeTags(scopes ?? []);
+  if (selected.length === 0) return buckets;
+  const allowed = new Set(selected.map(scopeTagToOverviewSource));
+  return {
+    pages: allowed.has("pages") ? buckets.pages : { ...EMPTY_SCOPE_BUCKET },
+    posts: allowed.has("posts") ? buckets.posts : { ...EMPTY_SCOPE_BUCKET },
+    sap: allowed.has("sap") ? buckets.sap : { ...EMPTY_SCOPE_BUCKET },
+  };
+}
+
+export function totalRowsInScopedBuckets(buckets: PromptBulkSitemapInventoryBuckets): number {
+  return buckets.pages.rowCount + buckets.posts.rowCount + buckets.sap.rowCount;
+}
 
 const POST_ALIASES = new Set(["post", "posts", "blog", "blogs"]);
 const ENTITY_ALIASES = new Set(["entity", "entities", "sap", "service-area", "servicearea"]);

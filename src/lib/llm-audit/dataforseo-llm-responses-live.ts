@@ -16,6 +16,9 @@ export type DataForSeoLlmResponsesLiveParams = {
 
 export const DFS_LLM_PAYMENT_SKIP = { skipped: true as const, reason: "dfs_payment" as const };
 
+/** Backend/gateway down or DataForSEO LLM route unavailable — continue bulk without blocking. */
+export const DFS_LLM_UNAVAILABLE_SKIP = { skipped: true as const, reason: "dfs_unavailable" as const };
+
 let dfsPaymentLatched = false;
 
 export function isDfsPaymentLatched(): boolean {
@@ -31,7 +34,29 @@ export function resetDfsPaymentLatch(): void {
 }
 
 export function isDfsLlmPaymentSkip(json: unknown): json is typeof DFS_LLM_PAYMENT_SKIP {
-  return Boolean(json && typeof json === "object" && (json as { skipped?: boolean }).skipped === true);
+  return Boolean(
+    json
+    && typeof json === "object"
+    && (json as { skipped?: boolean; reason?: string }).skipped === true
+    && (json as { reason?: string }).reason === "dfs_payment",
+  );
+}
+
+export function isDfsLlmUnavailableSkip(json: unknown): json is typeof DFS_LLM_UNAVAILABLE_SKIP {
+  return Boolean(
+    json
+    && typeof json === "object"
+    && (json as { skipped?: boolean; reason?: string }).skipped === true
+    && (json as { reason?: string }).reason === "dfs_unavailable",
+  );
+}
+
+export function isDfsLlmSkipped(json: unknown): boolean {
+  return isDfsLlmPaymentSkip(json) || isDfsLlmUnavailableSkip(json);
+}
+
+function isGatewayHttpStatus(status: number): boolean {
+  return status === 502 || status === 503 || status === 504 || status === 524;
 }
 
 export function isDataForSeoPaymentFailure(input: {
@@ -81,14 +106,34 @@ export async function dataforseoLlmResponsesLive(
 ): Promise<unknown> {
   if (dfsPaymentLatched) return DFS_LLM_PAYMENT_SKIP;
 
-  const res = await fetch(backendApiUrl("/dataforseo/llm-responses-live"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
+  let res: Response;
+  try {
+    res = await fetch(backendApiUrl("/dataforseo/llm-responses-live"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+  } catch (err) {
+    console.warn("[DFS LLM] llm-responses-live fetch failed; continuing without ChatGPT facts:", err);
+    return DFS_LLM_UNAVAILABLE_SKIP;
+  }
 
   const text = await res.text();
-  const json = parseJsonOrThrowHtml(text, res.status);
+  if (isGatewayHttpStatus(res.status)) {
+    console.warn(`[DFS LLM] llm-responses-live HTTP ${res.status}; continuing without ChatGPT facts`);
+    return DFS_LLM_UNAVAILABLE_SKIP;
+  }
+
+  let json: unknown;
+  try {
+    json = parseJsonOrThrowHtml(text, res.status);
+  } catch (err) {
+    if (isGatewayHttpStatus(res.status) || !res.ok) {
+      console.warn("[DFS LLM] llm-responses-live non-JSON error body; continuing without ChatGPT facts:", err);
+      return DFS_LLM_UNAVAILABLE_SKIP;
+    }
+    throw err;
+  }
 
   if (isDataForSeoPaymentFailure({ httpStatus: res.status, json })) {
     markDfsPaymentFailed();
@@ -96,11 +141,15 @@ export async function dataforseoLlmResponsesLive(
   }
 
   if (!res.ok) {
+    if (isGatewayHttpStatus(res.status)) {
+      return DFS_LLM_UNAVAILABLE_SKIP;
+    }
     const msg =
       json && typeof json === "object" && "error" in json
         ? String((json as { error: unknown }).error)
         : `HTTP ${res.status}`;
-    throw new Error(msg);
+    console.warn(`[DFS LLM] llm-responses-live error; continuing without ChatGPT facts: ${msg}`);
+    return DFS_LLM_UNAVAILABLE_SKIP;
   }
 
   if (json && typeof json === "object") {

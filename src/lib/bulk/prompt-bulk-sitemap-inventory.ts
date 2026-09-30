@@ -6,6 +6,11 @@ import {
   overviewSitemapSourcesForSite,
   type OverviewSitemapSource,
 } from "@/lib/overview/overview-sitemap-source";
+import {
+  filterPromptBulkSitemapBucketsByScopes,
+  totalRowsInScopedBuckets,
+  type BulkSitemapScopeTag,
+} from "@/lib/bulk/bulk-sitemap-mode";
 import { seedBulkGenerationWpInventoryFromParallel } from "@/lib/bulk/bulk-generation-inventory-cache-store";
 import {
   createPressReleaseInventoryHostedLink,
@@ -108,6 +113,7 @@ export function recreatePromptBulkSitemapInventoryLinks(
 export async function fetchPromptBulkSitemapInventory(
   site: WordPressSite,
   onProgress?: (message: string) => void,
+  options?: { scopeTags?: BulkSitemapScopeTag[] },
 ): Promise<PromptBulkSitemapInventoryResult> {
   const sources = overviewSitemapSourcesForSite(site);
   const buckets = emptyBuckets();
@@ -135,15 +141,22 @@ export async function fetchPromptBulkSitemapInventory(
     links.push(createBucketHostedLink(site.siteUrl, source, urls));
   }
 
-  if (Object.keys(parallel.errors).length > 0 && totalRows === 0) {
+  const scopedBuckets = filterPromptBulkSitemapBucketsByScopes(buckets, options?.scopeTags);
+  const scopedTotal = totalRowsInScopedBuckets(scopedBuckets);
+  const scopedLinks =
+    options?.scopeTags?.length && options.scopeTags.length > 0
+      ? recreatePromptBulkSitemapInventoryLinks(site.siteUrl, scopedBuckets, sources)
+      : links;
+
+  if (Object.keys(parallel.errors).length > 0 && scopedTotal === 0) {
     const errText = Object.values(parallel.errors).filter(Boolean).join(" · ");
     throw new Error(errText || "Could not load WordPress sitemap inventory.");
   }
 
   return {
-    links,
-    buckets,
-    totalRows,
+    links: scopedLinks,
+    buckets: scopedBuckets,
+    totalRows: scopedTotal,
     sources,
     errors: parallel.errors,
   };

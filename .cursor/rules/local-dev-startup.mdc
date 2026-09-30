@@ -21,7 +21,7 @@ Optional:
 
 ```powershell
 npm run start:local -- -OpenBrowser
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local-dev.ps1 -SkipDev
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1 -SkipDev
 ```
 
 ## What it does
@@ -59,4 +59,4 @@ npm run setup:local-wp
 - Point the UI at WP Admin NEO Pulse iframe locally; dev UI is always Vite on port 8080.
 - Ask the user to open Terminal or run startup commands in a visible shell.
 
-Reference: [docs/local-wp-staging-dev.md](../docs/local-wp-staging-dev.md), [scripts/start-local-dev.ps1](../scripts/start-local-dev.ps1)
+Reference: [docs/local-wp-staging-dev.md](../docs/local-wp-staging-dev.md), [scripts/start-local.ps1](../scripts/start-local.ps1)

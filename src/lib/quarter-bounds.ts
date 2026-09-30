@@ -50,6 +50,49 @@ export function defaultLocalCalendarMonthKey(now = new Date()): string {
   return `${y}-${m}`;
 }
 
+/** First day of the next calendar month (local), as `YYYY-MM`. */
+export function getDefaultDashboardEditorialMonthKey(now = new Date()): string {
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return formatLocalCalendarMonthKey(next);
+}
+
+const DASHBOARD_MONTH_PAST_MONTHS = 36;
+const DASHBOARD_MONTH_FUTURE_MONTHS = 12;
+
+/** Property dashboard month pill label, e.g. `M09` for `2026-09`. */
+export function formatDashboardEditorialMonthShort(monthKey: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(monthKey.trim());
+  if (!match) return "M??";
+  return `M${match[2]}`;
+}
+
+/** Recent + upcoming month keys for the property dashboard month selector (includes next month). */
+export function buildDashboardEditorialMonthOptions(now = new Date()): Array<{ key: string; label: string }> {
+  const anchor = new Date(now.getFullYear(), now.getMonth(), 1);
+  const out: Array<{ key: string; label: string }> = [];
+  for (let i = -DASHBOARD_MONTH_PAST_MONTHS; i <= DASHBOARD_MONTH_FUTURE_MONTHS; i++) {
+    const d = new Date(anchor.getFullYear(), anchor.getMonth() + i, 1);
+    const key = formatLocalCalendarMonthKey(d);
+    out.push({ key, label: formatDashboardEditorialMonthShort(key) });
+  }
+  return out;
+}
+
+/** Dashboard property-row counts always use the selected calendar month (`M01` picker). */
+export function resolveEditorialCountsRangeForDashboard(
+  _editorialCountsPeriodStartYmd: string | undefined | null,
+  selectedMonthKey: string,
+  _now: Date,
+): EditorialCountsRange {
+  const month = getLocalCalendarMonthAfterBeforeForMonthKey(selectedMonthKey);
+  return {
+    mode: "month",
+    after: month.after,
+    before: month.before,
+    quarterLabel: month.label,
+  };
+}
+
 export function formatLocalCalendarMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -120,7 +163,7 @@ export function getLocalQuarterStartEnd(
 
 const MS_PER_DAY = 86400000;
 
-export type EditorialCountsRangeMode = "quarter" | "rolling";
+export type EditorialCountsRangeMode = "quarter" | "rolling" | "month";
 
 export interface EditorialCountsRange {
   mode: EditorialCountsRangeMode;

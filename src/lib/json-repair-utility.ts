@@ -338,17 +338,28 @@ export function repairJson(
  * Parse JSON with automatic repair
  * Returns parsed object and repair information
  */
-export function parseJsonWithRepair<T = any>(
-  text: string,
-  options: {
-    targetKeys?: string[];
-    fallback?: T;
-  } = {}
-): {
-  parsed: T;
+export type ParseJsonWithRepairFailureMode = "throw" | "storeRaw";
+
+export type ParseJsonWithRepairOptions<T = unknown> = {
+  targetKeys?: string[];
+  fallback?: T;
+  /** When `storeRaw`, failed parse returns full `rawText` and `parsed: null` instead of throwing. */
+  onParseFailure?: ParseJsonWithRepairFailureMode;
+};
+
+export type ParseJsonWithRepairResult<T = unknown> = {
+  parsed: T | null;
   usedRepair: boolean;
   repairSteps: string[];
-} {
+  /** Full cleaned input when `onParseFailure === "storeRaw"` and parse failed. */
+  rawText?: string;
+  parseError?: string;
+};
+
+export function parseJsonWithRepair<T = any>(
+  text: string,
+  options: ParseJsonWithRepairOptions<T> = {},
+): ParseJsonWithRepairResult<T> {
   // Clean markdown code blocks first
   let cleaned = text.trim();
   if (cleaned.startsWith("```json")) {
@@ -378,24 +389,33 @@ export function parseJsonWithRepair<T = any>(
       repairSteps: repairResult.repairSteps,
     };
   } catch (finalError) {
-    // If repair failed, log and return fallback or throw
+    const parseError =
+      finalError instanceof Error ? finalError.message : String(finalError);
     console.error("[JSON Repair] All repair attempts failed:", {
       originalError: finalError,
       repairSteps: repairResult.repairSteps,
       repairedLength: repairResult.repaired.length,
-      repairedPreview: repairResult.repaired.substring(0, 200),
+      inputLength: cleaned.length,
     });
+
+    if (options.onParseFailure === "storeRaw") {
+      return {
+        parsed: null,
+        usedRepair: repairResult.repairSteps.length > 0,
+        repairSteps: repairResult.repairSteps,
+        rawText: cleaned,
+        parseError,
+      };
+    }
 
     if (options.fallback !== undefined) {
       return {
-        parsed: options.fallback,
+        parsed: options.fallback as T,
         usedRepair: false,
         repairSteps: repairResult.repairSteps,
       };
     }
 
-    throw new Error(
-      `Failed to parse JSON after repair attempts: ${finalError instanceof Error ? finalError.message : String(finalError)}`
-    );
+    throw new Error(`Failed to parse JSON after repair attempts: ${parseError}`);
   }
 }

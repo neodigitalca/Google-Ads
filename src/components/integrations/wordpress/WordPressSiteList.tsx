@@ -4,7 +4,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { CompactWordPressTile } from "./CompactWordPressTile";
 import type { WordPressSite } from "../types";
-import { getEditorialCountsRange, parseQuarterLabelToQuarterYear } from "@/lib/quarter-bounds";
+import {
+  formatDashboardEditorialMonthShort,
+  getEditorialCountsRange,
+  getLocalCalendarMonthAfterBeforeForMonthKey,
+  parseQuarterLabelToQuarterYear,
+  resolveEditorialCountsRangeForDashboard,
+} from "@/lib/quarter-bounds";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { OptimizationActivityTileStats, QuarterEditorialTileStats } from "@/lib/wordpress-api/types";
 import { OPTIMIZATION_TILE_COUNTS_ENABLED } from "@/lib/wordpress-optimization-tile-counts";
 import { optimizationPeriodCapForPackage } from "@/lib/wordpress-optimization-package";
@@ -60,11 +73,16 @@ function optimizationStatsForSite(
 function quarterStatsForSite(
   site: WordPressSite,
   quarterStatsBySite: Record<string, QuarterEditorialTileStats> | undefined,
+  selectedMonthKey: string,
 ): QuarterEditorialTileStats | undefined {
   if (!siteHasWpCredentials(site)) return undefined;
   const found = quarterStatsBySite?.[site.id];
   if (found) return found;
-  const range = getEditorialCountsRange(site.editorialCountsPeriodStartYmd, new Date());
+  const range = resolveEditorialCountsRangeForDashboard(
+    site.editorialCountsPeriodStartYmd,
+    selectedMonthKey,
+    new Date(),
+  );
   const sitemapDisabled = isEntitySitemapDisabled(site);
   const entityUrlActive = sitemapDisabled ? "" : site.entitySitemapUrl?.trim() ?? "";
   return {
@@ -97,7 +115,7 @@ function propertyMetricCellWidths(rowDisplay: WordPressPropertyRowDisplay) {
   const c = rowDisplay === "compact";
   return {
     opt: c ? "min-w-[6.5rem] w-[6.5rem]" : "min-w-[7rem] w-[7rem]",
-    q: c ? "min-w-[2.5rem] w-[2.5rem]" : "min-w-[3rem] w-[3rem]",
+    q: c ? "min-w-[4rem] w-[4rem]" : "min-w-[4.5rem] w-[4.5rem]",
     posts: c ? "min-w-[3.75rem] w-[3.75rem]" : "min-w-[4.25rem] w-[4.25rem]",
     ent: c ? "min-w-[3.75rem] w-[3.75rem]" : "min-w-[4.25rem] w-[4.25rem]",
   };
@@ -117,7 +135,7 @@ function quarterPairTotalForStrip(
 }
 
 function formatQuarterCountCell(n: number | null, loading: boolean): string {
-  void loading;
+  if (loading && (n === null || !Number.isFinite(n))) return "—";
   if (typeof n === "number" && Number.isFinite(n)) return String(n);
   return "0";
 }
@@ -142,16 +160,31 @@ function QuarterEditorialCountsStrip({
   site,
   stats,
   rowDisplay = "compact",
+  selectedMonthKey,
+  monthOptions,
+  onMonthChange,
 }: {
   site: WordPressSite;
   stats: QuarterEditorialTileStats | undefined;
   rowDisplay?: WordPressPropertyRowDisplay;
+  selectedMonthKey?: string;
+  monthOptions?: Array<{ key: string; label: string }>;
+  onMonthChange?: (monthKey: string) => void;
 }) {
   if (!siteHasWpCredentials(site) || !stats) return null;
 
   const hasManualEndpoint = Boolean(site.manualEndpoint?.trim());
+  const entitySitemapUrlActive = isEntitySitemapDisabled(site)
+    ? ""
+    : site.entitySitemapUrl?.trim() ?? "";
   const sitemapDisabled = isEntitySitemapDisabled(site) && !hasManualEndpoint;
-  const showEntityCount = !sitemapDisabled && stats.entityConfigured && stats.entityCountsAvailable;
+  const entityTrackingConfigured = Boolean(hasManualEndpoint || entitySitemapUrlActive);
+  const entityCountsPending =
+    stats.loading && stats.entityConfigured && !stats.entityCountsAvailable;
+  const showEntityCount =
+    !sitemapDisabled &&
+    entityTrackingConfigured &&
+    (stats.entityCountsAvailable || entityCountsPending);
 
   const postsDisplayLoading =
     stats.loading && (stats.postsLive === null || stats.postsScheduled === null);
@@ -161,11 +194,16 @@ function QuarterEditorialCountsStrip({
     stats.postsScheduled,
     postsDisplayLoading,
   );
+  const entityDisplayLoading =
+    entityCountsPending ||
+    (stats.loading && (stats.entityLive === null || stats.entityScheduled === null));
   const entitiesTotal = showEntityCount
-    ? quarterPairTotalForStrip(stats.entityLive, stats.entityScheduled, loading)
+    ? quarterPairTotalForStrip(stats.entityLive, stats.entityScheduled, entityDisplayLoading)
     : null;
-  const parsed = parseQuarterLabelToQuarterYear(stats.quarterLabel.trim());
-  const qShort = parsed ? `Q${parsed.quarter}` : stats.quarterLabel.replace(/\s+\d{4}\b/, "").trim();
+  const showMonthSelect = Boolean(monthOptions?.length && selectedMonthKey && onMonthChange);
+  const monthShort = selectedMonthKey
+    ? formatDashboardEditorialMonthShort(selectedMonthKey)
+    : "M??";
 
   const compact = rowDisplay === "compact";
   const mw = propertyMetricCellWidths(rowDisplay);
@@ -237,10 +275,12 @@ function QuarterEditorialCountsStrip({
       title={stripSummaryTitle}
       onClick={stop}
       onPointerDown={stop}
-      aria-label={`Entities in period: ${formatQuarterCountCell(entitiesTotal, loading)}`}
+      aria-label={`Entities in period: ${formatQuarterCountCell(entitiesTotal, entityDisplayLoading)}`}
     >
       <MapPin className={entityIconClass} aria-hidden />
-      <span className={entityCountClass}>{formatQuarterCountCell(entitiesTotal, loading)}</span>
+      <span className={entityCountClass}>
+        {formatQuarterCountCell(entitiesTotal, entityDisplayLoading)}
+      </span>
     </div>
   ) : (
     <div
@@ -266,12 +306,43 @@ function QuarterEditorialCountsStrip({
   return (
     <>
       <div
-        className={cn(metricCell, mw.q, "text-green-400")}
+        className={cn(metricCell, mw.q, "text-green-400", showMonthSelect && "!p-0")}
         title={stripSummaryTitle}
         onClick={stop}
         onPointerDown={stop}
       >
-        <span className={cn("font-medium tabular-nums", compact ? "text-sm" : "text-base")}>{qShort}</span>
+        {showMonthSelect ? (
+          <Select value={selectedMonthKey} onValueChange={onMonthChange}>
+            <SelectTrigger
+              className={cn(
+                "h-8 min-h-8 w-full justify-between gap-0 border-0 bg-transparent px-1.5 py-0 text-green-100 shadow-none",
+                "focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0",
+                compact ? "text-sm sm:h-9 sm:min-h-9" : "h-9 min-h-9 text-base",
+                "[&>span]:line-clamp-none [&>span]:whitespace-nowrap [&>span]:tabular-nums",
+                "[&>svg]:h-3 [&>svg]:w-3 [&>svg]:shrink-0 [&>svg]:text-green-400/80",
+              )}
+              aria-label={`Editorial counts month ${monthShort}`}
+              title={stats.quarterLabel}
+            >
+              <SelectValue>{monthShort}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {monthOptions!.map((opt) => (
+                <SelectItem
+                  key={opt.key}
+                  value={opt.key}
+                  title={getLocalCalendarMonthAfterBeforeForMonthKey(opt.key).label}
+                >
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <span className={cn("font-medium tabular-nums", compact ? "text-sm" : "text-base")}>
+            {monthShort}
+          </span>
+        )}
       </div>
       {postsFramed}
       {entityFramed}
@@ -361,6 +432,9 @@ interface WordPressSiteListProps {
   onPatchSite?: (siteId: string, patch: Partial<WordPressSite>) => void;
   quarterStatsBySite?: Record<string, QuarterEditorialTileStats>;
   optimizationStatsBySite?: Record<string, OptimizationActivityTileStats>;
+  editorialSelectedMonthKey?: string;
+  editorialMonthOptions?: Array<{ key: string; label: string }>;
+  onEditorialMonthChange?: (monthKey: string) => void;
   /** Visual density for property rows only (local preference). */
   propertyRowDisplay?: WordPressPropertyRowDisplay;
 }
@@ -400,6 +474,9 @@ export const WordPressSiteList: React.FC<WordPressSiteListProps> = ({
   onPatchSite,
   quarterStatsBySite,
   optimizationStatsBySite,
+  editorialSelectedMonthKey,
+  editorialMonthOptions,
+  onEditorialMonthChange,
   propertyRowDisplay = "compact",
 }) => {
   const renderPropertyRowTrailingControls = (site: WordPressSite) => {
@@ -408,9 +485,9 @@ export const WordPressSiteList: React.FC<WordPressSiteListProps> = ({
     const metricCell = propertyMetricCellClass(compact);
     const stop = (e: React.SyntheticEvent) => e.stopPropagation();
     return (
-    <div className="flex min-w-0 shrink-0 items-center gap-1">
+    <div className="flex min-w-0 shrink-0 items-stretch">
       <div
-        className={PROPERTY_METRICS_CLUSTER_CLASS}
+        className={cn(PROPERTY_METRICS_CLUSTER_CLASS, "min-w-0")}
         onClick={stop}
         onPointerDown={stop}
       >
@@ -425,8 +502,15 @@ export const WordPressSiteList: React.FC<WordPressSiteListProps> = ({
         ) : null}
         <QuarterEditorialCountsStrip
           site={site}
-          stats={quarterStatsForSite(site, quarterStatsBySite)}
+          stats={quarterStatsForSite(
+            site,
+            quarterStatsBySite,
+            editorialSelectedMonthKey ?? "",
+          )}
           rowDisplay={propertyRowDisplay}
+          selectedMonthKey={editorialSelectedMonthKey}
+          monthOptions={editorialMonthOptions}
+          onMonthChange={onEditorialMonthChange}
         />
       </div>
     </div>

@@ -10,6 +10,10 @@ import { loadApiKey } from "@/lib/api";
 import { suggestWikipediaCategoriesForPrompt } from "@/lib/entity/suggest-wikipedia-categories";
 import type { WikipediaSource } from "@/lib/entity/decide-wikipedia-source-ai";
 import { generateEntities } from "../generation/entityGenerator";
+import {
+  fetchGscKeywordPoolForEntitySitemap,
+  gscKeywordsForEntity,
+} from "@/lib/entity/entity-gsc-keywords";
 import type { ServiceAreaOrigin } from "@/lib/entity/radius-filter";
 import type { WordPressSite } from "../../types";
 import type { EntityWithCriteria, CriteriaData, RadiusDistancePreset } from "../types";
@@ -23,6 +27,7 @@ export interface UseEntityGenerationReturn {
   isGeneratingEntities: Record<string, boolean>;
   entityGenerationProgress: Record<string, EntityGenerationProgress>;
   generatedEntities: Record<string, string[]>;
+  entityRecordsByKey: Record<string, EntityWithCriteria[]>;
   wikipediaLinks: Record<string, Record<string, string>>;
   criteriaInfo: Record<string, Record<string, CriteriaData>>;
   generalCriteriaInfo: Record<string, string>;
@@ -72,6 +77,7 @@ export function useEntityGeneration(
   const [wikiCategorySuggestions, setWikiCategorySuggestions] = useState<WikipediaSource[]>([]);
   const [wikiCategorySuggestionsLoading, setWikiCategorySuggestionsLoading] = useState(false);
   const [entityRadiusPreset, setEntityRadiusPreset] = useState<RadiusDistancePreset>("off");
+  const [entityRecordsByKey, setEntityRecordsByKey] = useState<Record<string, EntityWithCriteria[]>>({});
   const [serviceAreaOriginByKey, setServiceAreaOriginByKey] = useState<Record<string, ServiceAreaOrigin>>({});
   const suggestAbortRef = useRef<AbortController | null>(null);
   const distanceOriginOverrideRef = useRef<string | null>(null);
@@ -138,6 +144,11 @@ export function useEntityGeneration(
       delete updated[storageKey];
       return updated;
     });
+    setEntityRecordsByKey((prev) => {
+      const updated = { ...prev };
+      delete updated[storageKey];
+      return updated;
+    });
     setServiceAreaOriginByKey((prev) => {
       const u = { ...prev };
       delete u[storageKey];
@@ -187,6 +198,25 @@ export function useEntityGeneration(
     setEntityGenerationProgress(prev => ({ ...prev, [generatingKey]: { currentMessage: '', stepLog: [] } }));
 
     try {
+      let gscPool: string[] = [];
+      try {
+        gscPool = await fetchGscKeywordPoolForEntitySitemap(site, entitySitemapUrl);
+        if (gscPool.length > 0) {
+          setEntityGenerationProgress((prev) => ({
+            ...prev,
+            [generatingKey]: {
+              currentMessage: `Loaded ${gscPool.length} GSC keywords for entity enrichment`,
+              stepLog: [
+                ...(prev[generatingKey]?.stepLog ?? []),
+                `Loaded ${gscPool.length} GSC keywords for entity enrichment`,
+              ],
+            },
+          }));
+        }
+      } catch {
+        /* non-blocking */
+      }
+
       const result = await generateEntities(
         {
           site,
@@ -222,11 +252,17 @@ export function useEntityGeneration(
         }
       );
 
+      const entitiesWithGsc = result.entities.map((e) => ({
+        ...e,
+        gscKeywords: gscPool.length ? gscKeywordsForEntity(e.entity, gscPool) : [],
+      }));
+
       // Store results
       setGeneratedEntities(prev => ({
         ...prev,
-        [storageKey]: result.entities.map(e => e.entity)
+        [storageKey]: entitiesWithGsc.map(e => e.entity)
       }));
+      setEntityRecordsByKey((prev) => ({ ...prev, [storageKey]: entitiesWithGsc }));
 
       setWikipediaLinks(prev => ({
         ...prev,
@@ -260,7 +296,7 @@ export function useEntityGeneration(
       }
 
       notify.success(notifyGeneratedXEntities(result.entities.length));
-      onEntityGenerated?.(storageKey, result.entities, result.suggestedTitleFormat);
+      onEntityGenerated?.(storageKey, entitiesWithGsc, result.suggestedTitleFormat);
     } catch (error) {
       console.error('[Entity Generation] Error generating entities:', error);
       
@@ -284,6 +320,7 @@ export function useEntityGeneration(
     isGeneratingEntities,
     entityGenerationProgress,
     generatedEntities,
+    entityRecordsByKey,
     wikipediaLinks,
     criteriaInfo,
     generalCriteriaInfo,

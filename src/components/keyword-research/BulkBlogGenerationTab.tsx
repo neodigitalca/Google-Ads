@@ -281,7 +281,6 @@ export function BulkBlogGenerationTab({
         selectedWordPressSites={bulkBindings.selectedWordPressSites}
         siteConfigs={bulkBindings.siteConfigs}
         setSiteConfigs={bulkBindings.setSiteConfigs}
-        onSwitchToCustom={bulkBindings.onSwitchToCustom}
         isDisabled={workspaceBusy}
         showWhenLocal={isBlogImport}
       />

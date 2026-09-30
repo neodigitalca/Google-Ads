@@ -18,10 +18,8 @@ export type SapGeneratorWorkspaceHeaderProps = {
   isProcessing: boolean;
   csvParsing: boolean;
   uploadLabel: string;
-  entityAdGroupCountInput: string;
-  onEntityAdGroupCountInputChange: (v: string) => void;
-  entityAdsPerGroupInput: string;
-  onEntityAdsPerGroupInputChange: (v: string) => void;
+  entityTotalCountInput: string;
+  onEntityTotalCountInputChange: (v: string) => void;
   suggestFocusKeyword: string;
   onSuggestFocusKeywordChange: (v: string) => void;
   suggestFocusLocation: string;
@@ -46,6 +44,7 @@ export type SapGeneratorWorkspaceHeaderProps = {
   showBlindMagicKeywords?: boolean;
   useBlindMagicKeywords?: boolean;
   onUseBlindMagicKeywordsChange?: (v: boolean) => void;
+  onApplyRemainingEntityCount: () => void;
 };
 
 export function SapGeneratorWorkspaceHeader({
@@ -59,10 +58,8 @@ export function SapGeneratorWorkspaceHeader({
   isProcessing,
   csvParsing,
   uploadLabel,
-  entityAdGroupCountInput,
-  onEntityAdGroupCountInputChange,
-  entityAdsPerGroupInput,
-  onEntityAdsPerGroupInputChange,
+  entityTotalCountInput,
+  onEntityTotalCountInputChange,
   suggestFocusKeyword,
   onSuggestFocusKeywordChange,
   suggestFocusLocation,
@@ -82,6 +79,7 @@ export function SapGeneratorWorkspaceHeader({
   showBlindMagicKeywords = false,
   useBlindMagicKeywords = false,
   onUseBlindMagicKeywordsChange,
+  onApplyRemainingEntityCount,
 }: SapGeneratorWorkspaceHeaderProps) {
   const showTempUrl =
     workspace.mode === "temp" || (!workspace.showConnectedToggle && workspace.mode !== "connected");
@@ -104,10 +102,8 @@ export function SapGeneratorWorkspaceHeader({
           workspaceBusy={workspaceBusy}
           csvParsing={csvParsing}
           uploadLabel={uploadLabel}
-          entityAdGroupCountInput={entityAdGroupCountInput}
-          onEntityAdGroupCountInputChange={onEntityAdGroupCountInputChange}
-          entityAdsPerGroupInput={entityAdsPerGroupInput}
-          onEntityAdsPerGroupInputChange={onEntityAdsPerGroupInputChange}
+          entityTotalCountInput={entityTotalCountInput}
+          onEntityTotalCountInputChange={onEntityTotalCountInputChange}
           suggestFocusKeyword={suggestFocusKeyword}
           onSuggestFocusKeywordChange={onSuggestFocusKeywordChange}
           suggestFocusLocation={suggestFocusLocation}
@@ -127,6 +123,7 @@ export function SapGeneratorWorkspaceHeader({
           showBlindMagicKeywords={showBlindMagicKeywords}
           useBlindMagicKeywords={useBlindMagicKeywords}
           onUseBlindMagicKeywordsChange={onUseBlindMagicKeywordsChange}
+          onApplyRemainingEntityCount={onApplyRemainingEntityCount}
         />
       }
       detailsPanel={

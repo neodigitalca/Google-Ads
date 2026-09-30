@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatDashboardEditorialMonthShort,
   formatQuarterLabel,
+  getDefaultDashboardEditorialMonthKey,
   getEditorialCountsRange,
   getLocalDayKey,
+  getLocalCalendarMonthAfterBeforeForMonthKey,
   getLocalQuarterAfterBefore,
   getLocalQuarterStartEnd,
   parseQuarterLabelToQuarterYear,
   parseLocalYmdToMidnight,
+  resolveEditorialCountsRangeForDashboard,
   staggerPublishDatesAcrossQuarter,
   staggerPublishDatesAcrossRange,
 } from "../quarter-bounds";
@@ -149,5 +153,20 @@ describe("staggerPublishDatesAcrossQuarter", () => {
     expect(dates[2]).toBe("2026-03-31");
     expect(dates[0] <= dates[1]).toBe(true);
     expect(dates[1] <= dates[2]).toBe(true);
+  });
+});
+
+describe("dashboard editorial month default", () => {
+  it("defaults to next calendar month", () => {
+    const now = new Date(2026, 8, 15);
+    expect(getDefaultDashboardEditorialMonthKey(now)).toBe("2026-10");
+    const range = resolveEditorialCountsRangeForDashboard(undefined, "2026-10", now);
+    expect(range.mode).toBe("month");
+    expect(range.quarterLabel).toBe(getLocalCalendarMonthAfterBeforeForMonthKey("2026-10").label);
+  });
+
+  it("formats dashboard month pill as M01", () => {
+    expect(formatDashboardEditorialMonthShort("2026-01")).toBe("M01");
+    expect(formatDashboardEditorialMonthShort("2026-10")).toBe("M10");
   });
 });

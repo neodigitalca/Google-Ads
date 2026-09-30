@@ -21,7 +21,7 @@ const SECRET_BASENAMES = new Set([
 const BLOCKED_PATH_PATTERNS = [
   /^wordpress-plugins\/\.deploy\/.*\.zip$/i,
   /^wordpress-plugins\/.*\.zip$/i,
-  /^\.env(\.|$)/,
+  /^\.env(?!.*\.example$)(\.|$)/,
   /-credentials.*\.json$/i,
   /\.credentials\.json$/i,
   /neo-pulse-wpengine\.config\.json$/i,
@@ -56,7 +56,7 @@ function isBlockedPath(file) {
   const norm = file.replace(/\\/g, "/");
   const base = basename(norm);
   if (SECRET_BASENAMES.has(base)) return `secret filename (${base})`;
-  if (base.startsWith(".env")) return "env file";
+  if (base.startsWith(".env") && !base.endsWith(".example")) return "env file";
   for (const re of BLOCKED_PATH_PATTERNS) {
     if (re.test(norm)) return `blocked path pattern (${re})`;
   }
@@ -64,6 +64,9 @@ function isBlockedPath(file) {
 }
 
 function scanContent(file) {
+  const norm = file.replace(/\\/g, "/");
+  if (/\/vendor\//.test(norm)) return [];
+
   let stat;
   try {
     stat = statSync(file);

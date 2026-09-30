@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { WordPressSite } from "@/components/integrations/types";
-import { getEditorialCountsRange, getLocalDayKey, type EditorialCountsRange } from "@/lib/quarter-bounds";
+import {
+  buildDashboardEditorialMonthOptions,
+  getDefaultDashboardEditorialMonthKey,
+  resolveEditorialCountsRangeForDashboard,
+  getLocalDayKey,
+  type EditorialCountsRange,
+} from "@/lib/quarter-bounds";
 import { isEntitySitemapDisabled } from "@/lib/entity-endpoint-extractor";
 import { fetchQuarterEditorialCounts } from "@/lib/wordpress-api/post-quarter-counts";
 import type { QuarterEditorialCountsResult, QuarterEditorialTileStats } from "@/lib/wordpress-api/types";
@@ -168,9 +174,14 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
   dayKey: string;
   refreshAllQuarterCounts: () => Promise<void>;
   isRefreshingAllQuarterCounts: boolean;
+  selectedMonthKey: string;
+  setSelectedMonthKey: (monthKey: string) => void;
+  monthOptions: Array<{ key: string; label: string }>;
 } {
   const [tick, setTick] = useState(0);
   const [isRefreshingAllQuarterCounts, setIsRefreshingAllQuarterCounts] = useState(false);
+  const [selectedMonthKey, setSelectedMonthKey] = useState(() => getDefaultDashboardEditorialMonthKey());
+  const monthOptions = useMemo(() => buildDashboardEditorialMonthOptions(new Date()), [tick]);
 
   const dayKey = useMemo(() => {
     void tick;
@@ -213,7 +224,34 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  const [bySiteId, setBySiteId] = useState<Record<string, QuarterEditorialTileStats>>({});
+  const bootstrapBySiteFromCache = useCallback(
+    (list: WordPressSite[], monthKey: string): Record<string, QuarterEditorialTileStats> => {
+      const out: Record<string, QuarterEditorialTileStats> = {};
+      const now = new Date();
+      for (const s of list) {
+        const range = resolveEditorialCountsRangeForDashboard(
+          s.editorialCountsPeriodStartYmd,
+          monthKey,
+          now,
+        );
+        const cached = readCache(s.id, range.after, range.before);
+        if (cached) {
+          out[s.id] = {
+            loading: false,
+            ...resultToTilePartial(cached, range),
+          };
+        }
+      }
+      return out;
+    },
+    [],
+  );
+
+  const [bySiteId, setBySiteId] = useState<Record<string, QuarterEditorialTileStats>>(() => {
+    const initialMonth = getDefaultDashboardEditorialMonthKey();
+    const list = sites.filter(siteHasCredentials);
+    return bootstrapBySiteFromCache(list, initialMonth);
+  });
   const sitesRef = useRef(sites);
   sitesRef.current = sites;
 
@@ -221,8 +259,18 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
     .map((s) => `${s.id}:${s.editorialCountsPeriodStartYmd?.trim() ?? ""}`)
     .join(",");
 
+  const resolveRange = useCallback(
+    (site: WordPressSite, now: Date) =>
+      resolveEditorialCountsRangeForDashboard(
+        site.editorialCountsPeriodStartYmd,
+        selectedMonthKey,
+        now,
+      ),
+    [selectedMonthKey],
+  );
+
   const fetchQuarterFromNetwork = useCallback(async (site: WordPressSite) => {
-    const range = getEditorialCountsRange(site.editorialCountsPeriodStartYmd, new Date());
+    const range = resolveRange(site, new Date());
     const entitySitemapUrlForFetch = isEntitySitemapDisabled(site) ? undefined : site.entitySitemapUrl;
 
     try {
@@ -327,17 +375,18 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
         };
       });
     }
-  }, []);
+  }, [resolveRange]);
 
   const runFetch = useCallback(async () => {
     void tick;
     void sitesKey;
+    void selectedMonthKey;
     const list = sitesRef.current.filter(siteHasCredentials);
 
     setBySiteId((prev) => {
       const next: Record<string, QuarterEditorialTileStats> = { ...prev };
       for (const s of list) {
-        const range = getEditorialCountsRange(s.editorialCountsPeriodStartYmd, new Date());
+        const range = resolveRange(s, new Date());
         const cached = readCache(s.id, range.after, range.before);
         if (cached) {
           next[s.id] = {
@@ -363,16 +412,8 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
       return next;
     });
 
-    await Promise.all(
-      list.map(async (site) => {
-        const range = getEditorialCountsRange(site.editorialCountsPeriodStartYmd, new Date());
-        if (readCache(site.id, range.after, range.before)) {
-          return;
-        }
-        await fetchQuarterFromNetwork(site);
-      }),
-    );
-  }, [tick, sitesKey, fetchQuarterFromNetwork]);
+    await Promise.all(list.map((site) => fetchQuarterFromNetwork(site)));
+  }, [tick, sitesKey, selectedMonthKey, resolveRange, fetchQuarterFromNetwork]);
 
   useEffect(() => {
     void runFetch();
@@ -384,13 +425,13 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
       return;
     }
     for (const site of list) {
-      const range = getEditorialCountsRange(site.editorialCountsPeriodStartYmd, new Date());
+      const range = resolveRange(site, new Date());
       clearSiteCacheForRange(site.id, range.after, range.before);
     }
     setBySiteId((prev) => {
       const next: Record<string, QuarterEditorialTileStats> = { ...prev };
       for (const s of list) {
-        const range = getEditorialCountsRange(s.editorialCountsPeriodStartYmd, new Date());
+        const range = resolveRange(s, new Date());
         const old = prev[s.id];
         if (shouldPreserveQuarterTileDuringRefresh(old, range)) {
           next[s.id] = {
@@ -416,12 +457,15 @@ export function useQuarterEditorialCounts(sites: WordPressSite[]): {
     } finally {
       setIsRefreshingAllQuarterCounts(false);
     }
-  }, [fetchQuarterFromNetwork]);
+  }, [fetchQuarterFromNetwork, resolveRange]);
 
   return {
     bySiteId,
     dayKey,
     refreshAllQuarterCounts,
     isRefreshingAllQuarterCounts,
+    selectedMonthKey,
+    setSelectedMonthKey,
+    monthOptions,
   };
 }

@@ -89,6 +89,9 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
     bySiteId: quarterStatsBySite,
     refreshAllQuarterCounts,
     isRefreshingAllQuarterCounts,
+    selectedMonthKey: editorialSelectedMonthKey,
+    setSelectedMonthKey: setEditorialSelectedMonthKey,
+    monthOptions: editorialMonthOptions,
   } = useQuarterEditorialCounts(sites);
 
   const {
@@ -742,6 +745,9 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
         onPatchSite={handlePatchSite}
         quarterStatsBySite={quarterStatsBySite}
         optimizationStatsBySite={optimizationStatsBySite}
+        editorialSelectedMonthKey={editorialSelectedMonthKey}
+        editorialMonthOptions={editorialMonthOptions}
+        onEditorialMonthChange={setEditorialSelectedMonthKey}
         propertyRowDisplay="compact"
       />
       </div>

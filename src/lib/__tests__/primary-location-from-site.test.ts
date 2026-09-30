@@ -1,43 +1,31 @@
 import { describe, expect, it } from "vitest";
 import type { WordPressSite } from "@/components/integrations/types";
-import {
-  getPrimaryCityStateLabel,
-  resolveEntityClusterLocationLabel,
-} from "@/lib/primary-location-from-site";
-
-function siteWithCity(city: string, state: string): WordPressSite {
-  return {
-    id: "lindsey",
-    name: "Lindsey Blinds",
-    siteUrl: "https://example.com",
-    username: "",
-    appPassword: "",
-    connectedAt: Date.now(),
-    locations: [
-      {
-        id: "loc-1",
-        name: "Main",
-        address: "100 8 Ave SW",
-        city,
-        state,
-        zip: "T2P 1B2",
-        phone: "",
-        isDefault: true,
-      },
-    ],
-  } as WordPressSite;
-}
+import { resolveEntityClusterLocationLabel } from "@/lib/primary-location-from-site";
 
 describe("resolveEntityClusterLocationLabel", () => {
-  it("uses the Location field when it is filled", () => {
-    const site = siteWithCity("Calgary", "AB");
-    expect(resolveEntityClusterLocationLabel(site, "Airdrie, AB")).toBe("Airdrie, AB");
+  it("prefers the Location field over Integrations", () => {
+    const site = {
+      id: "1",
+      name: "Test",
+      siteUrl: "https://example.com",
+      username: "",
+      appPassword: "",
+      connectedAt: 0,
+      napInfo: { address: "Calgary, AB" },
+    } satisfies WordPressSite;
+    expect(resolveEntityClusterLocationLabel(site, "Winkler, MB")).toBe("Winkler, MB");
   });
 
-  it("uses the profile city when the Location field is empty", () => {
-    const site = siteWithCity("Calgary", "AB");
-    expect(getPrimaryCityStateLabel(site)).toBe("Calgary, AB");
-    expect(resolveEntityClusterLocationLabel(site, "")).toBe("Calgary, AB");
-    expect(resolveEntityClusterLocationLabel(site, "   ")).toBe("Calgary, AB");
+  it("uses NAP address when Location is empty and locations have no city", () => {
+    const site = {
+      id: "1",
+      name: "Test",
+      siteUrl: "https://example.com",
+      username: "",
+      appPassword: "",
+      connectedAt: 0,
+      napInfo: { address: "123 Main St, Edmonton, AB" },
+    } satisfies WordPressSite;
+    expect(resolveEntityClusterLocationLabel(site, "")).toBe("Edmonton, AB");
   });
 });

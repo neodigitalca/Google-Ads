@@ -23,6 +23,7 @@ import { generateAITitleSuggestion } from "../csv/titleSuggestion";
 import { generateCSVTemplate, replaceTemplateVariables } from "../csv/csvGenerator";
 import { CYBERPUNK_CLASSES } from "../../wordpress/cyberpunk-theme";
 import type { WordPressSite } from "../../types";
+import type { EntityWithCriteria } from "../../types";
 
 interface CSVTemplateDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface CSVTemplateDialogProps {
   pendingEntitySite: WordPressSite | null;
   pendingEntitySitemap: string | null;
   entities: string[];
+  entityRecords?: EntityWithCriteria[];
   initialTitleFormat?: string;
 }
 
@@ -46,6 +48,7 @@ export const CSVTemplateDialog: React.FC<CSVTemplateDialogProps> = ({
   pendingEntitySite,
   pendingEntitySitemap,
   entities,
+  entityRecords = [],
   initialTitleFormat = ""
 }) => {
   const [csvTitleFormat, setCsvTitleFormat] = useState<string>(initialTitleFormat);
@@ -87,11 +90,19 @@ export const CSVTemplateDialog: React.FC<CSVTemplateDialogProps> = ({
       return;
     }
 
+    const gscKeywordsByEntity: Record<string, string[]> = {};
+    for (const rec of entityRecords) {
+      if (rec.gscKeywords?.length) {
+        gscKeywordsByEntity[rec.entity] = rec.gscKeywords;
+      }
+    }
+
     generateCSVTemplate(entities, pendingEntitySite, {
       titleFormat: csvTitleFormat,
       keyword: csvKeyword,
       optionalModifier: csvOptionalModifier,
-      featuredImage: csvFeaturedImage
+      featuredImage: csvFeaturedImage,
+      gscKeywordsByEntity,
     });
 
     onOpenChange(false);

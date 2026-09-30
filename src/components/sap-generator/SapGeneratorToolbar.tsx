@@ -9,14 +9,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { GeneratorToolbarFrame } from "@/components/blog-generator/GeneratorToolbarFrame";
-import { GeneratorToolbarOptionsFlyout } from "@/components/blog-generator/GeneratorToolbarOptionsFlyout";
 import {
   GENERATOR_EXPORT_BTN,
+  GENERATOR_FIELD_COUNT,
   GENERATOR_FIELD_KEYWORD,
   GENERATOR_FIELD_URL,
-  GENERATOR_NESTED_LABEL,
-  GENERATOR_NESTED_NUM_INPUT,
-  GENERATOR_NESTED_SHELL,
   GENERATOR_SELECT,
 } from "@/components/blog-generator/generator-toolbar-theme";
 import {
@@ -29,61 +26,15 @@ import {
   entityTypesForLevel,
   type EntityGeographicLevel,
 } from "@/lib/entity-geographic-level";
-import {
-  normalizeEntityCountInputChange,
-  stepEntityCountInput,
-} from "@/lib/local-analysis/entity-ad-group-budget";
+import { normalizeEntityCountInputChange } from "@/lib/local-analysis/entity-ad-group-budget";
 import { cn } from "@/lib/utils";
-
-function EntityToolbarCountField({
-  label,
-  inputId,
-  value,
-  disabled,
-  ariaLabel,
-  onChange,
-}: {
-  label: string;
-  inputId: string;
-  value: string;
-  disabled?: boolean;
-  ariaLabel: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className={GENERATOR_NESTED_SHELL}>
-      <label htmlFor={inputId} className={GENERATOR_NESTED_LABEL}>
-        {label}
-      </label>
-      <input
-        id={inputId}
-        type="number"
-        min={1}
-        step={1}
-        autoComplete="off"
-        value={value}
-        disabled={disabled}
-        className={GENERATOR_NESTED_NUM_INPUT}
-        aria-label={ariaLabel}
-        onChange={(e) => onChange(normalizeEntityCountInputChange(e.target.value))}
-        onKeyDown={(e) => {
-          if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-          e.preventDefault();
-          onChange(stepEntityCountInput(value, e.key === "ArrowUp" ? 1 : -1));
-        }}
-      />
-    </div>
-  );
-}
 
 export type SapGeneratorToolbarProps = {
   workspaceBusy: boolean;
   csvParsing: boolean;
   uploadLabel: string;
-  entityAdGroupCountInput: string;
-  onEntityAdGroupCountInputChange: (v: string) => void;
-  entityAdsPerGroupInput: string;
-  onEntityAdsPerGroupInputChange: (v: string) => void;
+  entityTotalCountInput: string;
+  onEntityTotalCountInputChange: (v: string) => void;
   suggestFocusKeyword: string;
   onSuggestFocusKeywordChange: (v: string) => void;
   suggestFocusLocation: string;
@@ -103,16 +54,15 @@ export type SapGeneratorToolbarProps = {
   showBlindMagicKeywords?: boolean;
   useBlindMagicKeywords?: boolean;
   onUseBlindMagicKeywordsChange?: (v: boolean) => void;
+  onApplyRemainingEntityCount: () => void;
 };
 
 export function SapGeneratorToolbar({
   workspaceBusy,
   csvParsing,
   uploadLabel,
-  entityAdGroupCountInput,
-  onEntityAdGroupCountInputChange,
-  entityAdsPerGroupInput,
-  onEntityAdsPerGroupInputChange,
+  entityTotalCountInput,
+  onEntityTotalCountInputChange,
   suggestFocusKeyword,
   onSuggestFocusKeywordChange,
   suggestFocusLocation,
@@ -132,6 +82,7 @@ export function SapGeneratorToolbar({
   showBlindMagicKeywords = false,
   useBlindMagicKeywords = false,
   onUseBlindMagicKeywordsChange,
+  onApplyRemainingEntityCount,
 }: SapGeneratorToolbarProps) {
   const focusSelectValue =
     entityTypeFocus.find((t) => entityTypesForLevel(entityGeographicLevel).includes(t)) ?? "__none__";
@@ -198,26 +149,32 @@ export function SapGeneratorToolbar({
             autoComplete="off"
             aria-label="Location"
           />
-          <GeneratorToolbarOptionsFlyout disabled={workspaceBusy} label="Budget">
-            <div className="space-y-3">
-              <EntityToolbarCountField
-                label="Ad groups"
-                inputId="sap-toolbar-ad-groups"
-                value={entityAdGroupCountInput}
-                disabled={runLoading}
-                ariaLabel="Ad groups"
-                onChange={onEntityAdGroupCountInputChange}
-              />
-              <EntityToolbarCountField
-                label="Ads"
-                inputId="sap-toolbar-ads"
-                value={entityAdsPerGroupInput}
-                disabled={runLoading}
-                ariaLabel="Ads per ad group"
-                onChange={onEntityAdsPerGroupInputChange}
-              />
-            </div>
-          </GeneratorToolbarOptionsFlyout>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={cn(BULK_HEADER_TOOL_BTN, "h-8 w-8 shrink-0 p-0")}
+            disabled={workspaceBusy || runLoading}
+            aria-label="Apply remaining entity count for this period"
+            title="No grid: fills Location from site city if empty. Sets entity count to 15 minus published this period (manual, no AI)."
+            onClick={onApplyRemainingEntityCount}
+          >
+            <Wand2 className="h-4 w-4 shrink-0" strokeWidth={2} aria-hidden />
+          </Button>
+          <Input
+            type="text"
+            inputMode="numeric"
+            placeholder=""
+            value={entityTotalCountInput}
+            onChange={(e) =>
+              onEntityTotalCountInputChange(normalizeEntityCountInputChange(e.target.value))
+            }
+            className={GENERATOR_FIELD_COUNT}
+            disabled={runLoading}
+            autoComplete="off"
+            aria-label="Entity count"
+            maxLength={3}
+          />
         </>
       }
       options={

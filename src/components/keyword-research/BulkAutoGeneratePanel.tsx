@@ -119,7 +119,7 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
   );
   
   // Blog generation settings
-  const [numberOfBlogs, setNumberOfBlogs] = useState<number>(3);
+  const [numberOfBlogs, setNumberOfBlogs] = useState<number>(1);
   const [optionalPrompt, setOptionalPrompt] = useState<string>('');
   const [featuredImagePerBlog, setFeaturedImagePerBlog] = useState<boolean>(true);
   const [featuredImageType, setFeaturedImageType] = useState<'ai-generated' | 'google-maps'>('ai-generated');
@@ -133,9 +133,9 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
   
   // WordPress posting options - Multiple sites support
   const [selectedWordPressSites, setSelectedWordPressSites] = useState<Set<string>>(new Set());
-  const [siteConfigs, setSiteConfigs] = useState<Record<string, {
-    sitemapType: BulkSitemapMode;
-  }>>({});
+  const [siteConfigs, setSiteConfigs] = useState<
+    Record<string, import("@/components/keyword-research/bulk/BulkGeneratorSitemapMenu").BulkSiteSitemapConfig>
+  >({});
   const [scheduleFrequency, setScheduleFrequency] = useState<ScheduleFrequency>('daily');
   const [customInterval, setCustomInterval] = useState<number>(1);
   /** Permutation: processing slot i uses base row at index rowOrder[i]. */
@@ -366,6 +366,8 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
     optionalPrompt,
     featuredImagePerBlog,
     connectedSite: connectedSite || undefined,
+    siteConfigs,
+    selectedWordPressSites,
   });
 
   const prevForcedInputModeRef = useRef(forcedInputMode);

@@ -3,6 +3,7 @@ import type { WordPressPostingOptions } from "@/lib/bulk-auto-generate";
 import type { WordPressSite } from "@/components/IntegrationsTab";
 import {
   applyRowSitemapToPosting,
+  filterPromptBulkSitemapBucketsByScopes,
   inferBulkSitemapModeFromRows,
   parseBulkRowSitemapCell,
   pickSitemapTypeFromRow,
@@ -147,5 +148,24 @@ describe("seedCustomRowSitemaps", () => {
     );
     expect(rows[0]?.sitemap_type).toBe("post");
     expect(rows[1]?.sitemap_type).toBe("entity");
+  });
+});
+
+describe("filterPromptBulkSitemapBucketsByScopes", () => {
+  const buckets = {
+    pages: { json: "pages", rowCount: 2 },
+    posts: { json: "posts", rowCount: 3 },
+    sap: { json: "sap", rowCount: 4 },
+  };
+
+  it("returns all buckets when no scopes are selected", () => {
+    expect(filterPromptBulkSitemapBucketsByScopes(buckets, [])).toEqual(buckets);
+  });
+
+  it("strictly filters to selected scopes only", () => {
+    const filtered = filterPromptBulkSitemapBucketsByScopes(buckets, ["pages"]);
+    expect(filtered.pages.rowCount).toBe(2);
+    expect(filtered.posts.rowCount).toBe(0);
+    expect(filtered.sap.rowCount).toBe(0);
   });
 });

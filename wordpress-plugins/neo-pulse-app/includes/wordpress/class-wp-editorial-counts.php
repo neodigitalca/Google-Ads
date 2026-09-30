@@ -208,7 +208,6 @@ class Neo_Pulse_App_Wp_Editorial_Counts {
 
 	/**
 	 * @param array<string,mixed> $ctx Request context.
-	 * @param string              $collection REST collection.
 	 * @param string              $status Post status.
 	 * @return array<string,mixed>
 	 */

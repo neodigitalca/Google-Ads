@@ -21,6 +21,17 @@ export function restCollectionEndpointForSubtype(subtype: string | undefined): s
   return subtype ?? "posts";
 }
 
+/** Normalize inventory / binding subtype to WP REST post type slug. */
+export function normalizeOverviewBindingSubtype(subtype: string | undefined, rowPostType?: string): string {
+  const fromRow = (rowPostType ?? "").trim().toLowerCase();
+  if (fromRow === "page" || fromRow === "pages") return "page";
+  if (fromRow === "post" || fromRow === "posts") return "post";
+  const s = (subtype ?? "post").trim().toLowerCase();
+  if (s === "pages") return "page";
+  if (s === "posts") return "post";
+  return subtype?.trim() || "post";
+}
+
 export type OverviewBulkSeoApiItem = {
   postId: number;
   postType: string;
@@ -449,7 +460,7 @@ export function overviewBindingForRow(
   const postId = row.postId;
   if (postId != null && Number.isFinite(postId) && postId > 0) {
     const fromMap = findOverviewBindingByPostId(bindings, postId);
-    const subtype = (fromMap?.subtype ?? row.postType ?? "post").trim() || "post";
+    const subtype = normalizeOverviewBindingSubtype(fromMap?.subtype, row.postType);
     return {
       postId,
       subtype,

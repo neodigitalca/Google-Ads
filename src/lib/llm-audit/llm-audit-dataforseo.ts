@@ -4,6 +4,7 @@ import {
   dataforseoLlmResponsesLive,
   isDataForSeoPaymentFailure,
   isDfsLlmPaymentSkip,
+  isDfsLlmSkipped,
   isDfsPaymentLatched,
 } from "@/lib/llm-audit/dataforseo-llm-responses-live";
 import {
@@ -127,11 +128,21 @@ export async function fetchChatGptCompanyAuthority(input: {
   const cfg = chatGptPlatformConfig();
   const callLlm = input.callLlm ?? dataforseoLlmResponsesLive;
   const task = buildChatGptCompanyAuthorityTask(input);
-  const dfsJson = await callLlm({
-    platform: "chat_gpt",
-    ...task,
-  } as Parameters<typeof dataforseoLlmResponsesLive>[0]);
-  if (isDfsLlmPaymentSkip(dfsJson) || isDataForSeoPaymentFailure({ json: dfsJson })) {
+  let dfsJson: unknown;
+  try {
+    dfsJson = await callLlm({
+      platform: "chat_gpt",
+      ...task,
+    } as Parameters<typeof dataforseoLlmResponsesLive>[0]);
+  } catch {
+    return {
+      platform: "chat_gpt",
+      label: cfg.label,
+      model_name: cfg.model_name,
+      status: "error",
+    };
+  }
+  if (isDfsLlmSkipped(dfsJson) || isDataForSeoPaymentFailure({ json: dfsJson })) {
     return {
       platform: "chat_gpt",
       label: cfg.label,
@@ -141,7 +152,13 @@ export async function fetchChatGptCompanyAuthority(input: {
   }
   const result = extractLlmAuditPlatformResult("chat_gpt", cfg.label, cfg.model_name, dfsJson);
   if (result.status !== "ok" || !result.responseText?.trim()) {
-    throw new Error(result.error || "ChatGPT company-authority lookup returned no text");
+    return {
+      platform: "chat_gpt",
+      label: cfg.label,
+      model_name: cfg.model_name,
+      status: "error",
+      error: result.error || "ChatGPT company-authority lookup returned no text",
+    };
   }
   return result;
 }
@@ -315,7 +332,7 @@ export async function fetchLlmAuditParallel(
         web_search_city: typeof task.web_search_city === "string" ? task.web_search_city : undefined,
         max_output_tokens: 2048,
       });
-      if (isDfsLlmPaymentSkip(dfsJson) || isDataForSeoPaymentFailure({ json: dfsJson })) {
+      if (isDfsLlmSkipped(dfsJson) || isDataForSeoPaymentFailure({ json: dfsJson })) {
         platforms.push({
           platform: cfg.platform,
           label: cfg.label,

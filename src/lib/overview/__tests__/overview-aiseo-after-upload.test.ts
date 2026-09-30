@@ -103,6 +103,27 @@ describe("uploadOverviewAiseoRowToWordPress", () => {
     expect(updateWordPressPost.mock.calls[0]?.[5]).toContain("Cost Factors");
   });
 
+  it("uploads WordPress pages via the pages REST endpoint", async () => {
+    const row = createEmptyOverviewRow("https://kwbllp.com/about/");
+    row.postContentOptimized = "<h2>About</h2><p>Page body.</p>";
+    row.aiMeta = "About us meta";
+    const result = await uploadOverviewAiseoRowToWordPress({
+      site,
+      row,
+      bindings: { "https://kwbllp.com/about/": { postId: 99, subtype: "page" } },
+      getInventoryMatchForUrl: () => ({
+        row: { id: 99, date_gmt: null, fields: {} },
+        subtype: "page",
+      }),
+    });
+    expect(result.ok).toBe(true);
+    expect(updateWordPressPost).toHaveBeenCalledTimes(1);
+    const endpointArg = updateWordPressPost.mock.calls[0]?.[13];
+    expect(endpointArg).toBe("pages");
+    const postTypeArg = updateWordPressPost.mock.calls[0]?.[8];
+    expect(postTypeArg).toBe("page");
+  });
+
   it("skips when no post id", async () => {
     const row = createEmptyOverviewRow("https://kwbllp.com/tariffs/");
     const result = await uploadOverviewAiseoRowToWordPress({
