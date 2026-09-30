@@ -1,0 +1,42 @@
+import type { WordPressSite } from "@/components/integrations/types";
+import type { AgentRun, AgentRunRecipeKey, AgentRunResult, AgentRunResumePoint } from "@/lib/agent-runs-types";
+
+export type AgentRunHarnessContext = {
+  onStep?: (
+    label: string,
+    status?: "pending" | "running" | "done" | "error",
+    resumePayload?: Record<string, unknown>,
+    stepKey?: string,
+  ) => Promise<void>;
+  isCancelled?: () => Promise<boolean>;
+  resumePoint?: AgentRunResumePoint | null;
+  isResume?: boolean;
+  /** All connected WordPress sites. Agent client lookup uses this, not the header active site. */
+  sites?: WordPressSite[];
+};
+
+export type AgentRunHarnessHandler = (
+  run: AgentRun,
+  ctx: AgentRunHarnessContext,
+) => Promise<AgentRunResult>;
+
+const handlers = new Map<AgentRunRecipeKey | string, AgentRunHarnessHandler>();
+
+export function registerAgentRunHarness(recipeKey: AgentRunRecipeKey | string, handler: AgentRunHarnessHandler): void {
+  handlers.set(recipeKey, handler);
+}
+
+export function unregisterAgentRunHarness(recipeKey: AgentRunRecipeKey | string): void {
+  handlers.delete(recipeKey);
+}
+
+export async function runAgentRunHarness(
+  run: AgentRun,
+  ctx: AgentRunHarnessContext,
+): Promise<AgentRunResult> {
+  const handler = handlers.get(run.recipeKey);
+  if (!handler) {
+    throw new Error(`No client harness registered for ${run.recipeTitle || run.recipeKey}. Open the related workspace tab.`);
+  }
+  return handler(run, ctx);
+}

@@ -1,0 +1,100 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+android/local.properties
+*.local
+.env
+.env.local
+.env.*.local
+.env.localdominator
+.env.residential-proxy
+.localdominator-session.json
+
+# WP Engine deploy config (contains credentials)
+wordpress-plugins/flowbie-wpengine.config.json
+wordpress-plugins/Customer List/SFTP Users_Clients List.csv
+
+# Local credential overrides (never commit)
+gsc-config.local.js
+*-credentials*.json
+*.credentials.json
+
+# Generated WP plugin credentials (may contain keys)
+wordpress-plugins/flowbie-wp/.env
+wordpress-plugins/flowbie-wp/includes/flowbie-wp-secrets.php
+wordpress-plugins/flowbie-wp/includes/flowbie-wp-gsc-config.php
+wordpress-plugins/flowbie-app/includes/flowbie-app-secrets.php
+wordpress-plugins/neo-pulse-app/includes/neo-pulse-app-secrets.php
+wordpress-plugins/neo-pulse-wp/includes/neo-pulse-wp-gsc-config.php
+wordpress-plugins/neo-pulse-wp/includes/credentials/
+
+# Deploy build artifacts (may embed local secrets)
+wordpress-plugins/.deploy/*.zip
+wordpress-plugins/*.zip
+
+# Local WP Staging paths (machine-specific)
+scripts/local-wp-staging.config.json
+
+# Report date range (AI agents read this; per-user local state)
+REPORT_DATE_RANGE.md
+
+# Local agent temp dumps, audits, and one-off probes (never commit)
+.cursor-tmp*
+.cursor-tmp-*
+.tmp-*
+tmp-api-out.txt
+.cursor-chrome-audit/
+.cursor-kwb-patch/
+.cursor-chrome-console-audit.json
+.chatgpt-audit-session.json
+.cursor/chrome-console-audit.json
+scripts/.cursor-tmp*
+test-output/
+vite.config.ts.timestamp-*.mjs
+marketing/**/*.zip
+
+# Deploy one-off dumps and tokens (scripts may be committed; dumps stay local)
+wordpress-plugins/.deploy/**/flush-token*.txt
+wordpress-plugins/.deploy/*.generated.php
+wordpress-plugins/.deploy/neodigital-toc-pull/
+wordpress-plugins/.deploy/neodigital-faq-head/
+wordpress-plugins/.deploy/neodigital-title-sync/
+wordpress-plugins/.deploy/novamira-1.12.2/
+wordpress-plugins/.deploy/flowbie-novamira-creds.json
+wordpress-plugins/.deploy/neodigital-novamira-creds.json
+wordpress-plugins/.deploy/neodigital-novamira-activate-once.generated.php
+wordpress-plugins/.deploy/novamira-1.12.2.zip
+wordpress-plugins/.deploy/novamira-1.12.4/
+wordpress-plugins/.deploy/flowbie-homepage-*.json
+wordpress-plugins/.deploy/verify-flowbie-novamira.mjs
+wordpress-plugins/.deploy/verify-flowbie-elementor-draft.mjs
+wordpress-plugins/.deploy/run-flowbie-homepage-draft.mjs
+
+# Template client migrate job files (may include local paths)
+var/template-client-migrate/
+
+# Nested clones
+pulse/
+
+# Windows reserved-name junk file sometimes created in repo root
+NUL
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

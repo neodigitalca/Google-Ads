@@ -1,0 +1,177 @@
+import { describe, expect, it } from "vitest";
+import type { AgentConfig } from "@/types/agent-config";
+import { BLOG_HARNESS_SUMMARY_AGENT_ID } from "@/lib/bulk/blog-harness-summary-agent";
+import type { BulkHarnessOutlineSection } from "@/lib/bulk/bulk-harness-outline";
+import {
+  extractBodyAnchorsFromHarnessPieces,
+  buildHarnessSectionAnchorMap,
+  formatHarnessInPageAnchorBlock,
+  headingTitleToHarnessAnchorId,
+  HARNESS_OVERVIEW_ANCHOR_ID,
+  injectHarnessSectionH2AnchorId,
+  enforceHarnessSectionHeadingTitle,
+  resolveHarnessSectionInjectAnchorId,
+} from "@/lib/bulk/harness-section-anchor-ids";
+
+function outlineRow(
+  index: number,
+  title: string,
+  agentId = `agent-${index}`,
+): BulkHarnessOutlineSection {
+  const agent: AgentConfig = {
+    id: agentId,
+    step: index + 1,
+    title,
+    description: "",
+    features: [],
+    headingLevel: 1,
+  };
+  return {
+    index,
+    title,
+    displayTitle: title,
+    description: "",
+    headingLevel: 1,
+    isFaq: false,
+    agent,
+  };
+}
+
+describe("headingTitleToHarnessAnchorId", () => {
+  it("slugifies titles with punctuation", () => {
+    expect(headingTitleToHarnessAnchorId("What Does a Solar Installer Do? Roles and Responsibilities")).toBe(
+      "what-does-a-solar-installer-do-roles-and-responsibilities",
+    );
+  });
+
+  it("strips simple HTML from titles", () => {
+    expect(headingTitleToHarnessAnchorId("<strong>Safety First</strong>: Key Tips")).toBe(
+      "safety-first-key-tips",
+    );
+  });
+});
+
+describe("buildHarnessSectionAnchorMap", () => {
+  it("skips Overview / summary agent and dedupes similar titles", () => {
+    const outline = [
+      outlineRow(0, "Overview", BLOG_HARNESS_SUMMARY_AGENT_ID),
+      outlineRow(1, "Cost Guide"),
+      outlineRow(2, "Cost Guide!"),
+      outlineRow(3, "Safety First"),
+    ];
+    const map = buildHarnessSectionAnchorMap(outline);
+    expect(map).toHaveLength(3);
+    expect(map[0]?.anchorId).toBe("cost-guide");
+    expect(map[1]?.anchorId).toBe("cost-guide-2");
+    expect(map[2]?.anchorId).toBe("safety-first");
+    expect(map.every((e) => e.sectionIndex > 0)).toBe(true);
+  });
+});
+
+describe("enforceHarnessSectionHeadingTitle", () => {
+  it("replaces paraphrased h2 text with harness display title", () => {
+    const html =
+      '<h2 id="bc-pst-expansion-2026-key-updates-for-businesses">2026 BC PST Expansion: Business Rules</h2><p>Body.</p>';
+    const out = enforceHarnessSectionHeadingTitle(
+      html,
+      "BC PST Expansion 2026: Key Updates for Businesses",
+    );
+    expect(out).toContain(
+      "<h2 id=\"bc-pst-expansion-2026-key-updates-for-businesses\">BC PST Expansion 2026: Key Updates for Businesses</h2>",
+    );
+    expect(out).not.toContain("Business Rules");
+  });
+});
+
+describe("injectHarnessSectionH2AnchorId", () => {
+  it("adds id on the first h2", () => {
+    const html = "<h2>Overview</h2>\n<p>Lead.</p>";
+    expect(injectHarnessSectionH2AnchorId(html, HARNESS_OVERVIEW_ANCHOR_ID)).toBe(
+      '<h2 id="overview">Overview</h2>\n<p>Lead.</p>',
+    );
+  });
+
+  it("replaces an existing id on the first h2", () => {
+    const html = '<h2 class="wp-block-heading" id="old">Body</h2><p>x</p>';
+    expect(injectHarnessSectionH2AnchorId(html, "body-section")).toBe(
+      '<h2 class="wp-block-heading" id="body-section">Body</h2><p>x</p>',
+    );
+  });
+});
+
+describe("resolveHarnessSectionInjectAnchorId", () => {
+  it("uses overview id only when overviewSection is set", () => {
+    const map = buildHarnessSectionAnchorMap([
+      outlineRow(0, "Overview", BLOG_HARNESS_SUMMARY_AGENT_ID),
+      outlineRow(1, "Hiring Tips"),
+    ]);
+    expect(resolveHarnessSectionInjectAnchorId(0, map, { overviewSection: true })).toBe(
+      HARNESS_OVERVIEW_ANCHOR_ID,
+    );
+    expect(resolveHarnessSectionInjectAnchorId(1, map)).toBe("hiring-tips");
+  });
+
+  it("uses map entry for body index 0 when overview is generated last", () => {
+    const bodyOnly = buildHarnessSectionAnchorMap([outlineRow(0, "Hiring Tips")]);
+    expect(resolveHarnessSectionInjectAnchorId(0, bodyOnly)).toBe("hiring-tips");
+  });
+});
+
+describe("extractBodyAnchorsFromHarnessPieces", () => {
+  it("reads id and title from each body piece", () => {
+    const pieces = [
+      '<h2 id="cost-guide">Cost Guide</h2><p>Body.</p>',
+      '<h2 id="safety-first">Safety First</h2><p>More.</p>',
+    ];
+    const anchors = extractBodyAnchorsFromHarnessPieces(pieces);
+    expect(anchors).toEqual([
+      { sectionIndex: 0, displayTitle: "Cost Guide", anchorId: "cost-guide" },
+      { sectionIndex: 1, displayTitle: "Safety First", anchorId: "safety-first" },
+    ]);
+  });
+});
+
+describe("formatHarnessInPageAnchorBlock", () => {
+  it("lists numbered bullets and mandatory 1:1 mapping", () => {
+    const block = formatHarnessInPageAnchorBlock([
+      { sectionIndex: 1, displayTitle: "Hiring Tips", anchorId: "hiring-tips" },
+      { sectionIndex: 2, displayTitle: "Cost Guide", anchorId: "cost-guide" },
+    ]);
+    expect(block).toContain("exactly 2 Overview bullets");
+    expect(block).toContain("Bullet 1 → #hiring-tips");
+    expect(block).toContain("Bullet 2 → #cost-guide");
+    expect(block).toContain("Hiring Tips");
+    expect(block).toContain("IN-PAGE SECTION ANCHORS");
+    expect(block).toContain("CLICK-TO-SCROLL ONLY");
+    expect(block).toContain("NON-NEGOTIABLE");
+    expect(block).toContain("2–4 word");
+    expect(block).toContain("Do not skip any anchor");
+  });
+
+  it("contextOnly mode instructs contextual scroll-link ul", () => {
+    const block = formatHarnessInPageAnchorBlock(
+      [{ sectionIndex: 0, displayTitle: "Hiring Tips", anchorId: "hiring-tips" }],
+      { contextOnly: true },
+    );
+    expect(block).toContain("contextual <ul>");
+    expect(block).toContain("see … below");
+    expect(block).toContain("#hiring-tips");
+  });
+
+  it("tags illustrative section for Real-World Example Overview bullet", () => {
+    const block = formatHarnessInPageAnchorBlock(
+      [
+        {
+          sectionIndex: 0,
+          displayTitle: "Choosing Panels",
+          anchorId: "choosing-panels",
+          isIllustrative: true,
+        },
+      ],
+      { contextOnly: true },
+    );
+    expect(block).toContain("ILLUSTRATIVE");
+    expect(block).toContain("Real-World Example");
+    expect(block).toContain("#choosing-panels");
+  });
+});

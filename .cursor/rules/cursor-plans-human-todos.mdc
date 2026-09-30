@@ -1,0 +1,77 @@
+---
+description: Cursor plan files: human todos, no em dashes, no fallbacks, minimal regex, agentic-first
+globs: .cursor/plans/**/*.md
+alwaysApply: false
+---
+
+# Cursor plans (`.cursor/plans/`): quality bar
+
+Use this when **creating or editing** Markdown plans under `.cursor/plans/`. Plans are execution briefs for humans and agents, not placeholders.
+
+**Imperative:** Every plan must include **Must-have strategies** and **Files and line counts** per [`plans-must-have-strategies.mdc`](plans-must-have-strategies.mdc). In-chat plans follow the same rule.
+
+## Must-have strategies and line counts
+
+- Include the **Must-have strategies** section with plan-specific "How this plan applies" bullets for: Logic, Occam's razor, Server-side only, Minimal stacking / zero CLS, No fallbacks, No workarounds / prompt-level fix, Flat inline forms, Background shell, AI first (pattern matching), Murphy's Law check, and Harness UI (when relevant).
+- When LLM/agents are in scope, include a separate **Prompt-level strategy** subsection (see [`no-workarounds-prompt-level-fix.mdc`](no-workarounds-prompt-level-fix.mdc)).
+- Include the **Files and line counts** table for every touched file (current approx, after approx, action).
+- End todos with the mandatory **Final review** step (last item, always).
+- **Complete todos:** include install, npm scripts, tests, and post-change verification as explicit lines when needed; the **agent runs them**, never the user by default.
+- Do not ship a plan missing any of the above.
+
+## Todos and task lists
+
+- Todos must be **simple, scannable, and human-readable**. You should read the full list in seconds with no decoding.
+- **Nothing omitted:** if the task needs `npm install`, tests, build, migrations, or a verify script, those are **todo lines**, not assumptions.
+- **Agent executes:** run every command and check in the plan yourself in **background Shell** (shell visible OFF). Do not ask "should I run tests?" or "want me to install?" Do not open a visible terminal for the user.
+- **Plain language first:** say what happens in everyday words. Save file paths, types, and implementation detail for the **Files and line counts** table and plan body—not the todo line.
+- **No super technical jargon** in todo lines (avoid leading with `zod`, `hydrate`, `DTO`, `middleware`, `refactor X module`, internal codenames). If a path is needed, one backticked file after the plain-English action is enough.
+- Include an explicit **Todos** or **Implementation tasks** section: each line stands alone as a clear instruction and enough context to know when it is done.
+- **Final todo (mandatory):** the **last** item in every todo list must be the **Final review** step from [`plans-must-have-strategies.mdc`](plans-must-have-strategies.mdc).
+- Prefer **verb-led** short lines (e.g. "Add a check when the date field is empty") over cryptic labels ("fix validation", "wire API", "cleanup").
+- **No telegraphic one-word todos** unless the surrounding bullet already defines scope; avoid duplicate rows that only differ by file name without a distinct action.
+- If order matters, use **numbered** steps; otherwise use `- [ ]` checklists.
+- Where useful, add **acceptance criteria** per item or a short **Definition of done** subsection (also in plain language).
+
+## Depth
+
+- Plans should be **in depth enough to execute without guesswork**: problem or goal, constraints, main areas of the codebase (paths or components), risks, and how to verify (tests, manual checks, or metrics).
+- Include **dependencies** between tasks when skipping a step would break the next (e.g. schema before UI, or feature flag before rollout).
+- Avoid empty boilerplate sections; if a section is not needed, omit it instead of leaving a heading with no content.
+
+## No fallbacks (in plans and in what they prescribe)
+
+- Plans must **not** prescribe **silent fallbacks**: defaulting to stale data, swallowing errors, "try X then quietly use Y," or masking failures to keep the UI happy.
+- Prefer **one explicit contract**: validate inputs, fail fast with structured errors, or a single documented recovery path that is visible in UX or logs (same idea as harness rules: no hidden behavior).
+- If a plan mentions error handling, state **what the user or operator sees** and **what gets logged or returned**, not vague "handle gracefully."
+
+## Minimal regex; agentic first
+
+- Prefer **structured data, parsers, schemas, and explicit branches** over regex when describing implementation. If the plan mentions matching or extraction, default to **minimal regex** (only where there is no better API or type-safe path).
+- **Agentic first** for the overall approach: use agents, tools, retrieval, or clear multi-step logic where the product already does; do not specify brittle regex-heavy pipelines when an agent or tool call can ground the answer.
+- Plans should not center on large regex as the main strategy for understanding or transforming content.
+
+## Punctuation and style
+
+- Do **not** use the em dash character (U+2014). Prefer a comma, a period and a new sentence, parentheses, or a hyphen for short joins (same standard as project copy rules).
+- Prefer plain, direct language over filler. Do not pad with vague "ensure quality" lines without specifics.
+
+## Examples
+
+```markdown
+## Todos
+
+- [ ] Show a clear error when the API rate-limits us, and retry once
+- [ ] Add a test for the rate-limit case
+- [ ] **Final review (mandatory):** …
+```
+
+```markdown
+## Todos
+
+- fix stuff
+- API
+- Refactor fetch reducer + zod parse path in client.ts
+```
+
+The second example is **not** acceptable: not actionable, not scannable, too much jargon.

@@ -1,0 +1,205 @@
+import type { CSVRow, WordPressPostingOptions } from "@/lib/bulk-auto-generate";
+import type { OverviewSitemapSource } from "@/lib/overview/overview-sitemap-source";
+import type { PromptBulkSitemapInventoryBuckets } from "@/lib/bulk/prompt-bulk-sitemap-inventory";
+
+export type BulkSitemapMode = "post" | "entity" | "custom";
+export type BulkRowSitemapType = "post" | "entity";
+export type BulkSitemapScopeTag = "pages" | "posts" | "entities";
+
+const EMPTY_SCOPE_BUCKET: PromptBulkSitemapInventoryBuckets[OverviewSitemapSource] = {
+  json: "",
+  rowCount: 0,
+};
+
+export function scopeTagToOverviewSource(tag: BulkSitemapScopeTag): OverviewSitemapSource {
+  if (tag === "pages") return "pages";
+  if (tag === "posts") return "posts";
+  return "sap";
+}
+
+export function normalizeBulkSitemapScopeTags(raw: unknown): BulkSitemapScopeTag[] {
+  if (!Array.isArray(raw)) return [];
+  const out: BulkSitemapScopeTag[] = [];
+  for (const item of raw) {
+    const v = String(item).trim().toLowerCase();
+    if (v === "pages" || v === "posts" || v === "entities") {
+      if (!out.includes(v)) out.push(v);
+    }
+  }
+  return out;
+}
+
+/** When scopes are set, include only those inventory buckets (strict — no implicit widening). */
+export function filterPromptBulkSitemapBucketsByScopes(
+  buckets: PromptBulkSitemapInventoryBuckets,
+  scopes: BulkSitemapScopeTag[] | undefined,
+): PromptBulkSitemapInventoryBuckets {
+  const selected = normalizeBulkSitemapScopeTags(scopes ?? []);
+  if (selected.length === 0) return buckets;
+  const allowed = new Set(selected.map(scopeTagToOverviewSource));
+  return {
+    pages: allowed.has("pages") ? buckets.pages : { ...EMPTY_SCOPE_BUCKET },
+    posts: allowed.has("posts") ? buckets.posts : { ...EMPTY_SCOPE_BUCKET },
+    sap: allowed.has("sap") ? buckets.sap : { ...EMPTY_SCOPE_BUCKET },
+  };
+}
+
+export function totalRowsInScopedBuckets(buckets: PromptBulkSitemapInventoryBuckets): number {
+  return buckets.pages.rowCount + buckets.posts.rowCount + buckets.sap.rowCount;
+}
+
+const POST_ALIASES = new Set(["post", "posts", "blog", "blogs"]);
+const ENTITY_ALIASES = new Set(["entity", "entities", "sap", "service-area", "servicearea"]);
+
+/** Normalize a CSV cell or header alias value to a row sitemap type. */
+export function parseBulkRowSitemapCell(raw: unknown): BulkRowSitemapType | undefined {
+  if (raw == null) return undefined;
+  const norm = String(raw).trim().toLowerCase().replace(/\s+/g, "");
+  if (!norm) return undefined;
+  if (POST_ALIASES.has(norm)) return "post";
+  if (ENTITY_ALIASES.has(norm)) return "entity";
+  return undefined;
+}
+
+/** Pick sitemap_type from a parsed CSV row record (header aliases). */
+export function pickSitemapTypeFromRow(row: Record<string, unknown>): BulkRowSitemapType | undefined {
+  for (const key of Object.keys(row)) {
+    const norm = key.trim().toLowerCase().replace(/\s+/g, "");
+    if (
+      norm === "sitemap" ||
+      norm === "sitemap_type" ||
+      norm === "sitemaptype" ||
+      norm === "post_destination" ||
+      norm === "postdestination"
+    ) {
+      const parsed = parseBulkRowSitemapCell(row[key]);
+      if (parsed) return parsed;
+    }
+  }
+  return undefined;
+}
+
+/** Empty / N/A entity is a blog row. Never route those to the entity sitemap. */
+export function rowHasUploadEntity(entity: string | undefined | null): boolean {
+  const value = entity?.trim() ?? "";
+  return value.length > 0 && value.toUpperCase() !== "N/A";
+}
+
+export function resolveUploadSitemapType(
+  requested: BulkRowSitemapType,
+  entity: string | undefined | null,
+): BulkRowSitemapType {
+  if (!rowHasUploadEntity(entity)) return "post";
+  return requested;
+}
+
+export function resolveRowSitemapType(
+  siteMode: BulkSitemapMode,
+  row: Pick<CSVRow, "sitemap_type" | "entity">,
+  fallback: BulkRowSitemapType,
+): BulkRowSitemapType {
+  const requested: BulkRowSitemapType =
+    siteMode === "post"
+      ? "post"
+      : siteMode === "entity"
+        ? "entity"
+        : (row.sitemap_type ?? fallback);
+  return resolveUploadSitemapType(requested, row.entity);
+}
+
+export function applyRowSitemapToPosting(
+  posting: WordPressPostingOptions | undefined,
+  rowType: BulkRowSitemapType,
+): WordPressPostingOptions | undefined {
+  if (!posting) return posting;
+  return {
+    ...posting,
+    sitemapType: rowType,
+    sites: posting.sites?.map((s) => ({ ...s, sitemapType: rowType })),
+  };
+}
+
+export function seedCustomRowSitemaps(
+  rows: CSVRow[],
+  defaultType: BulkRowSitemapType,
+): CSVRow[] {
+  return rows.map((row) =>
+    row.sitemap_type ? row : { ...row, sitemap_type: defaultType },
+  );
+}
+
+export function inferBulkSitemapModeFromRows(rows: CSVRow[]): {
+  mode: BulkSitemapMode;
+  rows: CSVRow[];
+} {
+  const hasEntity = rows.some((r) => rowHasUploadEntity(r.entity));
+  if (!hasEntity) {
+    return { mode: "post", rows };
+  }
+
+  const explicitTypes = rows
+    .map((r) => r.sitemap_type)
+    .filter((t): t is BulkRowSitemapType => t === "post" || t === "entity");
+
+  if (explicitTypes.length > 0) {
+    const unique = new Set(explicitTypes);
+    if (unique.size > 1) {
+      return { mode: "custom", rows };
+    }
+  }
+
+  return { mode: "entity", rows };
+}
+
+export function postingSitemapPlaceholder(siteMode: BulkSitemapMode): BulkRowSitemapType {
+  return siteMode === "entity" ? "entity" : "post";
+}
+
+/** Unset site pill is always Posts. CSV entity cells switch the pill after upload. */
+export function defaultBulkSitemapMode(): BulkRowSitemapType {
+  return "post";
+}
+
+export function resolveSiteSitemapMode(
+  siteConfigs: Record<string, { sitemapType: BulkSitemapMode }>,
+  selectedWordPressSites: ReadonlySet<string>,
+  _entityAvailable?: boolean,
+): BulkSitemapMode {
+  const siteId = Array.from(selectedWordPressSites)[0];
+  const configured = siteId ? siteConfigs[siteId]?.sitemapType : undefined;
+  return configured ?? defaultBulkSitemapMode();
+}
+
+export function buildCustomModePrefetchSites(
+  posting: WordPressPostingOptions,
+  rows: CSVRow[],
+  fallback: BulkRowSitemapType,
+): Array<{ site: WordPressPostingOptions["site"]; sitemapType: BulkRowSitemapType }> {
+  const baseSites = posting.sites?.length
+    ? posting.sites.map((s) => s.site)
+    : posting.site
+      ? [posting.site]
+      : [];
+  if (baseSites.length === 0) return [];
+
+  const rowTypes = new Set<BulkRowSitemapType>();
+  for (const row of rows) {
+    rowTypes.add(resolveRowSitemapType("custom", row, fallback));
+  }
+
+  const seen = new Set<string>();
+  const out: Array<{ site: WordPressPostingOptions["site"]; sitemapType: BulkRowSitemapType }> = [];
+  for (const site of baseSites) {
+    for (const sitemapType of rowTypes) {
+      const key = `${site.id}:${sitemapType}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ site, sitemapType });
+    }
+  }
+  return out;
+}
+
+export function csvRowsHaveExplicitSitemap(rows: CSVRow[]): boolean {
+  return rows.some((r) => r.sitemap_type === "post" || r.sitemap_type === "entity");
+}

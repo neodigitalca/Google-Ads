@@ -1,0 +1,46 @@
+<?php
+/**
+ * Generator-aligned prompt fragments (exported from TypeScript).
+ * DO NOT EDIT BY HAND — run: node scripts/export-post-creator-generator-php.mjs
+ *
+ * @package Neo_Pulse_App
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+class Neo_Pulse_App_Agent_Run_Exported_Prompts {
+
+	public static function harness_section_length_rule_markdown(): string {
+		return <<<'PROMPT'
+**HARNESS LENGTH (mandatory)**:
+- Unmarked body sections: at most **2** paragraphs after the ## line.
+- Marked [LIST], [TABLE], [DECISION], [TRADEOFF], [NUMBERS]: **3** paragraphs plus the required table or list.
+- [ILLUSTRATIVE]: **3** paragraphs (do not invent a table).
+- [RECOMMENDATION]: **3** paragraphs (do not invent a table) unless SAP PAGE TEMPLATE is in this prompt: then **1-2** paragraphs plus the four-column Product | Best for | Budget | Reason table.
+- Each paragraph: at most **3** sentences (use **4** when this block has [NUMBERS]).
+- Forbidden: wire-style repetition of other blocks, full-release previews, restating the Answer definition, restating the whole thesis, or filler padding toward the article cap.
+PROMPT;
+	}
+
+	public static function harness_section_scope_rule_markdown(): string {
+		return <<<'PROMPT'
+**HARNESS – SINGLE SECTION ONLY**:
+- Output exactly ONE section: the block under "Section to write". Start with that section\'s required ## heading as specified. Do NOT add any other top-level ## sections from the plan in this response.
+- Do not write a full article, article intro for the whole piece, or closing for the whole piece—only this section.
+- Other sections in the plan are written in separate steps. Do not include their headings or duplicate their topics as full sections.
+PROMPT;
+	}
+
+	public static function harness_body_system_prompt(): string {
+		return 'You write SEO blog sections in Markdown for a harnessed generator. Follow section word budget and harness length rules. No FAQ sections. Output exactly one ## section.';
+	}
+
+	public static function rename_intro_agent_title( string $title, string $keyword ): string {
+		$lower = strtolower( trim( $title ) );
+		if ( ! in_array( $lower, array( 'introduction', 'intro' ), true ) ) {
+			return trim( $title );
+		}
+		$topic = trim( $keyword ) !== '' ? trim( $keyword ) : 'This Topic';
+		return 'Why ' . $topic . ' Matters';
+	}
+}

@@ -1,0 +1,122 @@
+import {
+  LOCAL_ANALYSIS_DEFAULT_SAP_PAGES,
+  LOCAL_ANALYSIS_SAP_MIN,
+} from "@/lib/local-analysis-target-constants";
+
+export const DEFAULT_ENTITY_AD_GROUP_COUNT = 1;
+export const DEFAULT_ENTITY_ADS_PER_GROUP = 1;
+export const DEFAULT_ENTITY_TOTAL_COUNT = LOCAL_ANALYSIS_DEFAULT_SAP_PAGES;
+
+export function normalizeEntityCountInputChange(raw: string): string {
+  if (raw === "") return "";
+  const digits = raw.replace(/[^\d]/g, "").slice(0, 3);
+  return digits;
+}
+
+export function entityCountFromInput(
+  raw: string,
+  fallback = LOCAL_ANALYSIS_SAP_MIN,
+): number {
+  const digits = raw.trim().replace(/[^\d]/g, "");
+  if (!digits) return fallback;
+  const n = Math.floor(Number(digits));
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return n;
+}
+
+export function entityAdGroupCountFromInput(raw: string): number {
+  return entityCountFromInput(raw, DEFAULT_ENTITY_AD_GROUP_COUNT);
+}
+
+export function entityAdsPerGroupFromInput(raw: string): number {
+  return entityCountFromInput(raw, DEFAULT_ENTITY_ADS_PER_GROUP);
+}
+
+/** Parsed total when the Entities field has a valid number; `null` when empty/invalid. */
+export function parseEntityTotalInput(raw: string): number | null {
+  const digits = raw.trim().replace(/[^\d]/g, "");
+  if (!digits) return null;
+  const n = Math.floor(Number(digits));
+  if (!Number.isFinite(n) || n < LOCAL_ANALYSIS_SAP_MIN) return null;
+  return n;
+}
+
+/** Total entity row budget from the single Entities toolbar field (legacy callers with fallback). */
+export function entityTotalFromInput(raw: string): number {
+  return parseEntityTotalInput(raw) ?? DEFAULT_ENTITY_TOTAL_COUNT;
+}
+
+/**
+ * Split total entity rows into ad groups × ads per group (balanced factor pair).
+ * Used when the UI only exposes total Entities.
+ */
+export function splitEntityTotalIntoAdGroupsAndAds(total: number): {
+  adGroupCount: number;
+  adsPerGroup: number;
+} {
+  const n = Math.max(LOCAL_ANALYSIS_SAP_MIN, Math.floor(total) || DEFAULT_ENTITY_TOTAL_COUNT);
+  if (n <= 1) {
+    return { adGroupCount: 1, adsPerGroup: 1 };
+  }
+  let bestGroups = 1;
+  let bestAds = n;
+  let bestDiff = n - 1;
+  for (let groups = 1; groups * groups <= n; groups++) {
+    if (n % groups !== 0) continue;
+    const ads = n / groups;
+    const diff = Math.abs(groups - ads);
+    if (diff < bestDiff || (diff === bestDiff && groups < bestGroups)) {
+      bestDiff = diff;
+      bestGroups = groups;
+      bestAds = ads;
+    }
+  }
+  return { adGroupCount: bestGroups, adsPerGroup: bestAds };
+}
+
+export function entitySapTotalFromParts(adGroupCount: number, adsPerGroup: number): number {
+  const groups = Math.max(1, Math.floor(adGroupCount) || DEFAULT_ENTITY_AD_GROUP_COUNT);
+  const ads = Math.max(1, Math.floor(adsPerGroup) || DEFAULT_ENTITY_ADS_PER_GROUP);
+  return groups * ads;
+}
+
+/** Row budget from pipeline Ad groups × Locations per ad group. */
+export function configuredEntityPageTotal(adGroupCount: number, adsPerGroup: number): number {
+  return entitySapTotalFromParts(adGroupCount, adsPerGroup);
+}
+
+export function assertConfiguredEntityRowCount(
+  rowCount: number,
+  configuredTotal: number,
+  phase: string,
+): void {
+  if (rowCount !== configuredTotal) {
+    throw new Error(
+      `${phase} produced ${rowCount} of ${configuredTotal} configured entity row${configuredTotal === 1 ? "" : "s"}.`,
+    );
+  }
+}
+
+export function stepEntityCountInput(raw: string, delta: 1 | -1): string {
+  const current = entityCountFromInput(raw);
+  return String(Math.max(LOCAL_ANALYSIS_SAP_MIN, current + delta));
+}
+
+/** Flat entity list: each unique entity repeated adsPerGroup times (cycles if fewer picks than ad groups). */
+export function expandEntityLabelsForLayout(
+  uniqueEntities: readonly string[],
+  adGroupCount: number,
+  adsPerGroup: number,
+): string[] {
+  const groups = Math.max(1, Math.floor(adGroupCount) || DEFAULT_ENTITY_AD_GROUP_COUNT);
+  const ads = Math.max(1, Math.floor(adsPerGroup) || DEFAULT_ENTITY_ADS_PER_GROUP);
+  const picks = uniqueEntities.map((e) => e.trim()).filter(Boolean);
+  if (picks.length === 0) return [];
+
+  const groupEntities: string[] = [];
+  for (let g = 0; g < groups; g++) {
+    groupEntities.push(picks[g % picks.length]!);
+  }
+
+  return groupEntities.flatMap((entity) => Array.from({ length: ads }, () => entity));
+}

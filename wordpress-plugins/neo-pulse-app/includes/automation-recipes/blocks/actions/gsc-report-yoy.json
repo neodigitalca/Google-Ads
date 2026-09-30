@@ -1,0 +1,17 @@
+{
+  "keyword": "gsc-report-yoy",
+  "name": "GSC YoY report",
+  "executionKind": "gsc_reporting",
+  "description": "Year-over-year GSC report saved locally.",
+  "filters": {
+    "categories": ["reporting"],
+    "verticals": ["general"]
+  },
+  "defaults": {
+    "executionPayload": {
+      "comparePreset": "yoy",
+      "saveToDisk": true,
+      "saveLocalArchive": true
+    }
+  }
+}
