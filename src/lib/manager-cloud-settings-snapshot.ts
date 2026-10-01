@@ -1,6 +1,11 @@
 import { MANAGER_SETTINGS_CLUSTER_KEY } from "@/components/manager/manager-settings-cluster";
 import { WORDPRESS_SITES_STORAGE_KEY, KB_FILES_STORAGE_KEY } from "@/components/integrations/types";
 import { WORDPRESS_BENCHMARK_CATEGORY_TAGS_KEY } from "@/lib/benchmark-category-tags";
+import {
+  NEO_PULSE_AGENT_BLOG_MODEL_KEY,
+  NEO_PULSE_AGENT_IMAGE_MODEL_KEY,
+  NEO_PULSE_AGENT_RESEARCH_MODEL_KEY,
+} from "@/lib/global-agent-models";
 
 /** Persisted so cloud restore + reload can hydrate Index LLM state. */
 export const NEO_PULSE_LLM_MODEL_KEY = "neo-pulse-llm-selected-model";
@@ -31,6 +36,9 @@ const EXACT_LOCAL_KEYS = [
   NEO_PULSE_LLM_TEMPERATURE_KEY,
   NEO_PULSE_LLM_MAX_TOKENS_KEY,
   NEO_PULSE_LLM_TOP_P_KEY,
+  NEO_PULSE_AGENT_RESEARCH_MODEL_KEY,
+  NEO_PULSE_AGENT_BLOG_MODEL_KEY,
+  NEO_PULSE_AGENT_IMAGE_MODEL_KEY,
 ] as const;
 
 const PREFIX_KEYS = ["optimization_settings_", "optimization_mode_"] as const;

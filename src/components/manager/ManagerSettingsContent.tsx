@@ -12,6 +12,13 @@ import {
   readStoredManagerSettingsCluster,
   writeStoredManagerSettingsCluster,
 } from "@/components/manager/manager-settings-cluster";
+import {
+  readGlobalBlogAgentModel,
+  readGlobalImageAgentModel,
+  readGlobalResearchAgentModel,
+  writeGlobalImageAgentModel,
+  writeGlobalResearchAgentModel,
+} from "@/lib/global-agent-models";
 import { dashboardClusterToArea, useTeamPermission } from "@/hooks/use-team-permission";
 import { DASHBOARD_SECTION_ORDER } from "@/components/manager/dashboard/dashboard-section-labels";
 
@@ -24,6 +31,10 @@ export interface ManagerSettingsContentProps {
   saveDataForSEOApiKeyToStorage: (key: string) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  agentResearchModel?: string;
+  setAgentResearchModel?: (model: string) => void;
+  agentImageModel?: string;
+  setAgentImageModel?: (model: string) => void;
   temperature: number;
   setTemperature: (value: number) => void;
   maxTokens: number;
@@ -43,6 +54,10 @@ export function ManagerSettingsContent({
   saveDataForSEOApiKeyToStorage,
   selectedModel,
   setSelectedModel,
+  agentResearchModel: agentResearchModelProp,
+  setAgentResearchModel: setAgentResearchModelProp,
+  agentImageModel: agentImageModelProp,
+  setAgentImageModel: setAgentImageModelProp,
   temperature,
   setTemperature,
   maxTokens,
@@ -52,6 +67,24 @@ export function ManagerSettingsContent({
   settingsCluster: settingsClusterControlled,
   onSettingsClusterChange,
 }: ManagerSettingsContentProps) {
+  const [fallbackResearch, setFallbackResearch] = useState(readGlobalResearchAgentModel);
+  const [fallbackImage, setFallbackImage] = useState(readGlobalImageAgentModel);
+  const agentResearchModel = agentResearchModelProp ?? fallbackResearch;
+  const agentImageModel = agentImageModelProp ?? fallbackImage;
+  const setAgentResearchModel =
+    setAgentResearchModelProp ??
+    ((model: string) => {
+      setFallbackResearch(model);
+      writeGlobalResearchAgentModel(model);
+    });
+  const setAgentImageModel =
+    setAgentImageModelProp ??
+    ((model: string) => {
+      setFallbackImage(model);
+      writeGlobalImageAgentModel(model);
+    });
+  const blogModel = selectedModel || readGlobalBlogAgentModel();
+
   const [internalCluster, setInternalCluster] = useState<ManagerSettingsClusterId>(() =>
     readStoredManagerSettingsCluster(),
   );
@@ -129,8 +162,12 @@ export function ManagerSettingsContent({
       id: "ai-generation" as const,
       content: (
         <AiModelsSettingsContent
-          selectedModel={selectedModel}
-          setSelectedModel={setSelectedModel}
+          researchModel={agentResearchModel}
+          setResearchModel={setAgentResearchModel}
+          blogModel={blogModel}
+          setBlogModel={setSelectedModel}
+          imageModel={agentImageModel}
+          setImageModel={setAgentImageModel}
           temperature={temperature}
           setTemperature={setTemperature}
           maxTokens={maxTokens}

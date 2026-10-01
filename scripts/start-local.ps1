@@ -1,26 +1,65 @@
-# One local path: Docker + WP + Vite; optional browser (optimizer catalog bundled at boot).
+# One local path: Docker + WP + Vite (scripts/dev.cjs) + host worker; optional browser.
 param(
     [switch]$OpenBrowser,
-    [switch]$SkipDev
+    [switch]$SkipDev,
+    [switch]$SkipDocker,
+    [int]$HealthTimeoutSec = 120
 )
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $configPath = Join-Path $PSScriptRoot "local-wp-staging.config.json"
+$examplePath = Join-Path $PSScriptRoot "local-wp-staging.config.example.json"
 $viteLog = Join-Path $repoRoot ".local-dev-vite.log"
 $vitePidFile = Join-Path $repoRoot ".local-dev-vite.pid"
-$timeoutSec = 120
+$timeoutSec = $HealthTimeoutSec
 
-if (-not (Test-Path $configPath)) {
-    Write-Host "Missing scripts/local-wp-staging.config.json" -ForegroundColor Red
-    Write-Host "One-time: npm run setup:local-wp"
-    exit 1
+$flowbieTmp = "B:\Flowbie-tmp"
+New-Item -ItemType Directory -Force -Path @(
+    (Join-Path $flowbieTmp "chatgpt-audit-jobs"),
+    (Join-Path $flowbieTmp "browser-automation-jobs"),
+    (Join-Path $flowbieTmp "post-creator-jobs"),
+    (Join-Path $flowbieTmp "ld-jobs")
+) | Out-Null
+if (-not $env:CHATGPT_AUDIT_JOBS_DIR) { $env:CHATGPT_AUDIT_JOBS_DIR = Join-Path $flowbieTmp "chatgpt-audit-jobs" }
+if (-not $env:BROWSER_AUTOMATION_JOBS_DIR) { $env:BROWSER_AUTOMATION_JOBS_DIR = Join-Path $flowbieTmp "browser-automation-jobs" }
+if (-not $env:POST_CREATOR_SERVER_JOBS_DIR) { $env:POST_CREATOR_SERVER_JOBS_DIR = Join-Path $flowbieTmp "post-creator-jobs" }
+if (-not $env:LOCAL_DOMINATOR_JOBS_DIR) { $env:LOCAL_DOMINATOR_JOBS_DIR = Join-Path $flowbieTmp "ld-jobs" }
+
+function Write-Step([string]$Message) {
+    Write-Host $Message -ForegroundColor Cyan
 }
 
-$config = Get-Content $configPath -Raw | ConvertFrom-Json
+function Write-Ok([string]$Message) {
+    Write-Host $Message -ForegroundColor Green
+}
+
+function Write-Warn([string]$Message) {
+    Write-Host $Message -ForegroundColor Yellow
+}
+
+function Get-LocalConfig() {
+    if (-not (Test-Path $configPath)) {
+        if (Test-Path $examplePath) {
+            Copy-Item $examplePath $configPath
+            Write-Warn "Created scripts/local-wp-staging.config.json from example."
+        } else {
+            Write-Host "Missing scripts/local-wp-staging.config.json" -ForegroundColor Red
+            Write-Host "One-time: npm run setup:local-wp"
+            exit 1
+        }
+    }
+    return Get-Content $configPath -Raw | ConvertFrom-Json
+}
+
+$config = Get-LocalConfig
+$siteHost = [string]$config.siteHost
 $siteUrl = ([string]$config.siteUrl).TrimEnd("/")
 $wpSiteDir = Split-Path ([string]$config.wpRoot) -Parent
+if (-not $wpSiteDir -or -not (Test-Path $wpSiteDir)) {
+    $wpSiteDir = Join-Path $env:USERPROFILE "wpstaging\sites\$siteHost"
+}
 $pluginsDir = [string]$config.pluginsDir
 $appUrl = if ($config.viteDevUrl) { [string]$config.viteDevUrl } else { "http://localhost:8080/" }
 $appUrl = $appUrl -replace '#.*$', ''
@@ -76,12 +115,10 @@ function Start-DockerDesktopEngine {
 
     if (-not $dockerDesktop) {
         Write-Host "Docker Desktop is not installed or could not be found." -ForegroundColor Red
-        Write-Host "Install Docker Desktop, start it once, then run this script again."
         exit 1
     }
 
-    Write-Host "Docker engine is offline. Starting Docker Desktop..." -ForegroundColor Cyan
-
+    Write-Step "Docker engine is offline. Starting Docker Desktop..."
     $prevEap = $ErrorActionPreference
     $ErrorActionPreference = "SilentlyContinue"
     try {
@@ -90,7 +127,7 @@ function Start-DockerDesktopEngine {
             if ($line) { Write-Host $line }
         }
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "docker desktop start unavailable; launching Docker Desktop app..." -ForegroundColor Yellow
+            Write-Warn "docker desktop start unavailable; launching Docker Desktop app..."
             Start-Process -FilePath $dockerDesktop | Out-Null
         }
     } finally {
@@ -104,7 +141,7 @@ function Wait-DockerReady([int]$MaxSeconds) {
     while ((Get-Date) -lt $deadline) {
         if (Test-DockerReady) { return $true }
         $elapsed = [int](((Get-Date) - $waitStarted).TotalSeconds)
-        Write-Host "  Waiting for Docker engine... ${elapsed}s (finish starting Docker Desktop if it is open)" -ForegroundColor DarkGray
+        Write-Host "  Waiting for Docker engine... ${elapsed}s" -ForegroundColor DarkGray
         Start-Sleep -Seconds 5
     }
     return (Test-DockerReady)
@@ -122,47 +159,6 @@ function Wait-HttpOk([string]$Url, [int]$Sec) {
 
 function Test-PortListen([int]$Port) {
     return [bool](Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1)
-}
-
-function Clear-ViteDepCache {
-    $viteCache = Join-Path $repoRoot "node_modules\.vite"
-    if (Test-Path $viteCache) {
-        Remove-Item $viteCache -Recurse -Force -ErrorAction SilentlyContinue
-    }
-}
-
-function Start-ViteDevServer {
-    Clear-ViteDepCache
-    if (Test-PortListen 8080) {
-        Write-Host "Port 8080 is in use by another process. Close it and run start-neopulse-local.bat again." -ForegroundColor Red
-        exit 1
-    }
-
-    Push-Location $repoRoot
-    try {
-        node scripts/bundle-automation-recipes-catalog.mjs
-        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    } finally {
-        Pop-Location
-    }
-
-    "" | Set-Content -Path $viteLog -Encoding utf8
-    $viteErrLog = Join-Path $repoRoot ".local-dev-vite.err.log"
-    if (Test-Path $viteErrLog) {
-        Remove-Item $viteErrLog -Force -ErrorAction SilentlyContinue
-    }
-
-    $env:LOCAL_DEV_VITE_FORCE = "1"
-    $viteProc = Start-Process `
-        -FilePath "node" `
-        -ArgumentList @("scripts/dev-local.cjs") `
-        -WorkingDirectory $repoRoot `
-        -PassThru `
-        -WindowStyle Minimized `
-        -RedirectStandardOutput $viteLog `
-        -RedirectStandardError $viteErrLog
-
-    Set-Content -Path $vitePidFile -Value $viteProc.Id -NoNewline
 }
 
 function Stop-PreviousVite {
@@ -185,49 +181,137 @@ function Stop-PreviousVite {
     Start-Sleep -Seconds 1
 }
 
-if (-not (Test-DockerReady)) {
-    Start-DockerDesktopEngine
-    if (-not (Wait-DockerReady 360)) {
-        Write-Host "Docker did not become ready in 6 minutes." -ForegroundColor Red
-        Write-Host "Open Docker Desktop manually, wait until it says Running, then run this script again."
+function Start-ViteDevServer {
+    if (Test-PortListen 8080) {
+        Write-Host "Port 8080 is in use. Stopping previous Vite..." -ForegroundColor Yellow
+        Stop-PreviousVite
+    }
+
+    "" | Set-Content -Path $viteLog -Encoding utf8
+    $viteErrLog = Join-Path $repoRoot ".local-dev-vite.err.log"
+    if (Test-Path $viteErrLog) {
+        Remove-Item $viteErrLog -Force -ErrorAction SilentlyContinue
+    }
+
+    $viteProc = Start-Process `
+        -FilePath "node" `
+        -ArgumentList @("scripts/dev.cjs") `
+        -WorkingDirectory $repoRoot `
+        -PassThru `
+        -WindowStyle Minimized `
+        -RedirectStandardOutput $viteLog `
+        -RedirectStandardError $viteErrLog
+
+    Set-Content -Path $vitePidFile -Value $viteProc.Id -NoNewline
+}
+
+function Assert-ViteRepoRoot {
+    $expected = [IO.Path]::GetFullPath($repoRoot).TrimEnd('\')
+    $deadline = (Get-Date).AddSeconds($timeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $raw = curl.exe -s "http://127.0.0.1:8080/__neo-pulse/dev-meta.json" 2>$null
+            if ($raw) {
+                $meta = $raw | ConvertFrom-Json
+                $served = [IO.Path]::GetFullPath([string]$meta.repoRoot).TrimEnd('\')
+                if ($served -eq $expected) {
+                    Write-Ok "Vite is serving this repo: $expected"
+                    return
+                }
+                Write-Host "Port 8080 is serving a different checkout:" -ForegroundColor Red
+                Write-Host "  Expected: $expected"
+                Write-Host "  Actual:   $served"
+                Write-Host "Close the other dev server (e.g. B:\Neo Pulse\Google-Ads-main) and run start-neopulse-local.bat again."
+                Stop-PreviousVite
+                exit 1
+            }
+        } catch {
+            # retry until timeout
+        }
+        Start-Sleep -Seconds 2
+    }
+    Write-Warn "Could not verify dev-meta.json (Vite may still be starting)."
+}
+
+function Start-LocalWorkerServer {
+    $workerPort = 10000
+    if (Test-PortListen $workerPort) {
+        Write-Ok "Host worker already listening on http://localhost:$workerPort"
+        return
+    }
+
+    Write-Step "Starting host worker (npm run start:ld-worker on :$workerPort)..."
+    $workerLog = Join-Path $repoRoot ".local-dev-worker.log"
+    $workerCmd = "Set-Location -LiteralPath '$repoRoot'; npm run start:ld-worker *>> '$workerLog'"
+    Start-Process powershell -ArgumentList @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-Command", $workerCmd
+    ) -WindowStyle Minimized | Out-Null
+
+    $deadline = (Get-Date).AddSeconds($timeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        if (Test-PortListen $workerPort) {
+            Write-Ok "Host worker ready at http://localhost:$workerPort"
+            return
+        }
+        Start-Sleep -Seconds 2
+    }
+    Write-Warn "Host worker did not start on port $workerPort. See .local-dev-worker.log"
+}
+
+Write-Step "NEO Pulse local startup"
+Write-Host "  Repo:     $repoRoot"
+Write-Host "  WP site:  $siteUrl"
+Write-Host "  Dev app:  $appUrl"
+Write-Host ""
+
+if (-not $SkipDocker) {
+    if (-not (Test-DockerReady)) {
+        Start-DockerDesktopEngine
+        if (-not (Wait-DockerReady ([Math]::Max($timeoutSec, 360)))) {
+            Write-Host "Docker did not become ready in time." -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        Write-Ok "Docker is ready"
+    }
+
+    if (-not (Test-Path (Join-Path $wpSiteDir "docker-compose.yml"))) {
+        Write-Host "Missing docker-compose.yml in $wpSiteDir" -ForegroundColor Red
         exit 1
     }
-    Write-Host "Docker engine is ready." -ForegroundColor Green
-}
 
-if (-not (Test-Path (Join-Path $wpSiteDir "docker-compose.yml"))) {
-    Write-Host "Missing docker-compose.yml in $wpSiteDir" -ForegroundColor Red
-    exit 1
-}
+    Write-Step "Starting neopulse.local containers..."
+    Push-Location $wpSiteDir
+    try {
+        & docker compose up -d
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "docker compose up failed." -ForegroundColor Red
+            exit 1
+        }
+    } finally {
+        Pop-Location
+    }
 
-Write-Host "Starting neopulse.local containers..." -ForegroundColor Cyan
-Write-Host "(MariaDB/nginx can take 30-90s; compose progress appears below.)" -ForegroundColor DarkGray
-Push-Location $wpSiteDir
-try {
-    & docker compose up -d
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "docker compose up failed (exit $LASTEXITCODE). Is Docker Desktop running?" -ForegroundColor Red
+    Write-Step "Waiting for $siteUrl/ ..."
+    if (-not (Wait-HttpOk "$siteUrl/" $timeoutSec)) {
+        Write-Host "$siteUrl did not respond." -ForegroundColor Red
         exit 1
     }
-} finally {
-    Pop-Location
-}
-Write-Host "Containers up. Checking $siteUrl/ ..." -ForegroundColor Green
-
-Write-Host "Waiting for $siteUrl/ ..." -ForegroundColor Cyan
-if (-not (Wait-HttpOk "$siteUrl/" $timeoutSec)) {
-    Write-Host "$siteUrl did not respond." -ForegroundColor Red
-    exit 1
+    Write-Ok "$siteUrl is up"
+} else {
+    Write-Warn "Skipped Docker (-SkipDocker)"
 }
 
 if ($pluginJunctionsStale) {
-    Write-Host "Plugin junctions do not match this repo path. Re-syncing..." -ForegroundColor Yellow
+    Write-Warn "Plugin junctions do not match this repo. Re-syncing..."
     & (Join-Path $PSScriptRoot "sync-local-wp-plugins.ps1")
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 if (-not $SkipDev) {
-    Write-Host "Starting Vite on port 8080..." -ForegroundColor Cyan
+    Write-Step "Starting Vite on port 8080..."
     Stop-PreviousVite
     Start-ViteDevServer
 
@@ -236,11 +320,28 @@ if (-not $SkipDev) {
         exit 1
     }
 
-    if (-not (Wait-HttpOk "http://127.0.0.1:8080/node_modules/.vite/deps/react.js" $timeoutSec)) {
-        Write-Host "Vite dependency prebundle did not finish. See .local-dev-vite.log" -ForegroundColor Red
-        exit 1
-    }
+    Assert-ViteRepoRoot
+} else {
+    Write-Warn "Skipped Vite (-SkipDev)"
 }
+
+Start-LocalWorkerServer
+
+Write-Step "Priming WordPress cron..."
+curl.exe -k -s -o NUL "$siteUrl/wp-cron.php?doing_wp_cron"
+Write-Ok "wp-cron ping sent"
+
+Write-Host ""
+Write-Ok "Local stack ready."
+Write-Host "  WordPress:   $siteUrl/"
+Write-Host "  WP Admin:    $siteUrl/wp-admin/"
+Write-Host "  Host worker: http://localhost:10000/"
+Write-Host "  React app:   $appUrl"
+Write-Host "  Login:       ${appUrl}login"
+Write-Host ""
+Write-Host "Canonical repo only: do not run Vite from B:\Neo Pulse\Google-Ads-main."
+Write-Host "First-time setup: npm run setup:local-wp"
+Write-Host "Docs: docs/local-wp-staging-dev.md"
 
 if ($OpenBrowser) {
     $chrome = @(
@@ -255,10 +356,3 @@ if ($OpenBrowser) {
         Start-Process $appUrl
     }
 }
-
-if (-not $SkipDev) {
-    Write-Host "Local ready: $appUrl" -ForegroundColor Green
-} else {
-    Write-Host "WordPress stack ready (Vite skipped)." -ForegroundColor Green
-}
-Write-Host "WordPress: $siteUrl/"

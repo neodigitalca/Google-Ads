@@ -2,23 +2,31 @@ import React from "react";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DASHBOARD_SETTINGS_FIELD_CLASS } from "@/components/manager/dashboard/dashboard-panel-styles";
+import { DashboardAgentModelSelect } from "@/components/manager/DashboardAgentModelSelect";
+import {
+  IMAGE_MODEL_PRESETS,
+  TEXT_AGENT_MODEL_PRESETS,
+} from "@/lib/global-agent-models";
 
-interface LLMSettingsTabContentProps {
+export interface LLMSettingsTabContentProps {
+  researchModel: string;
+  onResearchModelChange: (model: string) => void;
+  blogModel: string;
+  onBlogModelChange: (model: string) => void;
+  imageModel: string;
+  onImageModelChange: (model: string) => void;
   temperature: number;
   onTemperatureChange: (value: number) => void;
   maxTokens: number;
   onMaxTokensChange: (value: number) => void;
   topP: number;
   onTopPChange: (value: number) => void;
-  selectedModel: string;
-  onModelChange: (model: string) => void;
 }
 
 const numberInputClassName = `${DASHBOARD_SETTINGS_FIELD_CLASS} max-w-[180px] h-12 shadow-none focus-visible:ring-2 focus-visible:ring-white/35`;
 
-const LLMParameterControls: React.FC<{
+export const LLMParameterControls: React.FC<{
   temperature: number;
   onTemperatureChange: (value: number) => void;
   maxTokens: number;
@@ -116,49 +124,67 @@ const LLMParameterControls: React.FC<{
   );
 };
 
+/** Dashboard → AI & Models: three pipeline agents + sampling. */
 export const LLMSettingsTabContent: React.FC<LLMSettingsTabContentProps> = ({
+  researchModel,
+  onResearchModelChange,
+  blogModel,
+  onBlogModelChange,
+  imageModel,
+  onImageModelChange,
   temperature,
   onTemperatureChange,
   maxTokens,
   onMaxTokensChange,
   topP,
   onTopPChange,
-  selectedModel,
-  onModelChange,
 }) => {
-  const modelSelectId = React.useId();
-
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <Label htmlFor={modelSelectId} className="text-base font-semibold text-white">
-          Model
-        </Label>
-        <Select value={selectedModel} onValueChange={onModelChange}>
-          <SelectTrigger
-            id={modelSelectId}
-            className={`${DASHBOARD_SETTINGS_FIELD_CLASS} h-12 w-full shadow-none md:max-w-md`}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="border-white/[0.08] bg-zinc-900 text-base text-white">
-            <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</SelectItem>
-            <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
-            <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-            <SelectItem value="openai/gpt-5-mini">GPT-5 Mini</SelectItem>
-            <SelectItem value="openai/gpt-5">GPT-5</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="space-y-8">
+      <div className="space-y-6">
+        <div>
+          <p className="text-base font-semibold text-white">Pipeline agents</p>
+          <p className="mt-1 text-base text-white/90">
+            Pick a different OpenRouter model for each agent. Per-site Optimization Settings override these when set.
+          </p>
+        </div>
+        <DashboardAgentModelSelect
+          label="Research agent"
+          description="Checklist, blueprint, briefs, featured-image planning."
+          value={researchModel}
+          presets={TEXT_AGENT_MODEL_PRESETS}
+          onChange={onResearchModelChange}
+        />
+        <DashboardAgentModelSelect
+          label="Blog agent"
+          description="Harness sections, WordPress title, meta description."
+          value={blogModel}
+          presets={TEXT_AGENT_MODEL_PRESETS}
+          onChange={onBlogModelChange}
+        />
+        <DashboardAgentModelSelect
+          label="Image agent"
+          description="Featured and in-content image generation."
+          value={imageModel}
+          presets={IMAGE_MODEL_PRESETS}
+          onChange={onImageModelChange}
+        />
       </div>
 
-      <LLMParameterControls
-        temperature={temperature}
-        onTemperatureChange={onTemperatureChange}
-        maxTokens={maxTokens}
-        onMaxTokensChange={onMaxTokensChange}
-        topP={topP}
-        onTopPChange={onTopPChange}
-      />
+      <div className="space-y-4 border-t border-white/10 pt-6">
+        <div>
+          <p className="text-base font-semibold text-white">Sampling defaults</p>
+          <p className="mt-1 text-base text-white/90">Shared temperature, Top P, and max tokens.</p>
+        </div>
+        <LLMParameterControls
+          temperature={temperature}
+          onTemperatureChange={onTemperatureChange}
+          maxTokens={maxTokens}
+          onMaxTokensChange={onMaxTokensChange}
+          topP={topP}
+          onTopPChange={onTopPChange}
+        />
+      </div>
     </div>
   );
 };

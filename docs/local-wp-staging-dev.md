@@ -2,7 +2,9 @@
 
 **Full branching runbook (local → Git → neodigital.ca → clients):** [deploy-local-branching-pathway.md](deploy-local-branching-pathway.md)
 
-Use WP Staging Desktop as an **offline demo stack** while editing Flowbie One. When updates are ready, push to production with the existing neodigital deploy pipeline.
+**Canonical checkout:** `b:\Neo Pulse\pulse` (GitHub: [neodigitalca/Google-Ads](https://github.com/neodigitalca/Google-Ads)). Do not run Vite from a second clone (e.g. `B:\Neo Pulse\Google-Ads-main`) on port 8080.
+
+Use WP Staging Desktop as an **offline demo stack** while editing NEO Pulse. When updates are ready, push to production with the existing neodigital deploy pipeline.
 
 ## Architecture
 
@@ -56,17 +58,11 @@ curl.exe -k -X POST https://neopulse.local/api/auth/setup-admin `
 
 ## Daily dev loop
 
-```powershell
-npm run start:local
-```
+**One local entry (Docker + WordPress + a single Vite dev server):** run **`start-neopulse-local.bat`** from the repo root (same as `npm run start:local` / `npm run launch:local`).
 
-Or only Vite when Docker is already up:
+After one-time `npm run setup:local-wp`, **`npm run dev`** uses the same orchestrator (`scripts/dev.cjs`) as the bat file’s Vite step. Do **not** run raw `npx vite` or a second Vite on port 8080.
 
-```powershell
-npm run dev
-```
-
-Open **http://localhost:8080**. Do **not** use WP Admin → **NEO Pulse App** for the UI (that iframe targets `/neo-pulse/` on local WP, which has no built SPA). Vite proxies `/api` to your local WordPress API on `neopulse.local` when `scripts/local-wp-staging.config.json` is present.
+Open **http://localhost:8080**. Do **not** use WP Admin → **NEO Pulse App** for the UI (that iframe targets `/neo-pulse/` on local WP, which has no built SPA). Vite always proxies `/api` to **neopulse.local** in dev (never production).
 
 Edit React in `src/` or PHP in `wordpress-plugins/` and refresh. Plugin changes apply immediately when junctions reach the Docker webroot (see [deploy-local-branching-pathway.md](deploy-local-branching-pathway.md) if plugins are missing in the container).
 
@@ -76,7 +72,7 @@ To re-sync secrets or plugins after `.env` changes:
 npm run sync:local-wp
 ```
 
-Use `npm run dev:remote` when you intentionally want the live neodigital API instead.
+Startup verifies `http://127.0.0.1:8080/__neo-pulse/dev-meta.json` matches this repo path.
 
 ## Push to production
 
@@ -107,7 +103,7 @@ npm run deploy:wp-clients
 | `launch:local` | Same as `start:local`, opens browser |
 | `setup:local-wp` | One-time hosts + secrets + plugin sync |
 | `sync:local-wp` | Re-sync plugins and regenerate secrets |
-| `dev:local` | Vite dev with `/api` → `neopulse.local` |
+| `dev` / `start` | Vite via `scripts/dev.cjs` (`/api` → `neopulse.local`) |
 | `generate:local-app-secrets` | Regenerate app plugin secrets only |
 | `setup:local-dominator` | Local Dominator env, secrets paths, recipe check |
 | `setup:local-dominator:smoke` | Same plus Advance Blinds grid export smoke test |
@@ -162,9 +158,9 @@ powershell -File scripts/sync-local-wp-plugins.ps1 -ForceRobocopy
 
 Local dev uses `http://localhost:8080` proxying to HTTPS WordPress. Vite rewrites cookie domain to `localhost`. Clear site cookies and log in again via the app. If login throws "Something went wrong", clear Local Storage key `neo-pulse_device_auth` for `localhost:8080`.
 
-### Login uses wrong backend
+### Login uses wrong backend / 429 on auth
 
-Use `npm run dev` (or `dev:local`) for local WordPress on `neopulse.local`. Use `npm run dev:remote` when you intentionally want the live neodigital API instead.
+You are not on this repo’s dev server, or port 8080 is serving another checkout. Run **`start-neopulse-local.bat`**, confirm terminal shows `NEO Pulse dev root: ...\pulse`, and check `__neo-pulse/dev-meta.json`. Retire duplicate folders such as `Google-Ads-main` so nothing else binds to 8080.
 
 ### Self-signed certificate warnings
 

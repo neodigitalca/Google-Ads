@@ -1,6 +1,11 @@
 import type { OptimizationSettings } from "@/components/integrations/wordpress/OptimizationSettingsPanel";
 import { DEFAULT_SETTINGS } from "@/components/integrations/wordpress/OptimizationSettingsPanel";
 import { DEFAULT_IMAGE_MODEL } from "@/lib/image-model-defaults";
+import {
+  readGlobalBlogAgentModel,
+  readGlobalImageAgentModel,
+  readGlobalResearchAgentModel,
+} from "@/lib/global-agent-models";
 
 const SETTINGS_STORAGE_KEY_PREFIX = "optimization_settings_";
 const MODE_STORAGE_KEY_PREFIX = "optimization_mode_";
@@ -75,24 +80,20 @@ export function getResearchModel(siteId?: string): string {
     }
   }
 
-  // Second, check global default
   if (typeof window !== "undefined") {
-    try {
-      const globalModel = localStorage.getItem(GLOBAL_RESEARCH_MODEL_KEY);
-      if (globalModel) {
-        return globalModel;
-      }
-    } catch (e) {
-      console.error('[ResearchModel] Failed to read global model:', e);
-    }
+    return readGlobalResearchAgentModel();
   }
 
-  // Fallback to hardcoded default
   return DEFAULT_RESEARCH_MODEL;
 }
 
+/** Blog agent model (harness, title, meta). Alias for {@link getProductionModel}. */
+export function getBlogModel(siteId?: string | null): string {
+  return getProductionModel(siteId);
+}
+
 /**
- * Production / content-generation model from per-site optimization settings (or app default).
+ * Blog agent / production model from per-site optimization settings (or app default).
  */
 export function getProductionModel(siteId?: string | null): string {
   if (siteId) {
@@ -100,6 +101,9 @@ export function getProductionModel(siteId?: string | null): string {
     if (siteSettings.model) {
       return siteSettings.model;
     }
+  }
+  if (typeof window !== "undefined") {
+    return readGlobalBlogAgentModel();
   }
   return DEFAULT_SETTINGS.model;
 }
@@ -111,6 +115,9 @@ export function getImageModel(siteId?: string | null): string {
     if (siteSettings.imageModel) {
       return siteSettings.imageModel;
     }
+  }
+  if (typeof window !== "undefined") {
+    return readGlobalImageAgentModel();
   }
   return DEFAULT_IMAGE_MODEL;
 }

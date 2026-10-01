@@ -31,7 +31,11 @@ import {
   hasCsvFilledWikipediaUrl,
 } from './bulk/prefilled-bulk-row-contract';
 import { generateChecklistFromSelections, generateBlueprintFromTemplate, type BlogTemplateContext } from './blog-template-builder';
-import { getResearchModel } from './optimization-settings-storage';
+import {
+  getImageModel,
+  getProductionModel,
+  getResearchModel,
+} from './optimization-settings-storage';
 import { buildImagePrompt } from './image-prompt-builder';
 import type { ImageChecklistItem } from './image-checklist-builder';
 import { generateSEOImageFilename } from './image-filename-generator';
@@ -453,6 +457,7 @@ export interface BulkProcessingOptions {
     featuredImageMode: "y" | "n" | "google-maps";
     entity: string;
   };
+  /** Overrides the Research agent model only (checklist, blueprint, image planning). */
   selectedModel?: string;
   temperature?: number;
   maxTokens?: number;
@@ -1148,6 +1153,11 @@ try {
         ? cachedRowBriefEarly.focusKeyword.trim()
         : serpKeywordBase;
     const serpSite = sitesToPostForTemplate[0]?.site;
+    const pipelineSiteId = serpSite?.id;
+    const pipelineResearchModel =
+      options.selectedModel?.trim() || getResearchModel(pipelineSiteId);
+    const pipelineBlogModel = getProductionModel(pipelineSiteId);
+    const pipelineImageModel = getImageModel(pipelineSiteId);
     const serpBaseUrl =
       serpSite?.siteUrl?.replace(/\/+$/, '') ||
       connectedSite?.siteUrl?.replace(/\/+$/, '') ||
@@ -1336,7 +1346,7 @@ try {
       keywordData,
       {
         apiKey: options.openRouterApiKey,
-        model: options.selectedModel || getResearchModel(),
+        model: pipelineResearchModel,
         temperature: options.temperature || 1.0,
         maxTokens: options.maxTokens || 4000,
         topP: options.topP || 0.9,
@@ -1497,7 +1507,7 @@ try {
 
     const imageChecklistLlmOptions = {
       apiKey: options.openRouterApiKey,
-      model: options.selectedModel || getResearchModel(),
+      model: pipelineResearchModel,
       temperature: options.temperature || 1.0,
       maxTokens: options.maxTokens || 4000,
       topP: options.topP || 0.9,
@@ -1527,7 +1537,7 @@ try {
 
     const blueprintTemplateArgs = {
       apiKey: options.openRouterApiKey,
-      model: options.selectedModel || getResearchModel(),
+      model: pipelineResearchModel,
       temperature: options.temperature || 1.0,
       maxTokens: options.maxTokens || 8000,
       topP: options.topP || 0.9,
@@ -1575,7 +1585,7 @@ try {
             metaContextBulk,
             keywordData.keyword,
             options.openRouterApiKey,
-            connectedSite?.id,
+            pipelineSiteId,
             metaTitleForBulk,
             false,
           );
@@ -1598,7 +1608,7 @@ try {
                 metaContextBulk,
                 keywordData.keyword,
                 options.openRouterApiKey,
-                connectedSite?.id,
+                pipelineSiteId,
                 metaTitleForBulk,
                 false,
               ),
@@ -1726,6 +1736,8 @@ try {
         apiKey: options.openRouterApiKey || loadApiKey(),
         focusKeyword: bulkPrimaryKwResolved,
         entity: entityPlace,
+        siteId: pipelineSiteId,
+        model: pipelineBlogModel,
         candidates: {
           researchSeoTitle: rankMetaForTitle.seoTitle,
           csvTitle: enrichedRow.title,
@@ -1923,7 +1935,7 @@ try {
       const imageFileName = await generateSEOImageFilename(
         flowTitleForBlueprint,
         options.openRouterApiKey,
-        options.selectedModel || getResearchModel(),
+        pipelineResearchModel,
         'featured',
       );
 
@@ -2038,7 +2050,7 @@ try {
           mode: useGoogleMaps ? 'entity' : 'blog',
           matchKey: peerMatchKey,
           apiKey: options.openRouterApiKey,
-          model: options.selectedModel,
+          model: pipelineResearchModel,
           onPeerCsvReady: options.onPeerFeaturedCsv,
           onProgress: (msg) => options.onProgress?.(rowIndex, 0, msg),
         })
@@ -2083,7 +2095,8 @@ try {
           precomputedImageChecklist,
           {
             apiKey: options.openRouterApiKey,
-            model: options.selectedModel || getResearchModel(),
+            researchModel: pipelineResearchModel,
+            imageModel: pipelineImageModel,
           },
         ).catch((error: unknown) => {
           console.error('Error generating featured image:', error);
@@ -2223,7 +2236,7 @@ try {
         apiKey: options.openRouterApiKey || loadApiKey(),
         keyword: bulkPrimaryKwResolved,
         articleTitle: bulkResolvedPostTitle,
-        model: options.selectedModel,
+        model: pipelineBlogModel,
       });
       if (options.wordPressPagesForOfferTable?.length && firstSite?.siteUrl) {
         htmlContent = ensureWhatWeOfferTablePageLinks(

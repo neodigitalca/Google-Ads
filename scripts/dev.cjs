@@ -2,10 +2,17 @@
 const { spawnSync } = require("child_process");
 const path = require("path");
 const { requireLocalDevApiTarget } = require("./resolve-dev-api-target.cjs");
+const { ensureAutomationRecipesCatalog } = require("./ensure-automation-recipes-catalog.cjs");
 
 const repoRoot = path.resolve(__dirname, "..");
 const viteBin = path.join(repoRoot, "node_modules", "vite", "bin", "vite.js");
 
+const catalogStatus = ensureAutomationRecipesCatalog();
+if (catalogStatus !== 0) {
+  process.exit(catalogStatus);
+}
+
+process.env.NEO_PULSE_DEV_ORCHESTRATOR = "1";
 process.env.VITE_LOCAL_API_TARGET = requireLocalDevApiTarget();
 process.env.VITE_MCP_API_BASE = process.env.VITE_MCP_API_BASE || "/api/mcp";
 

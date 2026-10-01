@@ -6,8 +6,12 @@ import {
 } from "@/components/manager/dashboard/dashboard-panel-styles";
 
 export type AiModelsSettingsContentProps = {
-  selectedModel: string;
-  setSelectedModel: (model: string) => void;
+  researchModel: string;
+  setResearchModel: (model: string) => void;
+  blogModel: string;
+  setBlogModel: (model: string) => void;
+  imageModel: string;
+  setImageModel: (model: string) => void;
   temperature: number;
   setTemperature: (value: number) => void;
   maxTokens: number;
@@ -16,16 +20,7 @@ export type AiModelsSettingsContentProps = {
   setTopP: (value: number) => void;
 };
 
-export function AiModelsSettingsContent({
-  selectedModel,
-  setSelectedModel,
-  temperature,
-  setTemperature,
-  maxTokens,
-  setMaxTokens,
-  topP,
-  setTopP,
-}: AiModelsSettingsContentProps) {
+export function AiModelsSettingsContent(props: AiModelsSettingsContentProps) {
   return (
     <div className={`${DASHBOARD_SETTINGS_PANEL_CLASS} space-y-4 text-white`}>
       <div className="flex items-center gap-2">
@@ -34,17 +29,19 @@ export function AiModelsSettingsContent({
       </div>
 
       <div className={DASHBOARD_SETTINGS_GROUP_CLASS}>
-        <p className="font-semibold text-white">Generation defaults</p>
-        <p className="text-base text-white">Default model and sampling for AI features across NEO Pulse.</p>
         <LLMSettingsTabContent
-          selectedModel={selectedModel}
-          onModelChange={setSelectedModel}
-          temperature={temperature}
-          onTemperatureChange={setTemperature}
-          maxTokens={maxTokens}
-          onMaxTokensChange={setMaxTokens}
-          topP={topP}
-          onTopPChange={setTopP}
+          researchModel={props.researchModel}
+          onResearchModelChange={props.setResearchModel}
+          blogModel={props.blogModel}
+          onBlogModelChange={props.setBlogModel}
+          imageModel={props.imageModel}
+          onImageModelChange={props.setImageModel}
+          temperature={props.temperature}
+          onTemperatureChange={props.setTemperature}
+          maxTokens={props.maxTokens}
+          onMaxTokensChange={props.setMaxTokens}
+          topP={props.topP}
+          onTopPChange={props.setTopP}
         />
       </div>
     </div>

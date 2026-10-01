@@ -1,0 +1,12 @@
+---
+description: Single canonical NEO Pulse repo for local dev — never split Vite or API across clones
+alwaysApply: true
+---
+
+# Single repo local dev
+
+- **Only checkout:** `b:\Neo Pulse\pulse` (remote: `https://github.com/neodigitalca/Google-Ads.git`).
+- **Do not** start or debug Vite from `B:\Neo Pulse\Google-Ads-main` or any other clone on port **8080**.
+- **Start stack:** `start-neopulse-local.bat` or `npm run start:local` / `npm run dev` from **this** repo root.
+- **Do not** use raw `npx vite`; use `scripts/dev.cjs` (via `npm run dev`). Dev `/api` always targets **neopulse.local**, not production.
+- If UI or login looks stale/wrong, curl `http://127.0.0.1:8080/__neo-pulse/dev-meta.json` and confirm `repoRoot` matches `b:\Neo Pulse\pulse`.

@@ -18,7 +18,7 @@ import {
 import { insertContentIntoSection } from "@/lib/section-parser";
 import type { ImageType } from "@/lib/image-section-analyzer";
 import type { WordPressSite } from "@/components/integrations/types";
-import { getProductionModel, getResearchModel } from "@/lib/optimization-settings-storage";
+import { getBlogModel, getProductionModel, getResearchModel } from "@/lib/optimization-settings-storage";
 import { appendMasterInstructionsToSystemPrompt, ensureMasterInstructionsInMemory } from "@/lib/master-instructions-storage";
 import { extractMediaFromContent } from "@/lib/content-optimization-helpers";
 import { readACFFieldsAgentically, type AIDrivenACFContext } from "@/lib/content-generation/ai-driven-acf-reader";
@@ -60,8 +60,7 @@ export async function generateMetaDescription(
       .trim()
       .substring(0, 3000); // Use up to 3000 chars if WordPress content is available
 
-    // Get research model
-    const researchModel = getResearchModel(siteId);
+    const blogModel = getBlogModel(siteId);
 
     await ensureMasterInstructionsInMemory(siteId);
 
@@ -107,7 +106,7 @@ Your output MUST be 120-150 characters. Count them. This is a SEPARATE META DESC
 
     const { content: excerptRaw } = await postOpenRouterAppChat({
       apiKey,
-      model: researchModel,
+      model: blogModel,
       messages: [
           {
             role: "system",

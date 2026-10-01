@@ -25,9 +25,12 @@ const TEXT_MODEL_PRESETS: { value: string; label: string }[] = [
 ];
 
 export interface OptimizationSettings {
-  model: string; // Production model for content generation
-  researchModel: string; // Research model for research operations
-  imageModel: string; // Model for image generation
+  /** Blog agent: harness sections, title, meta description */
+  model: string;
+  /** Research agent: checklist, blueprint, briefs, image planning */
+  researchModel: string;
+  /** Image agent: OpenRouter image generation */
+  imageModel: string;
   customModels: string[]; // User-added OpenRouter model ids (shown in all model dropdowns)
   temperature: number;
   maxTokens: number;
@@ -68,6 +71,7 @@ type ModelFieldKey = "model" | "researchModel" | "imageModel";
 
 interface OptimizationModelSelectProps {
   label: string;
+  description?: string;
   value: string;
   presets: { value: string; label: string }[];
   customModels: string[];
@@ -78,6 +82,7 @@ interface OptimizationModelSelectProps {
 
 const OptimizationModelSelect: React.FC<OptimizationModelSelectProps> = ({
   label,
+  description,
   value,
   presets,
   customModels,
@@ -114,6 +119,9 @@ const OptimizationModelSelect: React.FC<OptimizationModelSelectProps> = ({
   return (
     <div className="space-y-2">
       <Label className="block text-xs font-medium text-muted-foreground">{label}</Label>
+      {description ? (
+        <p className="text-xs text-muted-foreground">{description}</p>
+      ) : null}
       <Select
         open={open}
         onOpenChange={handleOpenChange}
@@ -238,17 +246,8 @@ export const OptimizationSettingsPanel: React.FC<OptimizationSettingsPanelProps>
       </CardHeader>
       <CardContent className="space-y-4 pt-0">
         <OptimizationModelSelect
-          label="Production Model"
-          value={settings.model}
-          presets={TEXT_MODEL_PRESETS}
-          customModels={customModels}
-          onSelect={(v) => onSettingsChange({ ...settings, model: v })}
-          onSaveCustom={(id) => saveCustomModelForField("model", id)}
-          disabled={disabled}
-        />
-
-        <OptimizationModelSelect
-          label="Research Model"
+          label="Research agent"
+          description="Checklist, blueprint, briefs, and featured-image planning."
           value={settings.researchModel}
           presets={TEXT_MODEL_PRESETS}
           customModels={customModels}
@@ -258,7 +257,19 @@ export const OptimizationSettingsPanel: React.FC<OptimizationSettingsPanelProps>
         />
 
         <OptimizationModelSelect
-          label="Image Model"
+          label="Blog agent"
+          description="Harness sections, WordPress title, and meta description."
+          value={settings.model}
+          presets={TEXT_MODEL_PRESETS}
+          customModels={customModels}
+          onSelect={(v) => onSettingsChange({ ...settings, model: v })}
+          onSaveCustom={(id) => saveCustomModelForField("model", id)}
+          disabled={disabled}
+        />
+
+        <OptimizationModelSelect
+          label="Image agent"
+          description="Generated featured and in-content images."
           value={settings.imageModel}
           presets={IMAGE_MODEL_PRESETS}
           customModels={customModels}

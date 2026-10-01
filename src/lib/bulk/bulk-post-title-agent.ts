@@ -1,6 +1,5 @@
 import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
-import { parseJsonWithRepair } from "@/lib/json-repair-utility";
-import { getProductionModel } from "@/lib/optimization-settings-storage";
+import { getBlogModel } from "@/lib/optimization-settings-storage";
 import { BULK_WORDPRESS_POST_TITLE_RULE } from "@/lib/prompt-builders/title-rules";
 import { buildKeywordPunctuationPromptBlock } from "@/lib/prompt-builders/keyword-canonical-punctuation";
 
@@ -53,25 +52,23 @@ function titleCandidateLine(label: string, value: string | undefined): string | 
   return `${label}: ${t}`;
 }
 
-function fallbackBulkWordPressTitle(candidates: BulkPostTitleCandidates, focusKeyword: string): string {
-  const pick =
-    candidates.researchSeoTitle?.trim()
-    || candidates.blueprintTitle?.trim()
-    || candidates.csvTitle?.trim()
-    || focusKeyword.trim();
-  if (!pick) {
-    throw new Error("Title agent failed and no fallback title candidates exist");
+function parseTitleAgentJson(content: string): string {
+  let parsed: { wordpress_title?: unknown };
+  try {
+    parsed = JSON.parse(content.trim()) as { wordpress_title?: unknown };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Title agent returned invalid JSON (expected {"wordpress_title":"..."}): ${msg}. Got: ${content.slice(0, 240)}`,
+    );
   }
-  console.warn("[Title agent] Using fallback title after JSON failures:", pick.slice(0, 120));
-  return pick;
-}
-
-function parseTitleAgentJson(content: string): string | null {
-  const { parsed } = parseJsonWithRepair<{ wordpress_title?: unknown }>(content, {
-    onParseFailure: "storeRaw",
-  });
-  const title = typeof parsed?.wordpress_title === "string" ? parsed.wordpress_title.trim() : "";
-  return title || null;
+  const title = typeof parsed.wordpress_title === "string" ? parsed.wordpress_title.trim() : "";
+  if (!title) {
+    throw new Error(
+      `Title agent JSON missing wordpress_title. Got: ${content.slice(0, 240)}`,
+    );
+  }
+  return title;
 }
 
 /** OpenRouter writes the WordPress post title. No CSV, blueprint, or keyword substitute. */
@@ -80,6 +77,7 @@ export async function resolveBulkWordPressPostTitle(args: {
   focusKeyword: string;
   entity?: string;
   candidates: BulkPostTitleCandidates;
+  siteId?: string;
   model?: string;
   signal?: AbortSignal;
 }): Promise<string> {
@@ -107,27 +105,18 @@ ${candidateLines || "(no candidates)"}
 
 JSON contract: respond with one object only. Double-quoted key wordpress_title. Example shape: {"wordpress_title":"How To Choose Between Hunter Douglas And Alta Shades"}`;
 
-  const model = args.model?.trim() || getProductionModel();
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const { content } = await callOpenRouterChatCompletion({
-      apiKey,
-      model,
-      system: SYSTEM,
-      user,
-      maxTokens: 512,
-      temperature: attempt === 1 ? 0.25 : 0.15,
-      responseFormat: BULK_WORDPRESS_TITLE_RESPONSE_FORMAT,
-      signal: args.signal,
-    });
+  const model = args.model?.trim() || getBlogModel(args.siteId);
 
-    const title = parseTitleAgentJson(content);
-    if (title) return title;
+  const { content } = await callOpenRouterChatCompletion({
+    apiKey,
+    model,
+    system: SYSTEM,
+    user,
+    maxTokens: 512,
+    temperature: 0.25,
+    responseFormat: BULK_WORDPRESS_TITLE_RESPONSE_FORMAT,
+    signal: args.signal,
+  });
 
-    console.warn(
-      `[Title agent] Attempt ${attempt}/${maxAttempts}: invalid JSON (expected {"wordpress_title":"..."}). Got: ${content.slice(0, 240)}`,
-    );
-  }
-
-  return fallbackBulkWordPressTitle(args.candidates, kw);
+  return parseTitleAgentJson(content);
 }

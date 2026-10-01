@@ -2,7 +2,7 @@ import { buildImageChecklistSystemPrompt, buildImageChecklistUserPrompt, type Im
 import { buildImagePrompt } from '../image-prompt-builder';
 import { generateImage } from '../image-api';
 import { streamChatCompletion } from '../api';
-import { getResearchModel } from '../optimization-settings-storage';
+import { getImageModel, getResearchModel } from '../optimization-settings-storage';
 import {
   buildGroundedImagePromptSuffix,
   collectReferenceDataUrls,
@@ -211,7 +211,10 @@ export async function generateFeaturedImage(
   imageChecklist: ImageChecklistItem[],
   options: {
     apiKey: string;
+    /** @deprecated Use researchModel */
     model?: string;
+    researchModel?: string;
+    imageModel?: string;
   }
 ): Promise<{ imageBase64: string }> {
   // Build image prompt
@@ -240,9 +243,15 @@ export async function generateFeaturedImage(
 
   const prompt = basePrompt + checklistText + '\n\nFollow the checklist above EXACTLY. Ensure all requirements are met, especially regarding what should and should NOT be included. This is a WordPress featured image - no text, words, or labels should be included.';
 
+  const researchModel =
+    options.researchModel?.trim()
+    || options.model?.trim()
+    || getResearchModel();
+  const imageModel = options.imageModel?.trim() || getImageModel();
+
   const research = await researchGoogleImageReferences({
     apiKey: options.apiKey,
-    model: options.model || getResearchModel(),
+    model: researchModel,
     context: {
       title: flowTitle,
       purpose: flowPurpose,
@@ -254,6 +263,7 @@ export async function generateFeaturedImage(
   // Generate image with 16:9 aspect ratio (WordPress standard)
   const result = await generateImage({
     apiKey: options.apiKey,
+    model: imageModel,
     prompt: groundedPrompt,
     aspectRatio: '16:9',
     referenceImageDataUrls: collectReferenceDataUrls(research.references),

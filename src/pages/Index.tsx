@@ -48,19 +48,27 @@ import { GenerationProgress } from "../components/GenerationProgress";
 import "@/lib/knowledge-graph-auto-trigger";
 import {
   NEO_PULSE_LLM_MAX_TOKENS_KEY,
-  NEO_PULSE_LLM_MODEL_KEY,
   NEO_PULSE_LLM_TEMPERATURE_KEY,
   NEO_PULSE_LLM_TOP_P_KEY,
-  readStoredLlmModelForIndex,
   readStoredLlmNumberForIndex,
 } from "@/lib/manager-cloud-settings-snapshot";
+import { DEFAULT_SETTINGS } from "@/components/integrations/wordpress/OptimizationSettingsPanel";
+import { DEFAULT_IMAGE_MODEL } from "@/lib/image-model-defaults";
+import {
+  readGlobalBlogAgentModel,
+  readGlobalImageAgentModel,
+  readGlobalResearchAgentModel,
+  writeGlobalBlogAgentModel,
+  writeGlobalImageAgentModel,
+  writeGlobalResearchAgentModel,
+} from "@/lib/global-agent-models";
 import { NEO_PULSE_OPEN_MASTER_RULES_EVENT } from "@/lib/open-master-rules-settings";
 import { isApiTabHash } from "@/lib/api-docs/api-docs-hash";
 import { isPulseForgeHash, parsePulseForgeRouteFromHash, setPulseForgeHash } from "@/lib/pulse-forge/pulse-forge-hash";
 
 const OPENROUTER_API_KEY_STORAGE_KEY = "openrouter-api-key";
 
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_BLOG_MODEL = "google/gemini-2.5-flash";
 const DEFAULT_TEMPERATURE = 1.57;
 // Keep this comfortably under typical OpenRouter/model context limits
 const DEFAULT_MAX_TOKENS = 5000000;
@@ -305,7 +313,9 @@ const Index = () => {
   const [flowFreeformSections, setFlowFreeformSections] = useState<FlowFreeformSectionPlan[]>([]);
   const [flowFreeformClarifyQuestions, setFlowFreeformClarifyQuestions] = useState<FlowFreeformClarifyQuestion[] | null>(null);
   const [flowSectionBodies, setFlowSectionBodies] = useState<Record<string, string>>({});
-  const [selectedModel, setSelectedModel] = useState(() => readStoredLlmModelForIndex(DEFAULT_MODEL));
+  const [agentResearchModel, setAgentResearchModel] = useState(() => readGlobalResearchAgentModel());
+  const [agentImageModel, setAgentImageModel] = useState(() => readGlobalImageAgentModel());
+  const [selectedModel, setSelectedModel] = useState(() => readGlobalBlogAgentModel());
   const [temperature, setTemperature] = useState(() =>
     readStoredLlmNumberForIndex(NEO_PULSE_LLM_TEMPERATURE_KEY, DEFAULT_TEMPERATURE),
   );
@@ -359,7 +369,12 @@ const Index = () => {
     setActiveKnowledgeBaseText("");
 
     // Reset LLM parameters to default
-    setSelectedModel(DEFAULT_MODEL);
+    setAgentResearchModel(DEFAULT_SETTINGS.researchModel);
+    setAgentImageModel(DEFAULT_IMAGE_MODEL);
+    setSelectedModel(DEFAULT_BLOG_MODEL);
+    writeGlobalResearchAgentModel(DEFAULT_SETTINGS.researchModel);
+    writeGlobalImageAgentModel(DEFAULT_IMAGE_MODEL);
+    writeGlobalBlogAgentModel(DEFAULT_BLOG_MODEL);
     setTemperature(DEFAULT_TEMPERATURE);
     setMaxTokens(DEFAULT_MAX_TOKENS);
     setTopP(DEFAULT_TOP_P);
@@ -399,14 +414,16 @@ const Index = () => {
 
   useEffect(() => {
     try {
-      localStorage.setItem(NEO_PULSE_LLM_MODEL_KEY, selectedModel);
+      writeGlobalResearchAgentModel(agentResearchModel);
+      writeGlobalBlogAgentModel(selectedModel);
+      writeGlobalImageAgentModel(agentImageModel);
       localStorage.setItem(NEO_PULSE_LLM_TEMPERATURE_KEY, String(temperature));
       localStorage.setItem(NEO_PULSE_LLM_MAX_TOKENS_KEY, String(maxTokens));
       localStorage.setItem(NEO_PULSE_LLM_TOP_P_KEY, String(topP));
     } catch {
       /* ignore */
     }
-  }, [selectedModel, temperature, maxTokens, topP]);
+  }, [agentResearchModel, selectedModel, agentImageModel, temperature, maxTokens, topP]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -637,6 +654,10 @@ try {
         saveApiKey={saveApiKey}
         selectedModel={selectedModel}
         setSelectedModel={setSelectedModel}
+        agentResearchModel={agentResearchModel}
+        setAgentResearchModel={setAgentResearchModel}
+        agentImageModel={agentImageModel}
+        setAgentImageModel={setAgentImageModel}
         temperature={temperature}
         setTemperature={setTemperature}
         maxTokens={maxTokens}

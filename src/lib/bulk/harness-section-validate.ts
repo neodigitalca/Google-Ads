@@ -391,7 +391,7 @@ export function assertHarnessIllustrativeSectionHtml(html: string): void {
   }
 }
 
-export const HARNESS_SECTION_MAX_ATTEMPTS = 6;
+export const HARNESS_SECTION_MAX_ATTEMPTS = 1;
 
 export function illustrativeHarnessSectionValid(html: string): boolean {
   const t = (html ?? "").trim();

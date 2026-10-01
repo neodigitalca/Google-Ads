@@ -39,7 +39,6 @@ import {
 } from "@/lib/bulk/harness-section-anchor-ids";
 import { ensureHarnessSectionLengthCompliance } from "@/lib/bulk/harness-section-length-agent";
 import {
-  HARNESS_SECTION_MAX_ATTEMPTS,
   harnessSectionPreparedValid,
   prepareHarnessSectionHtml,
 } from "@/lib/bulk/harness-section-validate";
@@ -835,7 +834,7 @@ export async function generateAndPrependOverviewHtml(args: {
     signal: args.signal,
   });
   if (!answerHtml.trim()) {
-    throw new Error(`Answer section could not be generated after ${HARNESS_SECTION_MAX_ATTEMPTS} attempts`);
+    throw new Error("Answer section could not be generated (single pass)");
   }
   answerHtml = injectHarnessSectionH2AnchorId(answerHtml, HARNESS_ANSWER_ANCHOR_ID);
 

@@ -4,10 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/bundle-automation-recipes-catalog.mjs && node scripts/dev-local.cjs",
-    "dev:local": "node scripts/bundle-automation-recipes-catalog.mjs && node scripts/dev-local.cjs",
-    "dev:remote": "node scripts/dev-remote.cjs",
-    "start": "node scripts/dev-local.cjs",
+    "dev": "node scripts/dev.cjs",
+    "start": "node scripts/dev.cjs",
     "build": "node scripts/stamp-build.cjs && node scripts/bundle-automation-recipes-catalog.mjs && vite build && node scripts/write-build-info.cjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

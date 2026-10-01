@@ -5,7 +5,7 @@ vi.mock("@/lib/competitor-research/competitor-report-openrouter", () => ({
 }));
 
 vi.mock("@/lib/optimization-settings-storage", () => ({
-  getProductionModel: () => "test-model",
+  getBlogModel: () => "test-blog-model",
 }));
 
 import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
@@ -63,7 +63,7 @@ describe("resolveBulkWordPressPostTitle", () => {
     });
   });
 
-  it("fails when OpenRouter returns invalid JSON", async () => {
+  it("fails when OpenRouter returns invalid JSON (single pass)", async () => {
     mockCall.mockResolvedValue({ content: "{wordpress_title: Bad}" });
 
     await expect(
@@ -72,11 +72,11 @@ describe("resolveBulkWordPressPostTitle", () => {
         focusKeyword: "blinds old naples florida",
         candidates: { csvTitle: "Blinds In Old Naples" },
       }),
-    ).resolves.toBe("Blinds In Old Naples");
-    expect(mockCall).toHaveBeenCalledTimes(3);
+    ).rejects.toThrow(/invalid JSON/i);
+    expect(mockCall).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back when wordpress_title is empty after retries", async () => {
+  it("fails when wordpress_title is empty (single pass)", async () => {
     mockCall.mockResolvedValue({ content: JSON.stringify({ wordpress_title: "   " }) });
 
     await expect(
@@ -85,8 +85,8 @@ describe("resolveBulkWordPressPostTitle", () => {
         focusKeyword: "blinds old naples florida",
         candidates: { csvTitle: "Blinds In Old Naples" },
       }),
-    ).resolves.toBe("Blinds In Old Naples");
-    expect(mockCall).toHaveBeenCalledTimes(3);
+    ).rejects.toThrow(/missing wordpress_title/i);
+    expect(mockCall).toHaveBeenCalledTimes(1);
   });
 
   it("returns the full OpenRouter title without truncating", async () => {

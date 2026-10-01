@@ -56,7 +56,6 @@ import {
   injectBlacklistRagIntoMessages,
 } from "@/lib/content-word-blocklist";
 import { isFaqStyleHeadingTitle } from "@/lib/content-generation/faq-heading-policy";
-import { parseJsonWithRepair } from "@/lib/json-repair-utility";
 import { openRouterWebAppHeaders } from "@/lib/openrouter-attribution";
 import {
   extractChecklistItemTitle,
@@ -1485,71 +1484,45 @@ ${pageLines}
   }
 
   const allKeywords = [keywordData.keyword, ...selectedKeywords].filter(Boolean);
-  const MAX_CHECKLIST_ATTEMPTS = 3;
   const MIN_CHECKLIST_ITEMS = useImportedH2Outline
     ? importedH2Outline.length
     : isServiceArea
       ? 6
       : 5;
 
-  for (let attempt = 1; attempt <= MAX_CHECKLIST_ATTEMPTS; attempt++) {
-    let fullResponse = "";
-    let checklistFinishReason: string | undefined;
+  let fullResponse = "";
+  let checklistFinishReason: string | undefined;
 
-    try {
-      const streamResult = await streamChatCompletion({
-        apiKey,
-        model,
-        messages: [
-          { role: "system", content: appendUniversalContentRulesToSystemPrompt(systemPrompt) },
-          { role: "user", content: userPrompt },
-        ],
-        contentHarness: true,
-        temperature,
-        maxTokens,
-        topP,
-        onContentChunk: (chunk) => {
-          fullResponse += chunk;
-        },
-        onFinishReason: (reason) => {
-          checklistFinishReason = reason;
-        },
-      });
+  const streamResult = await streamChatCompletion({
+    apiKey,
+    model,
+    messages: [
+      { role: "system", content: appendUniversalContentRulesToSystemPrompt(systemPrompt) },
+      { role: "user", content: userPrompt },
+    ],
+    contentHarness: true,
+    temperature,
+    maxTokens,
+    topP,
+    onContentChunk: (chunk) => {
+      fullResponse += chunk;
+    },
+    onFinishReason: (reason) => {
+      checklistFinishReason = reason;
+    },
+  });
 
-      const parsed = parseBlogTemplateChecklist(fullResponse, allKeywords).filter(
-        (item) => !isLlmAuditAuthorityDumpChecklistItem(item),
-      );
+  const parsed = parseBlogTemplateChecklist(fullResponse, allKeywords).filter(
+    (item) => !isLlmAuditAuthorityDumpChecklistItem(item),
+  );
 
-      const effectiveFinish = checklistFinishReason || streamResult.finishReason;
-      if (parsed.length >= MIN_CHECKLIST_ITEMS) {
-        return { items: parsed, h2Outline: isServiceArea ? undefined : resolvedH2Sections };
-      }
-
-      console.warn(`[Checklist] Attempt ${attempt}/${MAX_CHECKLIST_ATTEMPTS}: only ${parsed.length} items (finishReason=${effectiveFinish}, len=${fullResponse.length}). ${attempt < MAX_CHECKLIST_ATTEMPTS ? 'Retrying...' : 'Using best result.'}`);
-
-      if (attempt === MAX_CHECKLIST_ATTEMPTS) {
-        throw new Error(
-          `Checklist generated ${parsed.length} items; need at least ${MIN_CHECKLIST_ITEMS} for this article type.`,
-        );
-      }
-
-      await new Promise(r => setTimeout(r, 2000 * attempt));
-    } catch (error) {
-      console.warn(`[Checklist] Attempt ${attempt} error:`, error);
-      if (
-        attempt === MAX_CHECKLIST_ATTEMPTS &&
-        error instanceof Error &&
-        error.message.includes("need at least")
-      ) {
-        throw error;
-      }
-      if (attempt === MAX_CHECKLIST_ATTEMPTS) break;
-      await new Promise(r => setTimeout(r, 2000 * attempt));
-    }
+  const effectiveFinish = checklistFinishReason || streamResult.finishReason;
+  if (parsed.length >= MIN_CHECKLIST_ITEMS) {
+    return { items: parsed, h2Outline: isServiceArea ? undefined : resolvedH2Sections };
   }
 
   throw new Error(
-    `Checklist generated 0 items; need at least ${MIN_CHECKLIST_ITEMS} for this article type.`,
+    `Checklist generated ${parsed.length} items; need at least ${MIN_CHECKLIST_ITEMS} (finishReason=${effectiveFinish}, len=${fullResponse.length}).`,
   );
 }
 
@@ -1963,11 +1936,13 @@ Output ONLY valid JSON. Do not include markdown code blocks, explanations, or an
       }
     }
 
-    const { parsed } = parseJsonWithRepair<{
-      title?: string;
-      purpose?: string;
-      agents?: unknown[];
-    }>(cleanedResponse, { targetKeys: ["agents", "title", "purpose"] });
+    let parsed: { title?: string; purpose?: string; agents?: unknown[] };
+    try {
+      parsed = JSON.parse(cleanedResponse) as typeof parsed;
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      throw new Error(`Blueprint response was not valid JSON: ${msg}. Head: ${cleanedResponse.slice(0, 240)}`);
+    }
 
     let agents: AgentConfig[] = Array.isArray(parsed.agents)
       ? sanitizeBlueprintAgentsForPipeline(

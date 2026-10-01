@@ -33,6 +33,6 @@ Write-Host "`nStep 3/3: Sync plugins to WP Staging..." -ForegroundColor Cyan
 $config = Get-Content $configPath -Raw | ConvertFrom-Json
 Write-Host "`nSetup complete." -ForegroundColor Green
 Write-Host "  WP Admin:  https://$($config.siteHost)/wp-admin/"
-Write-Host "  Dev app:   npm run dev:local  then open http://localhost:8080"
+Write-Host "  Dev app:   start-neopulse-local.bat  or  npm run dev  then http://localhost:8080"
 Write-Host "  Bootstrap: POST https://$($config.siteHost)/api/auth/setup-admin (first run only)"
 Write-Host "  Docs:      docs/local-wp-staging-dev.md"

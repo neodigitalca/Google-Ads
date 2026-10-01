@@ -14,14 +14,11 @@ import { ensurePressReleaseSectionHeading } from '@/lib/press-release/press-rele
 import { pressReleaseHarnessSectionLabel } from '@/lib/press-release/press-release-harness-prompts';
 import { buildFocusedArticlePurpose } from '@/lib/content-generation/article-length-policy';
 import { formatSapPageWriterBlock } from '@/lib/prompt-builders/sap-page-template';
-import { getProductionModel } from '@/lib/optimization-settings-storage';
+import { getBlogModel } from '@/lib/optimization-settings-storage';
 import { resolveHarnessHttpReferer, runHarnessOpenRouterSection } from '@/lib/bulk/harness-openrouter-worker-client';
 import {
-  HARNESS_SECTION_MAX_ATTEMPTS,
   harnessSectionPreparedValid,
-  illustrativeHarnessSectionValid,
   prepareHarnessSectionHtml,
-  stitchedArticleHasAnswerH2,
   stitchedHarnessArticleValid,
 } from '@/lib/bulk/harness-section-validate';
 import { injectBlacklistRagIntoMessages } from '@/lib/content-word-blocklist';
@@ -232,9 +229,10 @@ export async function generateMarkdownContent(
     // 5000000 is way too high - use 16000 max which is the API limit
     const safeMaxTokens = Math.min(options.maxTokens || 16000, 16000);
     
+    const blogModel = getBlogModel();
     await streamGeneration({
       apiKey: options.openRouterApiKey,
-      model: options.selectedModel || getProductionModel(),
+      model: blogModel,
       systemPrompt,
       userPrompt,
       temperature: options.temperature || 1.0,
@@ -253,7 +251,7 @@ export async function generateMarkdownContent(
         throw new Error(`OpenRouter API key is invalid or expired. Please check your API key in settings.`);
       }
       if (errorMessage.includes('model') || errorMessage.includes('not found')) {
-        throw new Error(`Model "${options.selectedModel || getProductionModel()}" is not available. Please try a different model.`);
+        throw new Error(`Model "${blogModel}" is not available. Please try a different model.`);
       }
       if (errorMessage.includes('rate_limit') || errorMessage.includes('quota')) {
         throw new Error(`OpenRouter rate limit or quota exceeded. Please check your account credits.`);
@@ -460,7 +458,7 @@ export async function generateMarkdownContentHarnessed(
         const result = await runHarnessOpenRouterSection({
           sectionIndex: i,
           apiKey: options.openRouterApiKey,
-          model: options.selectedModel || getProductionModel(),
+          model: getBlogModel(promptEnv?.siteId),
           messages: injectBlacklistRagIntoMessages([
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -483,7 +481,7 @@ export async function generateMarkdownContentHarnessed(
             headlineHint: blueprint.title || row.title,
             sectionIntent: agent.description ?? "",
             apiKey: options.openRouterApiKey,
-            model: options.selectedModel,
+            model: getBlogModel(promptEnv?.siteId),
           });
         }
 
@@ -771,38 +769,42 @@ export async function generateMarkdownContentHarnessed(
     }
 
     const isIllustrative = agentHasIllustrativeFeature(agent);
-    let truncated = false;
+    const sectionLabel = opts.isAnswerSection
+      ? "Answer"
+      : opts.isOverviewSection
+        ? "Overview"
+        : isIllustrative
+          ? "[ILLUSTRATIVE]"
+          : titleForCb;
 
-    for (let attempt = 1; attempt <= HARNESS_SECTION_MAX_ATTEMPTS; attempt++) {
-      const attemptMaxTokens = Math.round(opts.maxTokens * (1 + (attempt - 1) * 0.15));
-      const result = await runHarnessOpenRouterSection({
-        sectionIndex,
-        apiKey: options.openRouterApiKey,
-        model: options.selectedModel || getProductionModel(),
-        messages: injectBlacklistRagIntoMessages([
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ]),
-        temperature: options.temperature || 1.0,
-        maxTokens: attemptMaxTokens,
-        topP: options.topP || 0.9,
-        httpReferer,
-      });
+    const result = await runHarnessOpenRouterSection({
+      sectionIndex,
+      apiKey: options.openRouterApiKey,
+      model: getBlogModel(promptEnv?.siteId),
+      messages: injectBlacklistRagIntoMessages([
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ]),
+      temperature: options.temperature || 1.0,
+      maxTokens: opts.maxTokens,
+      topP: options.topP || 0.9,
+      httpReferer,
+    });
 
-      const sectionContent = (result.content || '').trim();
-      if (!sectionContent) {
-        continue;
-      }
-      truncated = isCompletionTruncatedByTokenLimit(result.finishReason);
+    const sectionContent = (result.content || '').trim();
+    if (!sectionContent) {
+      throw new Error(`Harness: section "${sectionLabel}" returned empty content`);
+    }
+    const truncated = isCompletionTruncatedByTokenLimit(result.finishReason);
 
-      const prepared = prepareHarnessSectionHtml(sectionContent, {
-        title: titleForCb,
-        isOverview: opts.isOverviewSection,
-        isAnswer: opts.isAnswerSection,
-        isIllustrative,
-      });
-      if (!harnessSectionPreparedValid(prepared, { isIllustrative })) {
-      continue;
+    const prepared = prepareHarnessSectionHtml(sectionContent, {
+      title: titleForCb,
+      isOverview: opts.isOverviewSection,
+      isAnswer: opts.isAnswerSection,
+      isIllustrative,
+    });
+    if (!harnessSectionPreparedValid(prepared, { isIllustrative })) {
+      throw new Error(`Harness: section "${sectionLabel}" failed validation after single pass`);
     }
 
     options.onHarnessSection?.({
@@ -816,16 +818,6 @@ export async function generateMarkdownContentHarnessed(
     });
 
     return prepared;
-  }
-
-  const sectionLabel = opts.isAnswerSection
-      ? "Answer"
-      : opts.isOverviewSection
-        ? "Overview"
-        : isIllustrative
-          ? "[ILLUSTRATIVE]"
-          : titleForCb;
-    throw new Error(`Harness: section "${sectionLabel}" could not be generated after ${HARNESS_SECTION_MAX_ATTEMPTS} attempts`);
   };
 
   if (options.sequentialHarnessSections) {
@@ -879,60 +871,9 @@ export async function generateMarkdownContentHarnessed(
       );
     }
     const requireIllustrative = bodyAgents.some(agentHasIllustrativeFeature);
-    let sequentialHtml = stripTrailingCopyrightBoilerplate(stitchHarnessSections(sequentialPieces));
-
-    for (let repair = 0; repair < HARNESS_SECTION_MAX_ATTEMPTS; repair++) {
-      if (stitchedHarnessArticleValid(sequentialHtml, { requireIllustrative })) {
-        break;
-      }
-      const currentAnswer = sequentialPieces[0] ?? "";
-      if (!stitchedArticleHasAnswerH2(sequentialHtml)) {
-        sequentialPieces[0] = await runBlogHarnessSection(answerAgent, 0, "Answer", {
-          maxTokens: answerMaxTokens,
-          isOverviewSection: false,
-          isAnswerSection: true,
-          publishedPlanIndex: 0,
-          otherSectionTitles: ["Overview", ...bodyOutline.map((x) => x.displayTitle)],
-        });
-      }
-      const repairedAnswer = sequentialPieces[0] ?? currentAnswer;
-      const hasOverview =
-        /<h2\b[^>]*>\s*overview\s*</i.test(sequentialHtml)
-        || /\bid\s*=\s*["']overview["']/i.test(sequentialHtml);
-      if (!hasOverview) {
-        sequentialPieces[1] = await runBlogHarnessSection(overviewAgent, 1, "Overview", {
-          maxTokens: overviewMaxTokens,
-          isOverviewSection: true,
-          inPageAnchorBlock: overviewInPageAnchorBlock,
-          publishedPlanIndex: 1,
-          otherSectionTitles: bodyOutline.map((x) => x.displayTitle),
-          answerSectionHtml: repairedAnswer,
-        });
-      }
-      if (requireIllustrative) {
-        const illustrativeIndex = bodyAgents.findIndex(agentHasIllustrativeFeature);
-        if (illustrativeIndex >= 0) {
-          const pieceIndex = illustrativeIndex + 2;
-          const illustrativePiece = sequentialPieces[pieceIndex] ?? "";
-          if (!illustrativeHarnessSectionValid(illustrativePiece)) {
-            const agent = bodyAgents[illustrativeIndex]!;
-            const o = bodyOutline[illustrativeIndex]!;
-            const titleForCb = o.displayTitle;
-            const maxTokens = harnessTokenBySectionKey.get(titleForCb);
-            if (maxTokens == null) {
-              throw new Error(`Harness: missing token budget for section "${titleForCb}"`);
-            }
-            sequentialPieces[pieceIndex] = await runBlogHarnessSection(agent, pieceIndex, titleForCb, {
-              maxTokens,
-              isOverviewSection: false,
-              publishedPlanIndex: pieceIndex,
-              otherSectionTitles: bodyOutline.filter((_, j) => j !== illustrativeIndex).map((x) => x.displayTitle),
-              answerSectionHtml: repairedAnswer,
-            });
-          }
-        }
-      }
-      sequentialHtml = stripTrailingCopyrightBoilerplate(stitchHarnessSections(sequentialPieces));
+    const sequentialHtml = stripTrailingCopyrightBoilerplate(stitchHarnessSections(sequentialPieces));
+    if (!stitchedHarnessArticleValid(sequentialHtml, { requireIllustrative })) {
+      throw new Error("Harness: stitched article failed validation after single pass");
     }
     return sequentialHtml;
   }

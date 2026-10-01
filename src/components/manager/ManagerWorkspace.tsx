@@ -55,6 +55,10 @@ export interface ManagerWorkspaceProps {
   saveApiKey: (key: string) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  agentResearchModel: string;
+  setAgentResearchModel: (model: string) => void;
+  agentImageModel: string;
+  setAgentImageModel: (model: string) => void;
   temperature: number;
   setTemperature: (value: number) => void;
   maxTokens: number;
@@ -95,6 +99,10 @@ export const ManagerWorkspace: React.FC<ManagerWorkspaceProps> = ({
   saveApiKey,
   selectedModel,
   setSelectedModel,
+  agentResearchModel,
+  setAgentResearchModel,
+  agentImageModel,
+  setAgentImageModel,
   temperature,
   setTemperature,
   maxTokens,
@@ -325,6 +333,10 @@ export const ManagerWorkspace: React.FC<ManagerWorkspaceProps> = ({
             saveDataForSEOApiKeyToStorage={saveDataForSEOApiKey}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
+            agentResearchModel={agentResearchModel}
+            setAgentResearchModel={setAgentResearchModel}
+            agentImageModel={agentImageModel}
+            setAgentImageModel={setAgentImageModel}
             temperature={temperature}
             setTemperature={setTemperature}
             maxTokens={maxTokens}

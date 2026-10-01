@@ -30,7 +30,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1 -Ski
 2. Starts **Docker Desktop** if the engine is not up
 3. Starts **neopulse.local** with `docker compose up` (no WP Staging license / CLI)
 4. Waits for **https://neopulse.local/** to respond
-5. Starts **Vite** on **http://localhost:8080** if port 8080 is free (log: `.local-dev-vite.log`)
+5. Stops any stale Vite on **8080**, starts **`scripts/dev.cjs`**, verifies **`/__neo-pulse/dev-meta.json`** matches this repo (log: `.local-dev-vite.log`)
+6. Starts host worker on **:10000** and pings wp-cron
 
 ## URLs after startup
 
@@ -58,5 +59,7 @@ npm run setup:local-wp
 - Use headless Cursor browser for the user's desktop Chrome unless they ask for desktop automation.
 - Point the UI at WP Admin NEO Pulse iframe locally; dev UI is always Vite on port 8080.
 - Ask the user to open Terminal or run startup commands in a visible shell.
+- Run Vite from `B:\Neo Pulse\Google-Ads-main` or any checkout other than `b:\Neo Pulse\pulse`.
+- Use `npx vite`, `dev:remote`, or production API proxy for local UI work.
 
 Reference: [docs/local-wp-staging-dev.md](../docs/local-wp-staging-dev.md), [scripts/start-local.ps1](../scripts/start-local.ps1)
