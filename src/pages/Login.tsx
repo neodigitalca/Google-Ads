@@ -128,6 +128,15 @@ export default function Login() {
               Create account
             </a>
           </p>
+          <p className="text-center text-base text-muted-foreground">
+            <a href="/terms-of-service" className="hover:underline">
+              Terms of Service
+            </a>
+            {" · "}
+            <a href="/privacy-policy" className="hover:underline">
+              Privacy Policy
+            </a>
+          </p>
         </form>
       </div>
     </div>
