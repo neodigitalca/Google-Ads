@@ -11,15 +11,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, "..");
 
 const profile = (process.env.RENDER_PROFILE || "demo").trim().toLowerCase();
+const renderApiBase =
+  (process.env.NEO_PULSE_RENDER_API_BASE || "https://flowbieone.onrender.com/api/mcp").trim();
+
 const defaults =
   profile === "prod"
     ? {
         VITE_BASE_PATH: "/",
-        VITE_MCP_API_BASE: "https://neodigital.ca/api/mcp",
+        VITE_MCP_API_BASE: renderApiBase,
       }
     : {
         VITE_BASE_PATH: "/",
-        VITE_MCP_API_BASE: "https://neodigital.ca/api/mcp",
+        VITE_MCP_API_BASE: renderApiBase,
       };
 
 process.env.RENDER = "true";
@@ -47,7 +50,11 @@ const result = spawnSync("node", [path.join(repoRoot, "scripts", "build-neo-puls
 if ((result.status ?? 1) === 0) {
   const redirectsPath = path.join(repoRoot, "dist", "_redirects");
   fs.mkdirSync(path.dirname(redirectsPath), { recursive: true });
-  fs.writeFileSync(redirectsPath, "/*    /index.html   200\n", "utf8");
+  fs.writeFileSync(
+    redirectsPath,
+    "/terms-of-service    /terms-of-service.html    200\n/privacy-policy      /privacy-policy.html      200\n/*                   /index.html               200\n",
+    "utf8",
+  );
   console.log("[render-build-static] wrote dist/_redirects");
 }
 

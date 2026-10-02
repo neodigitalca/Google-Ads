@@ -60,6 +60,7 @@
     "setup:local-dominator": "node scripts/setup-local-dominator.mjs",
     "setup:local-dominator:smoke": "node scripts/setup-local-dominator.mjs --smoke",
     "build:render-static": "node scripts/render-build-static.mjs",
+    "provision:render-neo-pulse": "node scripts/render-provision-neo-pulse.mjs",
     "start:ld-worker": "node scripts/local-dominator-worker-server.mjs",
     "verify:post-creator-worker": "node scripts/verify-post-creator-worker.mjs",
     "setup:game-copilot": "node scripts/setup-game-copilot.mjs",

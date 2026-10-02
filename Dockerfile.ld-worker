@@ -24,12 +24,12 @@ RUN apt-get update \
 
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-ENV NODE_ENV=production
 
 WORKDIR /app
 
 COPY package.json package-lock.json ./
 RUN npm ci
+ENV NODE_ENV=production
 
 COPY tsconfig.json vite.config.ts tailwind.config.ts postcss.config.js index.html ./
 COPY src ./src
