@@ -12,16 +12,26 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, "..");
 const API = "https://api.render.com/v1";
-const REPO = "https://github.com/neodigitalca/Google-Ads";
-const BRANCH = "main";
+const REPO =
+  (process.env.NEO_PULSE_RENDER_REPO || "https://github.com/sean796/Google-Ads").trim();
+const BRANCH = (process.env.NEO_PULSE_RENDER_BRANCH || "main").trim();
 const RENDER_API = "https://flowbieone.onrender.com/api/mcp";
 
 function loadApiKey() {
   const fromEnv = (process.env.RENDER_API_KEY || "").trim();
   if (fromEnv) return fromEnv;
-  const downloads = path.join(os.homedir(), "Downloads", "RENDER API KEY.txt");
-  if (fs.existsSync(downloads)) return fs.readFileSync(downloads, "utf8").trim();
-  throw new Error("Set RENDER_API_KEY or place key in Downloads/RENDER API KEY.txt");
+  const candidates = [
+    path.join(REPO_ROOT, ".secrets", "render-api-key.txt"),
+    path.join(os.homedir(), "Downloads", "RENDER API KEY.txt"),
+    path.join(os.homedir(), ".render", "api-key.txt"),
+    path.join(os.homedir(), "Documents", "RENDER API KEY.txt"),
+  ];
+  for (const filePath of candidates) {
+    if (fs.existsSync(filePath)) return fs.readFileSync(filePath, "utf8").trim();
+  }
+  throw new Error(
+    "Set RENDER_API_KEY or place key in .secrets/render-api-key.txt or Downloads/RENDER API KEY.txt",
+  );
 }
 
 async function api(method, route, body) {
