@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T19:52:17.164Z",
+  "generatedAt": "2026-10-07T21:01:47.493Z",
   "repoRoot": "B:/Neo Pulse",
   "scope": "desktop-app",
   "excludes": [
@@ -10,16 +10,16 @@
     "watch": 300
   },
   "summary": {
-    "monolith": 146,
-    "watch": 243,
+    "monolith": 145,
+    "watch": 249,
     "byArea": {
       "scripts": {
-        "monolith": 6,
-        "watch": 15
+        "monolith": 3,
+        "watch": 20
       },
       "src/lib": {
-        "monolith": 89,
-        "watch": 170
+        "monolith": 91,
+        "watch": 171
       },
       "src/components": {
         "monolith": 51,
@@ -28,13 +28,6 @@
     }
   },
   "files": [
-    {
-      "path": "src/lib/bulk-auto-generate.ts",
-      "lines": 3154,
-      "tier": "monolith",
-      "cluster": "lib-bulk",
-      "area": "src/lib"
-    },
     {
       "path": "src/components/integrations/EntityGenerationFeature.tsx",
       "lines": 2838,
@@ -85,27 +78,6 @@
       "area": "src/components"
     },
     {
-      "path": "src/lib/content-generation/content-sanitizer.ts",
-      "lines": 1885,
-      "tier": "monolith",
-      "cluster": "lib-content-generation",
-      "area": "src/lib"
-    },
-    {
-      "path": "src/lib/workflow/workflow-runner.ts",
-      "lines": 1853,
-      "tier": "monolith",
-      "cluster": "lib-workflow",
-      "area": "src/lib"
-    },
-    {
-      "path": "scripts/research/chatgpt-audit/lib.mjs",
-      "lines": 1847,
-      "tier": "monolith",
-      "cluster": "scripts-research-chatgpt",
-      "area": "scripts"
-    },
-    {
       "path": "src/lib/content-optimization/topic-research-fanout.ts",
       "lines": 1678,
       "tier": "monolith",
@@ -134,6 +106,13 @@
       "area": "src/components"
     },
     {
+      "path": "src/lib/bulk/bulk-row-pipeline.ts",
+      "lines": 1402,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
       "path": "src/lib/local-seo-strategy-from-grid.ts",
       "lines": 1348,
       "tier": "monolith",
@@ -153,6 +132,13 @@
       "tier": "monolith",
       "cluster": "components-other",
       "area": "src/components"
+    },
+    {
+      "path": "src/lib/workflow/workflow-step-dispatch.ts",
+      "lines": 1239,
+      "tier": "monolith",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
     },
     {
       "path": "src/lib/vertical-benchmark/vertical-benchmark-bulk-template.ts",
@@ -176,17 +162,17 @@
       "area": "src/lib"
     },
     {
-      "path": "scripts/build-automation-recipes.mjs",
-      "lines": 1168,
-      "tier": "monolith",
-      "cluster": "scripts-other",
-      "area": "scripts"
-    },
-    {
       "path": "src/lib/local-dominator-csv.ts",
       "lines": 1155,
       "tier": "monolith",
       "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/bulk-wordpress-publish-row.ts",
+      "lines": 1149,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
       "area": "src/lib"
     },
     {
@@ -225,6 +211,13 @@
       "area": "src/components"
     },
     {
+      "path": "scripts/research/chatgpt-audit/lib.mjs",
+      "lines": 1034,
+      "tier": "monolith",
+      "cluster": "scripts-research-chatgpt",
+      "area": "scripts"
+    },
+    {
       "path": "src/components/chat/layout/useChatShellState.ts",
       "lines": 1002,
       "tier": "monolith",
@@ -251,6 +244,13 @@
       "tier": "monolith",
       "cluster": "lib-overview-harness",
       "area": "src/lib"
+    },
+    {
+      "path": "scripts/automation-recipes/recipe-catalog.mjs",
+      "lines": 964,
+      "tier": "monolith",
+      "cluster": "scripts-other",
+      "area": "scripts"
     },
     {
       "path": "src/components/shared/bulk-details-tile-sections.tsx",
@@ -358,8 +358,8 @@
       "area": "src/lib"
     },
     {
-      "path": "scripts/pulse-assist-feature-playbooks.cjs",
-      "lines": 814,
+      "path": "scripts/pulse-assist/feature-playbooks.data.cjs",
+      "lines": 813,
       "tier": "monolith",
       "cluster": "scripts-other",
       "area": "scripts"
@@ -412,13 +412,6 @@
       "tier": "monolith",
       "cluster": "lib-other",
       "area": "src/lib"
-    },
-    {
-      "path": "scripts/generate-api-docs.mjs",
-      "lines": 779,
-      "tier": "monolith",
-      "cluster": "scripts-other",
-      "area": "scripts"
     },
     {
       "path": "src/components/research/backlinking/BacklinkingResearchTab.tsx",
@@ -566,13 +559,6 @@
       "tier": "monolith",
       "cluster": "components-other",
       "area": "src/components"
-    },
-    {
-      "path": "scripts/research/browser-automation/agent-loop.mjs",
-      "lines": 664,
-      "tier": "monolith",
-      "cluster": "scripts-browser-automation",
-      "area": "scripts"
     },
     {
       "path": "src/lib/local-analysis-suggest-from-inventory.ts",
@@ -806,6 +792,13 @@
       "area": "src/lib"
     },
     {
+      "path": "src/lib/workflow/workflow-runner.ts",
+      "lines": 568,
+      "tier": "monolith",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
       "path": "src/components/ppc/google/GoogleAdsCampaignRowDetails.tsx",
       "lines": 564,
       "tier": "monolith",
@@ -813,11 +806,11 @@
       "area": "src/components"
     },
     {
-      "path": "scripts/research/local-dominator/lib.mjs",
-      "lines": 559,
+      "path": "src/lib/content-generation/sanitizer/link-rules.ts",
+      "lines": 558,
       "tier": "monolith",
-      "cluster": "scripts-research-local-dominator",
-      "area": "scripts"
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
     },
     {
       "path": "src/lib/content-word-blocklist.ts",
@@ -1217,6 +1210,13 @@
       "tier": "watch",
       "cluster": "lib-other",
       "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/local-dominator/lib.mjs",
+      "lines": 461,
+      "tier": "watch",
+      "cluster": "scripts-research-local-dominator",
+      "area": "scripts"
     },
     {
       "path": "src/lib/prompt-builders-keyword.ts",
@@ -1772,6 +1772,13 @@
       "area": "src/lib"
     },
     {
+      "path": "scripts/research/browser-automation/agent-vision-round.mjs",
+      "lines": 389,
+      "tier": "watch",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
       "path": "src/lib/reporting/reporting-date-presets.ts",
       "lines": 389,
       "tier": "watch",
@@ -1896,6 +1903,13 @@
       "tier": "watch",
       "cluster": "components-integrations",
       "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/sanitizer/table-rules.ts",
+      "lines": 373,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
     },
     {
       "path": "scripts/audit-chrome-console.mjs",
@@ -2157,6 +2171,13 @@
       "area": "src/components"
     },
     {
+      "path": "scripts/research/chatgpt-audit/chatgpt-composer.mjs",
+      "lines": 344,
+      "tier": "watch",
+      "cluster": "scripts-research-chatgpt",
+      "area": "scripts"
+    },
+    {
       "path": "src/lib/overview/overview-blog-links-apply-local.ts",
       "lines": 344,
       "tier": "watch",
@@ -2374,6 +2395,13 @@
       "area": "src/lib"
     },
     {
+      "path": "scripts/api-docs/analyze-route.mjs",
+      "lines": 327,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
       "path": "src/lib/agent-runs-types.ts",
       "lines": 327,
       "tier": "watch",
@@ -2477,6 +2505,13 @@
       "tier": "watch",
       "cluster": "components-integrations",
       "area": "src/components"
+    },
+    {
+      "path": "scripts/research/browser-automation/agent-loop.mjs",
+      "lines": 319,
+      "tier": "watch",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
     },
     {
       "path": "src/lib/overview/overview-blog-overview-harness-run.ts",
