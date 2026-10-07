@@ -5,67 +5,20 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { HANDLER_PREFIX, SECTION_LABELS } from "./api-docs/constants.mjs";
+import { buildManifest } from "./api-docs/manifest.mjs";
+import {
+  fileSlug,
+  slugFromPath,
+  titleFromPath,
+  titleFromSegment,
+} from "./api-docs/path-utils.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const PLUGIN = path.join(ROOT, "wordpress-plugins/neo-pulse-app/includes");
 const DOCS = path.join(ROOT, "docs/api");
 const OVERRIDES = path.join(DOCS, "_overrides");
-
-const HANDLER_PREFIX = {
-  "auth/class-auth-route-handlers.php": "auth",
-  "teams/class-teams-route-handlers.php": "teams",
-  "chat/class-chat-route-handlers.php": "teams/{teamId}/chat",
-  "tasks/class-tasks-route-handlers.php": "teams/{teamId}/tasks",
-  "wordpress/class-wp-route-handlers.php": "wordpress",
-  "gsc/class-gsc-route-handlers.php": "gsc",
-  "ga/class-ga-route-handlers.php": "ga",
-  "gmb/class-gmb-route-handlers.php": "gmb",
-  "overview/class-overview-route-handlers.php": "overview",
-  "dataforseo/class-dataforseo-route-handlers.php": "dataforseo",
-  "semrush/class-semrush-route-handlers.php": "semrush",
-  "proposal/class-proposal-route-handlers.php": "proposal",
-  "seo/class-seo-route-handlers.php": "seo",
-  "vertical-benchmark/class-vertical-benchmark-route-handlers.php": "vertical-benchmarks",
-  "site-scraper/class-site-scraper-route-handlers.php": "site-scraper",
-  "knowledge-model/class-knowledge-model-route-handlers.php": "knowledge-model",
-  "images/class-images-route-handlers.php": "images",
-  "integrations/class-integrations-route-handlers.php": "integrations",
-  "integrations/class-manager-route-handlers.php": null,
-};
-
-const SECTION_LABELS = {
-  "getting-started": "Getting started",
-  auth: "Authentication",
-  teams: "Teams",
-  wordpress: "WordPress",
-  gsc: "Google Search Console",
-  ga: "Google Analytics",
-  gmb: "Google Business Profile",
-  overview: "Overview",
-  dataforseo: "DataForSEO",
-  mcp: "DataForSEO MCP",
-  semrush: "Semrush",
-  proposal: "Proposal",
-  seo: "SEO",
-  "vertical-benchmarks": "Vertical Benchmarks",
-  "site-scraper": "Site Scraper",
-  "knowledge-model": "Knowledge Model",
-  images: "Images",
-  integrations: "Integrations",
-  "manager-cloud-settings": "Manager Cloud Settings",
-  "manager-wordpress-properties": "Manager WordPress Properties",
-  bulk: "Bulk",
-  wikipedia: "Wikipedia",
-  "entity-maps-image": "Entity Maps",
-};
-
-const SECTION_OVERVIEWS = [
-  { sectionId: "auth", slug: "auth/overview", title: "Overview", order: 5 },
-  { sectionId: "teams", slug: "teams/overview", title: "Overview", order: 5 },
-  { sectionId: "wordpress", slug: "wordpress/overview", title: "Overview", order: 5 },
-  { sectionId: "integrations", slug: "integrations/overview", title: "Overview", order: 5 },
-];
 
 /** @type {Array<{method:string,path:string,auth:string,title?:string,stream?:boolean}>} */
 const routes = [];
@@ -80,35 +33,6 @@ function addRoute(method, apiPath, auth = "open", extra = {}) {
   const key = `${method} ${apiPath}`;
   if (routes.some((r) => `${r.method} ${r.path}` === key)) return;
   routes.push({ method, path: apiPath, auth, ...extra });
-}
-
-function slugFromPath(apiPath) {
-  return apiPath.replace(/\{[^}]+\}/g, (m) => m.slice(1, -1)).replace(/\//g, "/");
-}
-
-function fileSlug(apiPath) {
-  return apiPath
-    .replace(/\{teamId\}/g, "")
-    .replace(/\{[^}]+\}/g, (m) => `by-${m.slice(1, -1)}`)
-    .replace(/\/+/g, "/")
-    .replace(/^\/|\/$/g, "")
-    .replace(/\//g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function titleFromSegment(seg) {
-  return seg
-    .split("-")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-function titleFromPath(apiPath, method) {
-  const parts = apiPath.split("/").filter(Boolean);
-  const last = parts[parts.length - 1] ?? apiPath;
-  if (last.includes("{")) return `${method} ${apiPath}`;
-  return titleFromSegment(last.replace(/\.[^.]+$/, ""));
 }
 
 function parseExactRoutes(content, prefix, subVar = "subpath", handlerRel = "") {
@@ -677,82 +601,6 @@ function writeScaffold(route, order) {
   return full;
 }
 
-function buildManifest() {
-  /** @type {Record<string, {slug:string,title:string,method?:string,path?:string,auth?:string,order:number}[]>} */
-  const sections = {};
-
-  for (const route of routes.sort((a, b) => a.path.localeCompare(b.path))) {
-    const slug = slugFromPath(route.path);
-    const sectionKey = slug.split("/")[0];
-    if (!sections[sectionKey]) sections[sectionKey] = [];
-    sections[sectionKey].push({
-      slug,
-      title: route.title ?? titleFromPath(route.path, route.method),
-      method: route.method,
-      path: `/api/${route.path}`,
-      auth: route.auth,
-      order: sections[sectionKey].length * 10 + 10,
-    });
-  }
-
-  for (const ov of SECTION_OVERVIEWS) {
-    const overviewFile = path.join(DOCS, ...ov.slug.split("/")) + ".md";
-    if (!fs.existsSync(overviewFile)) continue;
-    if (!sections[ov.sectionId]) sections[ov.sectionId] = [];
-    if (!sections[ov.sectionId].some((i) => i.slug === ov.slug)) {
-      sections[ov.sectionId].unshift({
-        slug: ov.slug,
-        title: ov.title,
-        order: ov.order,
-      });
-    }
-  }
-
-  const manualSections = [
-    {
-      id: "getting-started",
-      label: "Getting started",
-      items: [
-        { slug: "getting-started", title: "Introduction", order: 0 },
-        { slug: "getting-started/authentication", title: "Authentication", order: 10 },
-        { slug: "getting-started/errors", title: "Errors", order: 20 },
-        { slug: "getting-started/streaming", title: "Streaming responses", order: 30 },
-        { slug: "getting-started/client-library", title: "Building a client library", order: 40 },
-      ],
-    },
-    {
-      id: "god-mode",
-      label: "God Mode",
-      items: [
-        { slug: "god-mode/overview", title: "Overview", order: 0 },
-        { slug: "god-mode/feature-index", title: "Feature index", order: 5 },
-        { slug: "god-mode/ask-plan-build", title: "Ask / Plan / Build", order: 10 },
-        { slug: "god-mode/tools", title: "Tools reference", order: 20 },
-        { slug: "god-mode/body-ops", title: "Body operations", order: 30 },
-        { slug: "god-mode/endpoints", title: "Endpoints", order: 40 },
-      ],
-    },
-  ];
-
-  const apiSections = Object.keys(sections)
-    .sort()
-    .map((id) => ({
-      id,
-      label: SECTION_LABELS[id] ?? titleFromSegment(id),
-      items: sections[id].sort((a, b) => a.order - b.order),
-    }));
-
-  const manifest = {
-    version: 1,
-    generatedAt: new Date().toISOString(),
-    routeCount: routes.length,
-    sections: [...manualSections, ...apiSections],
-  };
-
-  fs.writeFileSync(path.join(DOCS, "_manifest.json"), JSON.stringify(manifest, null, 2));
-  return manifest;
-}
-
 function main() {
   fs.mkdirSync(DOCS, { recursive: true });
   fs.mkdirSync(OVERRIDES, { recursive: true });
@@ -771,7 +619,7 @@ function main() {
     written.push(writeScaffold(route, (i + 1) * 10));
   });
 
-  const manifest = buildManifest();
+  const manifest = buildManifest(routes, DOCS);
   console.log(`Generated ${routes.length} API route docs in docs/api/`);
   console.log(`Manifest: ${manifest.sections.length} sections`);
 }
