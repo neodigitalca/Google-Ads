@@ -1,0 +1,301 @@
+/**
+ * Automation recipe catalog definitions (data).
+ */
+import {
+  trigger,
+  action,
+  calendarAction,
+  POLL,
+  COOLDOWN,
+  SIG_IMPR_UP_CTR_DOWN,
+  SIG_CLICKS,
+  SIG_CTR,
+  SIG_POSITION,
+  SIG_QUICK_WIN,
+  PAGES_META_ACTION,
+  ENTITY_PAGE_CREATOR_PAYLOAD,
+  ENTITY_GENERATOR_PAYLOAD,
+  SAP_GENERATOR_PAYLOAD,
+} from "./recipe-build-helpers.mjs";
+export const recipesPartB2 = [
+  {
+    keyword: "grid-to-entity-pages-monthly",
+    name: "Grid to entity pages",
+    description: "Export a Local Dominator grid, then generate and schedule entity pages from grid locations.",
+    notes: [
+      "Sequential workflow: Local Dominator grid export, then entity page creator (grid mode only).",
+      "Install creates a workflow with two action steps; step 2 fails if step 1 produces no CSV.",
+      "Default: 3 ad groups × 5 locations = 15 entity pages scheduled evenly across the month.",
+    ],
+    category: "local-seo",
+    verticals: ["local-seo", "general"],
+    tags: ["entity", "grid", "local-dominator", "workflow", "monthly"],
+    prerequisites: ["wordpress", "gsc", "entity-sitemap"],
+    filters: {
+      executionKinds: ["local_dominator_export", "entity_page_creator"],
+      targetBuckets: ["sap"],
+      actionCount: 2,
+    },
+    defaultTasks: [
+      calendarAction(
+        "local-dominator-grid-export",
+        "Export Local Dominator grid CSV",
+        "local_dominator_export",
+        {
+          businessName: "",
+          keyword: "",
+          saveLocalArchive: true,
+          saveToDisk: true,
+        },
+      ),
+      calendarAction(
+        "entity-page-creator-grid-run",
+        "Create entity pages from grid",
+        "entity_page_creator",
+        {
+          ...ENTITY_PAGE_CREATOR_PAYLOAD,
+          locationSource: "grid",
+          gridInputSource: "workflow",
+          ragInputKeys: ["local_dominator_export_1"],
+        },
+      ),
+    ],
+    kind: "workflow_template",
+  },
+  {
+    keyword: "entity-generator-monthly",
+    name: "Entity generator",
+    description: "Generate entity location rows as bulk CSV from a Local Dominator grid with Wikipedia and entity sitemap validation.",
+    notes: [
+      "Requires a Local Dominator grid CSV upload (or upstream workflow export).",
+      "Outputs entity-bulk.csv with skeleton rows (entity, title template, Wikipedia).",
+      "Does not hydrate GSC keywords or publish WordPress pages.",
+      "Default: 3 ad groups × 5 locations = 15 entity rows.",
+      "Chain with SAP generator to hydrate and schedule pages.",
+    ],
+    category: "local-seo",
+    verticals: ["local-seo", "general"],
+    tags: ["entity", "csv", "grid", "monthly"],
+    prerequisites: ["wordpress", "entity-sitemap"],
+    filters: {
+      executionKinds: ["entity_generator"],
+      targetBuckets: ["sap"],
+      actionCount: 1,
+    },
+    defaultTasks: [
+      calendarAction(
+        "entity-generator-run",
+        "Generate entity CSV",
+        "entity_generator",
+        { ...ENTITY_GENERATOR_PAYLOAD },
+      ),
+    ],
+  },
+  {
+    keyword: "sap-generator-monthly",
+    name: "SAP generator",
+    description: "Hydrate entity CSV rows with GSC keywords and schedule SAP pages to WordPress.",
+    notes: [
+      "Upload an entity CSV or chain from Entity generator in a workflow.",
+      "Fills keywords, titles, meta, and slugs, then publishes SAP pages.",
+      "Default: 15 pages scheduled evenly across the month.",
+    ],
+    category: "local-seo",
+    verticals: ["local-seo", "general"],
+    tags: ["entity", "sap", "monthly"],
+    prerequisites: ["wordpress", "gsc", "entity-sitemap"],
+    filters: {
+      executionKinds: ["sap_generator"],
+      targetBuckets: ["sap"],
+      actionCount: 1,
+    },
+    defaultTasks: [
+      calendarAction(
+        "sap-generator-run",
+        "Create SAP pages from entity CSV",
+        "sap_generator",
+        { ...SAP_GENERATOR_PAYLOAD },
+      ),
+    ],
+  },
+  {
+    keyword: "entity-to-sap-monthly",
+    name: "Entity to SAP pages",
+    description: "Generate entity CSV rows, then hydrate and schedule SAP pages.",
+    notes: [
+      "Sequential workflow: Entity generator, then SAP generator.",
+      "Step 2 reads entity-bulk.csv from step 1 via workflow RAG.",
+      "Default: 3 ad groups × 5 locations = 15 SAP pages scheduled across the month.",
+    ],
+    category: "local-seo",
+    verticals: ["local-seo", "general"],
+    tags: ["entity", "sap", "workflow", "monthly"],
+    prerequisites: ["wordpress", "gsc", "entity-sitemap"],
+    filters: {
+      executionKinds: ["entity_generator", "sap_generator"],
+      targetBuckets: ["sap"],
+      actionCount: 2,
+    },
+    defaultTasks: [
+      calendarAction(
+        "entity-generator-run",
+        "Generate entity CSV",
+        "entity_generator",
+        { ...ENTITY_GENERATOR_PAYLOAD },
+      ),
+      calendarAction(
+        "sap-generator-run",
+        "Create SAP pages from entity CSV",
+        "sap_generator",
+        {
+          ...SAP_GENERATOR_PAYLOAD,
+          entityCsvInputSource: "workflow",
+          ragInputKeys: ["entity_generator_1"],
+        },
+      ),
+    ],
+    kind: "workflow_template",
+  },
+  {
+    keyword: "grid-to-entity-to-sap-monthly",
+    name: "Grid to entity to SAP",
+    description: "Export a Local Dominator grid, generate entity CSV, then schedule SAP pages.",
+    notes: [
+      "Three-step workflow: Local Dominator export, Entity generator, SAP generator.",
+      "Each step passes CSV output to the next via workflow RAG.",
+      "Default: 15 SAP pages scheduled evenly across the month.",
+    ],
+    category: "local-seo",
+    verticals: ["local-seo", "general"],
+    tags: ["entity", "grid", "local-dominator", "workflow", "monthly"],
+    prerequisites: ["wordpress", "gsc", "entity-sitemap"],
+    filters: {
+      executionKinds: ["local_dominator_export", "entity_generator", "sap_generator"],
+      targetBuckets: ["sap"],
+      actionCount: 3,
+    },
+    defaultTasks: [
+      calendarAction(
+        "local-dominator-grid-export",
+        "Export Local Dominator grid CSV",
+        "local_dominator_export",
+        {
+          businessName: "",
+          keyword: "",
+          saveLocalArchive: true,
+          saveToDisk: true,
+        },
+      ),
+      calendarAction(
+        "entity-generator-grid-run",
+        "Generate entity CSV from grid",
+        "entity_generator",
+        {
+          ...ENTITY_GENERATOR_PAYLOAD,
+          locationSource: "grid",
+          gridInputSource: "workflow",
+          ragInputKeys: ["local_dominator_export_1"],
+        },
+      ),
+      calendarAction(
+        "sap-generator-run",
+        "Create SAP pages from entity CSV",
+        "sap_generator",
+        {
+          ...SAP_GENERATOR_PAYLOAD,
+          entityCsvInputSource: "workflow",
+          ragInputKeys: ["entity_generator_2"],
+        },
+      ),
+    ],
+    kind: "workflow_template",
+  },
+  {
+    keyword: "missing-template-aiseo",
+    name: "Missing template Full AISEO",
+    description:
+      "Download the posts audit CSV, then Full AISEO adjusts posts that do not fit the new template.",
+    notes: [
+      "Client is Posh. Posts only. No schedule. Page audit loads posts automatically.",
+      "CSV rows downloads the missing-template audit CSV into this run RAG.",
+      "Full AISEO only gets posts that still lack an H2 titled Answer.",
+    ],
+    category: "maintenance",
+    verticals: ["general", "local-seo", "editorial"],
+    tags: ["optimize", "aiseo", "posts", "template"],
+    prerequisites: ["wordpress"],
+    filters: {
+      executionKinds: ["csv_rows", "content_optimizer"],
+      targetBuckets: ["posts"],
+      actionCount: 2,
+    },
+    defaultTasks: [
+      calendarAction(
+        "csv-rows-posts",
+        "Page audit",
+        "csv_rows",
+        {
+          csvInputSource: "site",
+          targetBucket: "posts",
+          csvHeaders: ["url", "H2"],
+          csvColumnMap: { url: "url", research: "H2" },
+        },
+        "none",
+      ),
+      calendarAction(
+        "missing-template-posts",
+        "Full AISEO",
+        "content_optimizer",
+        {
+          targetBucket: "posts",
+          updateMode: "update",
+          optimizationOptions: {
+            optimizeTitle: true,
+            optimizeMeta: true,
+            optimizeExcerpt: true,
+            optimizeContent: true,
+            optimizeExtraText: false,
+            optimizeFeaturedImage: false,
+            useAcfKeyword: true,
+            forceNewResearch: true,
+          },
+          optionalPrompt:
+            "Adjust posts that do not fit the new live template. Published HTML must include an H2 titled Answer. Skip posts that already have that H2.",
+        },
+        "none",
+      ),
+    ],
+    kind: "workflow_template",
+  },
+  {
+    keyword: "blog-freshness-radar",
+    name: "Blog Freshness Radar",
+    description: "Full AISEO on blog posts when total search clicks decline.",
+    notes: [
+      POLL,
+      "Scope: blog posts (Posts bucket).",
+      "Runs when " + SIG_CLICKS(20, 150).toLowerCase(),
+      "Higher click-drop threshold (20%) for noisier post-level GSC data.",
+      COOLDOWN,
+    ],
+    category: "maintenance",
+    verticals: ["editorial"],
+    tags: ["gsc", "posts", "clicks", "blog"],
+    prerequisites: ["gsc", "wordpress"],
+    filters: {
+      executionKinds: ["content_optimizer"],
+      targetBuckets: ["posts"],
+      triggerSignals: ["clicks_drop"],
+      actionCount: 1,
+    },
+    defaultTasks: [
+      action(
+        "blog-freshness",
+        "Refresh blog posts on clicks drop",
+        "content_optimizer",
+        "posts",
+        trigger([{ signal: "clicks_drop", operator: "gte", value: 20, minImpressions: 150 }]),
+      ),
+    ],
+  }
+];

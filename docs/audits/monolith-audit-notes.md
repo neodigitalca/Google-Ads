@@ -16,9 +16,9 @@ Machine-readable list: [`monolith-inventory.json`](./monolith-inventory.json).
 | `src/lib/` | |
 | `src/components/` | |
 
-**Summary (2026-10-07 refresh):** 148 monoliths (≥500 lines), 249 watch (300–499). By area: **scripts 4** monoliths, `src/lib` 93, `src/components` 51. Regenerate: `node scripts/generate-monolith-inventory.mjs`.
+**Summary (2026-10-07 refresh):** 143 monoliths (≥500 lines). By area: **scripts 0** monoliths, `src/lib` 92, `src/components` 51. Regenerate: `node scripts/generate-monolith-inventory.mjs`.
 
-**Script monoliths (4):** `chatgpt-audit/chatgpt-login.mjs`, `pulse-assist/feature-playbooks.data.cjs`, `api-docs/generate-api-docs-core.mjs`, `automation-recipes/recipe-catalog-a.mjs`.
+**Scripts:** split into facades and part files (`chatgpt-login-ui-auth/submit`, `generate-api-docs-{scan,analyze,scaffold,core}`, `feature-playbooks.data-{a,b,pb}`, `recipe-catalog-{a,b1,b2}`). None remain ≥500 lines.
 
 **Phase 2 shipped on `main`:** `bulk-auto-generate.ts`, `blog-template-builder` facade, `topic-research-fanout` facade, `content-sanitizer` facade, bulk row pipeline phases, workflow dispatch splits.
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T21:48:20.774Z",
+  "generatedAt": "2026-10-07T22:06:21.842Z",
   "repoRoot": "B:/Neo Pulse",
   "scope": "desktop-app",
   "excludes": [
@@ -10,16 +10,16 @@
     "watch": 300
   },
   "summary": {
-    "monolith": 148,
-    "watch": 255,
+    "monolith": 143,
+    "watch": 262,
     "byArea": {
       "scripts": {
-        "monolith": 4,
-        "watch": 21
+        "monolith": 0,
+        "watch": 26
       },
       "src/lib": {
-        "monolith": 93,
-        "watch": 176
+        "monolith": 92,
+        "watch": 178
       },
       "src/components": {
         "monolith": 51,
@@ -260,13 +260,6 @@
       "area": "src/lib"
     },
     {
-      "path": "scripts/research/chatgpt-audit/chatgpt-login.mjs",
-      "lines": 909,
-      "tier": "monolith",
-      "cluster": "scripts-research-chatgpt",
-      "area": "scripts"
-    },
-    {
       "path": "src/components/integrations/WordPressFeature.tsx",
       "lines": 890,
       "tier": "monolith",
@@ -321,13 +314,6 @@
       "tier": "monolith",
       "cluster": "lib-workflow",
       "area": "src/lib"
-    },
-    {
-      "path": "scripts/pulse-assist/feature-playbooks.data.cjs",
-      "lines": 813,
-      "tier": "monolith",
-      "cluster": "scripts-other",
-      "area": "scripts"
     },
     {
       "path": "src/lib/local-analysis/entity-site-warm-cache.ts",
@@ -666,13 +652,6 @@
       "area": "src/lib"
     },
     {
-      "path": "scripts/api-docs/generate-api-docs-core.mjs",
-      "lines": 618,
-      "tier": "monolith",
-      "cluster": "scripts-other",
-      "area": "scripts"
-    },
-    {
       "path": "src/lib/tasks-api.ts",
       "lines": 615,
       "tier": "monolith",
@@ -755,13 +734,6 @@
       "tier": "monolith",
       "cluster": "components-manager",
       "area": "src/components"
-    },
-    {
-      "path": "src/lib/bulk/bulk-row-checklist-blueprint-phase.ts",
-      "lines": 584,
-      "tier": "monolith",
-      "cluster": "lib-bulk",
-      "area": "src/lib"
     },
     {
       "path": "src/components/research/competitor/CompetitorSiteGrid.tsx",
@@ -1002,13 +974,6 @@
       "area": "src/lib"
     },
     {
-      "path": "scripts/automation-recipes/recipe-catalog-a.mjs",
-      "lines": 506,
-      "tier": "monolith",
-      "cluster": "scripts-other",
-      "area": "scripts"
-    },
-    {
       "path": "src/lib/local-analysis/entity-sap-inventory-collision.ts",
       "lines": 506,
       "tier": "monolith",
@@ -1156,18 +1121,25 @@
       "area": "src/components"
     },
     {
-      "path": "scripts/automation-recipes/recipe-catalog-b.mjs",
-      "lines": 478,
-      "tier": "watch",
-      "cluster": "scripts-other",
-      "area": "scripts"
-    },
-    {
       "path": "src/components/integrations/wordpress/PostSelector.tsx",
       "lines": 476,
       "tier": "watch",
       "cluster": "components-integrations",
       "area": "src/components"
+    },
+    {
+      "path": "scripts/automation-recipes/recipe-catalog-a.mjs",
+      "lines": 475,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "scripts/research/chatgpt-audit/chatgpt-login-ui-auth.mjs",
+      "lines": 475,
+      "tier": "watch",
+      "cluster": "scripts-research-chatgpt",
+      "area": "scripts"
     },
     {
       "path": "src/lib/agent-runs/__tests__/agent-run-grouping.test.ts",
@@ -1639,6 +1611,13 @@
       "area": "src/lib"
     },
     {
+      "path": "scripts/pulse-assist/feature-playbooks.data-b.cjs",
+      "lines": 410,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
       "path": "src/lib/teams-api.ts",
       "lines": 409,
       "tier": "watch",
@@ -1714,6 +1693,13 @@
       "tier": "watch",
       "cluster": "components-other",
       "area": "src/components"
+    },
+    {
+      "path": "scripts/pulse-assist/feature-playbooks.data-a.cjs",
+      "lines": 402,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
     },
     {
       "path": "src/components/agent-runs/use-agent-run-live-snapshot.ts",
@@ -1909,6 +1895,13 @@
       "lines": 378,
       "tier": "watch",
       "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/bulk-row-blueprint-draft-phase.ts",
+      "lines": 377,
+      "tier": "watch",
+      "cluster": "lib-bulk",
       "area": "src/lib"
     },
     {
@@ -2507,6 +2500,13 @@
       "area": "src/components"
     },
     {
+      "path": "src/lib/bulk/bulk-row-checklist-blueprint-phase.ts",
+      "lines": 324,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
       "path": "src/lib/sitemap-optimizer/parse-gsc-pages-csv.ts",
       "lines": 324,
       "tier": "watch",
@@ -2532,6 +2532,13 @@
       "lines": 321,
       "tier": "watch",
       "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
+      "path": "scripts/research/chatgpt-audit/chatgpt-login-ui-submit.mjs",
+      "lines": 321,
+      "tier": "watch",
+      "cluster": "scripts-research-chatgpt",
       "area": "scripts"
     },
     {
@@ -2813,6 +2820,13 @@
       "tier": "watch",
       "cluster": "lib-workflow",
       "area": "src/lib"
+    },
+    {
+      "path": "scripts/automation-recipes/recipe-catalog-b2.mjs",
+      "lines": 301,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
     },
     {
       "path": "src/lib/workflow/workflow-then-aggregate.ts",

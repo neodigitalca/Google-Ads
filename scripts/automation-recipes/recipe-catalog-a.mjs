@@ -471,36 +471,5 @@ export const recipesPartA = [
         trigger([{ signal: "quick_win_slipped", operator: "gte", value: 0, minImpressions: 50 }]),
       ),
     ],
-  },
-  {
-    keyword: "blog-freshness-radar",
-    name: "Blog Freshness Radar",
-    description: "Full AISEO on blog posts when total search clicks decline.",
-    notes: [
-      POLL,
-      "Scope: blog posts (Posts bucket).",
-      "Runs when " + SIG_CLICKS(20, 150).toLowerCase(),
-      "Higher click-drop threshold (20%) for noisier post-level GSC data.",
-      COOLDOWN,
-    ],
-    category: "maintenance",
-    verticals: ["editorial"],
-    tags: ["gsc", "posts", "clicks", "blog"],
-    prerequisites: ["gsc", "wordpress"],
-    filters: {
-      executionKinds: ["content_optimizer"],
-      targetBuckets: ["posts"],
-      triggerSignals: ["clicks_drop"],
-      actionCount: 1,
-    },
-    defaultTasks: [
-      action(
-        "blog-freshness",
-        "Refresh blog posts on clicks drop",
-        "content_optimizer",
-        "posts",
-        trigger([{ signal: "clicks_drop", operator: "gte", value: 20, minImpressions: 150 }]),
-      ),
-    ],
-  },
+  }
 ];
