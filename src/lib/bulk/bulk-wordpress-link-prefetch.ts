@@ -8,6 +8,7 @@ import { getValidatedPosts } from '@/lib/cached-link-validation';
 import { clearValidationCache } from '@/lib/cached-link-validation';
 import { createSiteCache, seedSiteCacheFromBulkInventory } from '@/lib/wordpress-site-cache';
 import { normalizeInternalUrl } from '@/lib/wordpress-api/validate-internal-links';
+import { resolveUploadSitemapType } from '@/lib/bulk/bulk-sitemap-mode';
 
 /** Validated link URLs per site (run-scoped). Filled on first upload to each site; cleared when run ends. */
 const preValidatedUrlsBySite = new Map<string, Set<string>>();
@@ -21,13 +22,18 @@ export function getBulkPreValidatedUrlsForSite(siteId: string): Set<string> | un
  */
 export function buildSitesToPostFromPosting(
   posting: WordPressPostingOptions | undefined,
+  rowEntity?: string | null,
 ): Array<{ site: WordPressSite; sitemapType: 'post' | 'entity' }> {
   if (!posting?.enabled) return [];
+  const mapType = (sitemapType: 'post' | 'entity') => resolveUploadSitemapType(sitemapType, rowEntity);
   if (posting.sites && posting.sites.length > 0) {
-    return posting.sites.map((s) => ({ site: s.site, sitemapType: s.sitemapType }));
+    return posting.sites.map((s) => ({
+      site: s.site,
+      sitemapType: mapType(s.sitemapType),
+    }));
   }
   if (posting.site) {
-    return [{ site: posting.site, sitemapType: posting.sitemapType }];
+    return [{ site: posting.site, sitemapType: mapType(posting.sitemapType) }];
   }
   return [];
 }

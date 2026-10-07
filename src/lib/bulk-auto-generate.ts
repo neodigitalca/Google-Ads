@@ -86,7 +86,11 @@ import { sanitizeWordPressSlugSegment } from './rank-math-redirect-csv';
 import { buildSapSlugFromKeywordEntity } from '@/lib/sap-slug-from-keyword-entity';
 import { extractOriginFromSapTitle } from '@/lib/sap-origin-from-title';
 import { extractEndpointFromEntitySitemapUrl } from './entity-endpoint-extractor';
-import { resolveUploadSitemapType } from '@/lib/bulk/bulk-sitemap-mode';
+import {
+  bulkPostsToExtraTextLinkRows,
+  emitEntitySapPipelineHarnessDone,
+  type BulkInternalLinkRow,
+} from '@/lib/bulk/bulk-harness-progress';
 import { updateACFFields } from './wordpress-acf-origin';
 import { getACFFieldsForPost, resolveAcfFieldsForMapping } from '@/lib/wordpress-api/acf-discovery';
 import { discoverACFFieldMapping, fallbackFieldMapping } from '@/lib/content-generation/acf-field-mapper';
@@ -209,7 +213,6 @@ import {
   type LinkTargetsPlan,
 } from './bulk/bulk-generation-wp-inventory';
 import { getBulkGenerationWpInventoryIfReady } from './bulk/bulk-generation-inventory-cache-store';
-import type { ExtraTextInventoryLinkRow } from './content-generation/extra-text-inventory-links';
 import { runContentLinkTargetsHarness } from './overview/overview-content-link-targets-harness-run';
 import { OptimizationFileManager } from './optimization-file-manager';
 import {
@@ -239,58 +242,7 @@ export {
   resolveRankMathFromKeywordResearch,
 } from '@/lib/bulk/bulk-keyword-research-artifacts';
 
-type BulkInternalLinkRow = {
-  id: number;
-  slug: string;
-  title: string;
-  excerpt: string;
-  link: string;
-  date_gmt: string;
-  collection?: string;
-  postType?: string;
-};
-
-function bulkPostsToExtraTextLinkRows(posts: BulkInternalLinkRow[]): ExtraTextInventoryLinkRow[] {
-  return posts.map((item) => ({
-    id: item.id,
-    slug: item.slug,
-    title: item.title,
-    excerpt: item.excerpt,
-    link: item.link,
-    date_gmt: item.date_gmt,
-    postType:
-      item.collection === "pages" || item.postType === "page" ? ("page" as const) : ("post" as const),
-  }));
-}
-
-function emitBulkPipelineHarnessDoneByTitle(
-  options: BulkProcessingOptions,
-  rowIndex: number,
-  stepTitle: string,
-  pipelineTitles: readonly string[],
-): void {
-  const sectionIndex = pipelineTitles.findIndex((title) => title === stepTitle);
-  if (sectionIndex < 0) return;
-  options.onHarnessSection?.(
-    buildContentOptimizeHarnessPayload(rowIndex, sectionIndex, "done", undefined, pipelineTitles),
-  );
-}
-
-export function emitEntitySapPipelineHarnessDone(
-  options: BulkProcessingOptions,
-  rowIndex: number,
-  row: Pick<CSVRow, "featuredImage">,
-  stepTitle: string,
-  bodyHarnessTitles?: readonly string[],
-): void {
-  if (!rowUsesGoogleImageFeatured(row, options.featuredImageType)) return;
-  emitBulkPipelineHarnessDoneByTitle(
-    options,
-    rowIndex,
-    stepTitle,
-    buildGoogleImageEntitySapPipelineTitles(bodyHarnessTitles ?? []),
-  );
-}
+export { emitEntitySapPipelineHarnessDone } from '@/lib/bulk/bulk-harness-progress';
 
 // Re-export types and functions for backward compatibility
 export type { CSVRow } from './bulk/bulk-csv-parser';
@@ -583,8 +535,8 @@ export async function generateBlueprintAndContent(
       : {}),
   };
 
-  const sitesToPostForTemplate = buildSitesToPostFromPosting(options.wordPressPosting);
   const rowEntity = enrichedRow.entity?.trim() ?? "";
+  const sitesToPostForTemplate = buildSitesToPostFromPosting(options.wordPressPosting, enrichedRow.entity);
   const hasRowEntity = Boolean(rowEntity && rowEntity !== "N/A");
   const useEntitySitemapTemplate =
     hasRowEntity &&
@@ -1385,7 +1337,7 @@ try {
       enrichedRow = { ...enrichedRow, title: bulkResolvedPostTitle };
     }
 
-    const siteBundleList = buildSitesToPostFromPosting(options.wordPressPosting);
+    const siteBundleList = buildSitesToPostFromPosting(options.wordPressPosting, enrichedRow.entity);
     const primarySiteForAcf = siteBundleList[0]?.site;
 
     let markdownContent: string;
@@ -1747,25 +1699,10 @@ try {
 
     // WordPress upload (if enabled)
     if (options.wordPressPosting?.enabled && markdownContent) {
-      // Determine which sites to post to
-      const sitesToPost: Array<{ site: WordPressSite; sitemapType: 'post' | 'entity' }> = [];
-      
-      if (options.wordPressPosting.sites && options.wordPressPosting.sites.length > 0) {
-        sitesToPost.push(
-          ...options.wordPressPosting.sites.map((s) => ({
-            site: s.site,
-            sitemapType: resolveUploadSitemapType(s.sitemapType, enrichedRow.entity),
-          })),
-        );
-      } else if (options.wordPressPosting.site) {
-        sitesToPost.push({
-          site: options.wordPressPosting.site,
-          sitemapType: resolveUploadSitemapType(
-            options.wordPressPosting.sitemapType,
-            enrichedRow.entity,
-          ),
-        });
-      }
+      const sitesToPost = buildSitesToPostFromPosting(
+        options.wordPressPosting,
+        enrichedRow.entity,
+      );
 
       if (sitesToPost.length === 0) {
         const msg =
