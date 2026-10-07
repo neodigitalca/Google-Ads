@@ -83,6 +83,8 @@ import {
   buildBlogTemplateUserPrompt,
   parseBlogTemplateChecklist,
   buildSemrushExactPromptParts,
+  toProperCase,
+  LINK_FEATURE_PLACEHOLDER,
 } from "./blog-template-checklist-prompts";
 import type { ChecklistFromSelectionsResult } from "./blog-template-builder-types";
 

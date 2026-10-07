@@ -86,7 +86,7 @@ const LINK_FEATURE_PLACEHOLDER = `[LINK]: ${INTERNAL_LINK_PLACEHOLDER_FEATURE_SU
  * Converts a keyword to proper/title case
  * Capitalizes the first letter of each word, except for common prepositions/articles
  */
-function toProperCase(keyword: string): string {
+export function toProperCase(keyword: string): string {
   if (!keyword) return keyword;
   
   // Words that should remain lowercase (unless at the start)
