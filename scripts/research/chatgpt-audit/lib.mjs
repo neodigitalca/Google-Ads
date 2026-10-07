@@ -5,8 +5,22 @@ import {
   enableChatGptLeanBrowsing,
   shouldAbortChatGptProxyRequest,
 } from "./chatgpt-lean-browsing.mjs";
+import { loadEnvFile, mergeProcessEnv, requireEnv as requireEnvShared } from "../_shared/env.mjs";
+import {
+  applySessionCookies as applySessionCookiesAtPath,
+  saveSessionCookies as saveSessionCookiesAtPath,
+  readSessionFile as readSessionFileAtPath,
+  clearSessionFile as clearSessionFileAtPath,
+  sessionCookiesAreStale,
+} from "../_shared/session-cookies.mjs";
+import {
+  capturePageScreenshot,
+  resolveScreenshotPage,
+} from "../_shared/playwright-screenshot.mjs";
+import { createProgressWriter as createSharedProgressWriter } from "../_shared/progress-writer.mjs";
 
 export { enableChatGptLeanBrowsing, shouldAbortChatGptProxyRequest };
+export { capturePageScreenshot, resolveScreenshotPage, sessionCookiesAreStale };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.join(__dirname, "..", "..", "..");
@@ -16,25 +30,7 @@ export const defaultChatGptUrl = "https://chatgpt.com";
 export const defaultAgentMailInbox = "neo-pulse@agentmail.to";
 
 export function loadEnv(filePath = envPath) {
-  /** @type {Record<string, string>} */
-  const out = {};
-  if (!fs.existsSync(filePath)) return out;
-  for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const eq = trimmed.indexOf("=");
-    if (eq < 1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    let value = trimmed.slice(eq + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    out[key] = value;
-  }
-  return out;
+  return loadEnvFile(filePath);
 }
 
 function loadOpenRouterFromAppSecretsPhp() {
@@ -62,85 +58,34 @@ export function resolveEnv(overrides = {}) {
     ...loadEnv(envPath),
     ...(envFileOverride ? loadEnv(envFileOverride) : {}),
   };
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value && !(key in env)) env[key] = value;
-  }
+  const merged = mergeProcessEnv(env);
   const openRouterFromSecrets = loadOpenRouterFromAppSecretsPhp();
   if (openRouterFromSecrets) {
-    if (!env.OPENROUTER_API_KEY) env.OPENROUTER_API_KEY = openRouterFromSecrets;
-    if (!env.NEO_PULSE_APP_OPENROUTER_API_KEY) {
-      env.NEO_PULSE_APP_OPENROUTER_API_KEY = openRouterFromSecrets;
+    if (!merged.OPENROUTER_API_KEY) merged.OPENROUTER_API_KEY = openRouterFromSecrets;
+    if (!merged.NEO_PULSE_APP_OPENROUTER_API_KEY) {
+      merged.NEO_PULSE_APP_OPENROUTER_API_KEY = openRouterFromSecrets;
     }
   }
-  return { ...env, ...overrides };
+  return { ...merged, ...overrides };
 }
 
 export function requireEnv(name, env) {
-  const value = env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing ${name}. Set it in .env.chatgpt-audit or the environment.`);
-  }
-  return value;
+  return requireEnvShared(
+    name,
+    env,
+    "Set it in .env.chatgpt-audit or the environment.",
+  );
 }
 
-/** @typedef {{ step: (label: string) => void, screenshot: (page: import("puppeteer").Page, label: string) => Promise<void>, done: (payload: Record<string, unknown>) => void, error: (message: string) => void, write: (payload: Record<string, unknown>) => void }} ProgressWriter */
-
-/** @returns {ProgressWriter} */
+/** @returns {import("../_shared/progress-writer.mjs").ProgressWriter} */
 export function createProgressWriter(progressPath) {
-  if (!progressPath) {
-    return {
-      step() {},
-      async screenshot() {},
-      done() {},
-      error() {},
-      write() {},
-    };
-  }
-
-  const write = (payload) => {
-    fs.appendFileSync(progressPath, `${JSON.stringify(payload)}\n`, "utf8");
-  };
-
-  let lastScreenshotAt = 0;
-  const SCREENSHOT_MIN_INTERVAL_MS = 4_000;
-
-  return {
-    step(label) {
-      write({ type: "step", label });
-    },
-    async screenshot(page, label, options = {}) {
-      const force = options?.force === true;
-      const now = Date.now();
-      if (!force && now - lastScreenshotAt < SCREENSHOT_MIN_INTERVAL_MS) {
-        write({ type: "step", label, capturedAt: new Date().toISOString() });
-        return;
-      }
-      const jpegBase64 = await capturePageScreenshot(page);
-      const capturedAt = new Date().toISOString();
-      if (!jpegBase64) {
-        write({ type: "step", label: `${label} (preview unavailable)`, capturedAt });
-        return;
-      }
-      lastScreenshotAt = now;
-      write({
-        type: "screenshot",
-        label,
-        pngBase64: jpegBase64,
-        mime: "image/jpeg",
-        capturedAt,
-      });
-    },
-    done(payload) {
-      write({ type: "done", ...payload });
-    },
-    error(message) {
-      write({ type: "error", message });
-    },
-    write,
-  };
+  return createSharedProgressWriter(progressPath, {
+    minScreenshotIntervalMs: 4_000,
+    useCaptureHelper: true,
+    includeWrite: true,
+  });
 }
 
-const PREVIEW_CAPTURE_INTERVAL_MS = 800;
 const COMPOSER_POLL_INTERVAL_MS = 2_000;
 const REPLY_POLL_INTERVAL_MS = 1_500;
 const NEW_CHAT_POLL_INTERVAL_MS = 1_500;
@@ -154,10 +99,6 @@ function isNavigationContextError(error) {
     || message.includes("Target closed")
     || message.includes("Session closed")
   );
-}
-
-function isScreenshotRecoverableError(error) {
-  return isNavigationContextError(error);
 }
 
 async function evaluateOnPageSafe(page, pageFunction, ...args) {
@@ -176,65 +117,6 @@ async function evaluateHandleSafe(handle, pageFunction, ...args) {
   } catch (error) {
     if (isNavigationContextError(error)) return undefined;
     throw error;
-  }
-}
-
-export async function resolveScreenshotPage(page) {
-  if (page && typeof page.isClosed === "function" && !page.isClosed()) {
-    try {
-      await page.evaluate(() => document.readyState);
-      return page;
-    } catch (error) {
-      if (!isScreenshotRecoverableError(error)) throw error;
-    }
-  }
-
-  const browser = page?.browser?.();
-  if (!browser) return page;
-
-  const pages = await browser.pages();
-  for (let index = pages.length - 1; index >= 0; index -= 1) {
-    const candidate = pages[index];
-    if (candidate.isClosed()) continue;
-    try {
-      await candidate.evaluate(() => document.readyState);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  return page;
-}
-
-export async function capturePageScreenshot(page) {
-  const target = await resolveScreenshotPage(page);
-  if (!target || (typeof target.isClosed === "function" && target.isClosed())) {
-    return null;
-  }
-
-  const options = {
-    type: "jpeg",
-    quality: 78,
-    encoding: "base64",
-    captureBeyondViewport: false,
-  };
-
-  try {
-    return await target.screenshot(options);
-  } catch (error) {
-    if (!isScreenshotRecoverableError(error)) throw error;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const retryTarget = await resolveScreenshotPage(page);
-    if (!retryTarget || (typeof retryTarget.isClosed === "function" && retryTarget.isClosed())) {
-      return null;
-    }
-    try {
-      return await retryTarget.screenshot(options);
-    } catch (retryError) {
-      if (!isScreenshotRecoverableError(retryError)) throw retryError;
-      return null;
-    }
   }
 }
 
@@ -267,65 +149,19 @@ export async function gotoChatGpt(page, url = defaultChatGptUrl, options = {}) {
 }
 
 export async function applySessionCookies(page) {
-  const session = readSessionFile();
-  if (!session?.cookies?.length) return false;
-  if (sessionCookiesAreStale(session.cookies, session.savedAt)) {
-    clearSessionFile();
-    return false;
-  }
-  await page.setCookie(...session.cookies);
-  return true;
+  return applySessionCookiesAtPath(page, sessionPath);
 }
 
 export async function saveSessionCookies(page) {
-  const cookies = await page.cookies();
-  const payload = {
-    savedAt: new Date().toISOString(),
-    cookies,
-  };
-  fs.writeFileSync(sessionPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  return saveSessionCookiesAtPath(page, sessionPath);
 }
 
 export function readSessionFile() {
-  if (!fs.existsSync(sessionPath)) return null;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(sessionPath, "utf8"));
-    if (Array.isArray(parsed)) {
-      return { savedAt: null, cookies: parsed };
-    }
-    if (parsed && Array.isArray(parsed.cookies)) {
-      return {
-        savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : null,
-        cookies: parsed.cookies,
-      };
-    }
-  } catch {
-    return null;
-  }
-  return null;
+  return readSessionFileAtPath(sessionPath);
 }
 
 export function clearSessionFile() {
-  if (fs.existsSync(sessionPath)) {
-    fs.unlinkSync(sessionPath);
-  }
-}
-
-export function sessionCookiesAreStale(cookies, savedAt) {
-  const nowSec = Date.now() / 1000;
-  for (const cookie of cookies) {
-    const expires = Number(cookie?.expires ?? 0);
-    if (expires > 0 && expires < nowSec) {
-      return true;
-    }
-  }
-  if (savedAt) {
-    const savedMs = Date.parse(savedAt);
-    if (Number.isFinite(savedMs) && Date.now() - savedMs > 7 * 24 * 60 * 60 * 1000) {
-      return true;
-    }
-  }
-  return false;
+  clearSessionFileAtPath(sessionPath);
 }
 
 export function extractOtpFromText(text) {
