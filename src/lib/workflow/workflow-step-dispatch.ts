@@ -92,6 +92,9 @@ import { filterWorkflowOutputsForSite, clientDeliverableOutputs } from "@/lib/wo
 import { runAgentMailEmailIntake } from "@/lib/agentmail/agentmail-email-intake";
 import { isGridCsvFileRef } from "@/lib/entity-page-creator/resolve-upstream-grid-csv";
 import type { WorkflowRunCallbacks } from "@/lib/workflow/workflow-run-callbacks";
+import type { WalkFromNodeResult } from "@/lib/workflow/workflow-walk-types";
+import { walkWorkflowThenNode } from "@/lib/workflow/workflow-dispatch-then-node";
+import { walkWorkflowRagArchiveNode } from "@/lib/workflow/workflow-dispatch-rag-archive-node";
 
 import {
   startWorkflowAgentForSite,
@@ -103,9 +106,6 @@ import {
   resolveWorkflowSiteId,
 } from "@/lib/workflow/workflow-dispatch-agent-core";
 import { readWorkflowAgentBinding } from "@/lib/workflow/workflow-agent-binding";
-
-type WalkFromNodeResult = { ok: boolean; error?: string; deferWorkflowCompletion?: boolean };
-
 
 function resolveWorkflowResumeNodeId(
   workflow: Pick<WorkflowDefinition, "nodes" | "edges">,
@@ -549,171 +549,26 @@ async function walkFromNode(
     }
   }
 
-  if (isWorkflowThenKind(node.kind)) {
-    const config = thenConfig(node);
-    const runWorkflowWideEmail =
-      node.kind === "then_email" && config.emailBatchScope === "workflow_run";
-    const sitesForThen =
-      walkScope.activeSiteIds.length > 0
-        ? walkScope.activeSiteIds
-        : ([resolveWorkflowSiteId(workflow)].filter(Boolean) as string[]);
-    const pendingSites = runWorkflowWideEmail
-      ? sitesForThen
-      : sitesForThen.filter((siteId) => !workflowThenOutputExistsForSite(outputs, node.id, siteId));
-    const thenAlreadyDone = runWorkflowWideEmail
-      ? workflowRunThenEmailAlreadySent(outputs, node.id)
-      : pendingSites.length === 0 && sitesForThen.length > 0;
+  const thenWalk = await walkWorkflowThenNode({
+    workflow,
+    run,
+    node,
+    outputs,
+    callbacks,
+    walkScope,
+    allSiteIds,
+  });
+  if (thenWalk) return thenWalk;
 
-    if (!thenAlreadyDone) {
-    await patchWorkflowRun(workflow.teamId, workflow.id, run.id, {
-      status: "running",
-      currentNodeId: node.id,
-    });
-    const waitCtx = { teamId: workflow.teamId, workflowId: workflow.id, runId: run.id };
-
-    if (shouldDeferThenStepForParallelWait(node, waitCtx)) {
-      return { ok: true, deferWorkflowCompletion: true };
-    }
-
-    const folderTestOnly =
-      callbacks.stopAfterNodeId === node.id && node.kind === "then_google_drive";
-
-    const upstreamReady = folderTestOnly
-      ? true
-      : await awaitThenUpstreamTerminal(node, outputs, workflow.teamId);
-    if (!upstreamReady) {
-      return { ok: false, error: "Upstream deliverables are not ready yet." };
-    }
-
-    const upstreamAgent = findUpstreamActionAgent(workflow, node.id);
-    const executionKind = upstreamAgent
-      ? String((upstreamAgent.config as WorkflowActionConfig).executionKind ?? "")
-      : undefined;
-
-    if (runWorkflowWideEmail) {
-      if (workflowRunThenEmailAlreadySent(outputs, node.id)) {
-        return { ok: true };
-      }
-      const primarySiteId = sitesForThen[0] ?? resolveWorkflowSiteId(workflow) ?? "";
-      const siteContext = resolveWorkflowSiteContext(primarySiteId || undefined);
-      const thenResult = await executeWorkflowThenStep(node, outputs, {
-        workflow,
-        siteId: primarySiteId || undefined,
-        siteName: siteContext.name,
-        siteUrl: siteContext.url,
-        executionKind,
-        allSiteIds,
-        allOutputs: outputs,
-        folderTestOnly,
-      });
-      if (!thenResult.ok) {
-        return { ok: false, error: thenResult.error ?? "Then step failed" };
-      }
-      if (thenResult.output) {
-        const saved = await saveWorkflowStepOutput(workflow.teamId, workflow.id, run.id, {
-          nodeId: node.id,
-          variableKey: thenResult.output.variableKey,
-          scope: "run",
-          label: thenResult.output.label,
-          textPreview: thenResult.output.textPreview,
-          agentRunId: thenResult.output.agentRunId,
-          fileRefs: thenResult.output.fileRefs,
-          deliveryMeta: thenResult.output.deliveryMeta,
-        });
-        if (saved.ok && saved.output) outputs.push(saved.output);
-      }
-    } else {
-      const thenResults = await Promise.all(
-        pendingSites.map(async (siteId) => {
-          const siteContext = resolveWorkflowSiteContext(siteId);
-          const siteOutputs = filterWorkflowOutputsForSite(outputs, siteId, allSiteIds);
-          return executeWorkflowThenStep(node, siteOutputs, {
-            workflow,
-            siteId,
-            siteName: siteContext.name,
-            siteUrl: siteContext.url,
-            executionKind,
-            allSiteIds,
-            allOutputs: outputs,
-            folderTestOnly,
-          });
-        }),
-      );
-
-      const thenFailure = thenResults.find((result) => !result.ok);
-      if (thenFailure) {
-        return { ok: false, error: thenFailure.error ?? "Then step failed" };
-      }
-
-      for (let index = 0; index < thenResults.length; index += 1) {
-        const thenResult = thenResults[index]!;
-        if (!thenResult.output) continue;
-        const siteId = pendingSites[index]!;
-        const thenVariableKey =
-          allSiteIds.length > 1
-            ? `${thenResult.output.variableKey}${workflowClientVariableSuffix(allSiteIds, siteId)}`
-            : thenResult.output.variableKey;
-        const saved = await saveWorkflowStepOutput(workflow.teamId, workflow.id, run.id, {
-          nodeId: node.id,
-          variableKey: thenVariableKey,
-          scope: "run",
-          label: thenResult.output.label,
-          textPreview: thenResult.output.textPreview,
-          agentRunId: thenResult.output.agentRunId,
-          fileRefs: thenResult.output.fileRefs,
-          deliveryMeta: thenResult.output.deliveryMeta,
-          siteId,
-        });
-        if (saved.ok && saved.output) outputs.push(saved.output);
-      }
-    }
-    }
-  }
-
-  if (node.kind === "rag_archive") {
-    const config = node.config as WorkflowRagArchiveConfig;
-    if (!config.variableKey) {
-      return { ok: true };
-    }
-    const deliverableScope = config.deliverableScope ?? "final";
-    const sitesForArchive =
-      walkScope.activeSiteIds.length > 0
-        ? walkScope.activeSiteIds
-        : ([resolveWorkflowSiteId(workflow)].filter(Boolean) as string[]);
-
-    for (const siteId of sitesForArchive) {
-      const siteContext = resolveWorkflowSiteContext(siteId);
-      const deliverableOutputs = clientDeliverableOutputs(
-        outputs,
-        workflow.nodes,
-        siteId,
-        allSiteIds,
-      );
-      const merged = mergeWorkflowDeliverableFileRefs(deliverableOutputs, workflow.nodes);
-      const fileRefs = filterWorkflowArchiveFileRefs(merged, deliverableScope, siteContext.name);
-      if (fileRefs.length === 0) continue;
-      const baseKey = config.variableKey;
-      const variableKey =
-        allSiteIds.length > 1
-          ? `${baseKey}${workflowClientVariableSuffix(allSiteIds, siteId)}`
-          : baseKey;
-      const previewSource =
-        resolveArchiveOutputForClient(deliverableOutputs, baseKey, siteId, allSiteIds) ??
-        deliverableOutputs[deliverableOutputs.length - 1];
-      const saved = await saveWorkflowStepOutput(workflow.teamId, workflow.id, run.id, {
-        nodeId: node.id,
-        variableKey,
-        scope: "run",
-        label: config.label ?? config.variableKey,
-        textPreview:
-          previewSource?.textPreview ?? `${fileRefs.length} deliverable${fileRefs.length === 1 ? "" : "s"}`,
-        agentRunId: previewSource?.agentRunId,
-        fileRefs,
-        siteId: allSiteIds.length > 1 ? siteId : undefined,
-      });
-      if (saved.ok && saved.output) outputs.push(saved.output);
-    }
-  }
+  const ragWalk = await walkWorkflowRagArchiveNode({
+    workflow,
+    run,
+    node,
+    outputs,
+    walkScope,
+    allSiteIds,
+  });
+  if (ragWalk) return ragWalk;
 
   if (callbacks.stopAfterNodeId === nodeId) {
     return { ok: true };
