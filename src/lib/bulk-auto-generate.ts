@@ -84,6 +84,7 @@ import {
 } from './wordpress-scheduler';
 import { sanitizeWordPressSlugSegment } from './rank-math-redirect-csv';
 import { buildSapSlugFromKeywordEntity } from '@/lib/sap-slug-from-keyword-entity';
+import { extractOriginFromSapTitle } from '@/lib/sap-origin-from-title';
 import { extractEndpointFromEntitySitemapUrl } from './entity-endpoint-extractor';
 import { resolveUploadSitemapType } from '@/lib/bulk/bulk-sitemap-mode';
 import { updateACFFields } from './wordpress-acf-origin';
@@ -201,8 +202,7 @@ import type {
 } from '@/lib/image-generator/image-generator-options';
 import { generateEntityTitleFromSitemap } from './bulk/bulk-entity-handler';
 import type { RunHistoryEntry } from '@/hooks/content-optimization/use-optimization-state';
-import { validateAndStripInvalidLinksFromContent, normalizeInternalUrl } from './wordpress-api/validate-internal-links';
-import { getValidatedPosts } from './cached-link-validation';
+import { validateAndStripInvalidLinksFromContent } from './wordpress-api/validate-internal-links';
 import {
   keepBlogPlayLinkTargets,
   inventoryRowsToWordPressLinkables,
@@ -212,89 +212,32 @@ import { getBulkGenerationWpInventoryIfReady } from './bulk/bulk-generation-inve
 import type { ExtraTextInventoryLinkRow } from './content-generation/extra-text-inventory-links';
 import { runContentLinkTargetsHarness } from './overview/overview-content-link-targets-harness-run';
 import { OptimizationFileManager } from './optimization-file-manager';
-import { createSiteCache, seedSiteCacheFromBulkInventory } from './wordpress-site-cache';
-import { clearValidationCache } from './cached-link-validation';
-import { extractOriginFromSapTitle } from '@/lib/sap-origin-from-title';
 import {
-  ensureBulkGenerationWpInventory,
-} from '@/lib/bulk/bulk-generation-wp-inventory';
+  parseOptimizedMetaFromSeoResearchJson,
+  populateACFFieldsFromDFS,
+} from '@/lib/bulk/bulk-row-acf-meta';
+import {
+  buildSitesToPostFromPosting,
+  clearBulkUploadValidationCache,
+  getBulkPreValidatedUrlsForSite,
+  prefetchBulkWordPressLinkValidationForRun,
+} from '@/lib/bulk/bulk-wordpress-link-prefetch';
+import {
+  buildBulkSelectedKeywordArtifactPayload,
+  mergeSemrushFieldsIntoSeoResearchJson,
+  resolveRankMathFromKeywordResearch,
+  safeTrimSemrushOverviewForAcf,
+} from '@/lib/bulk/bulk-keyword-research-artifacts';
 
-/** Validated link URLs per site (run-scoped). Filled on first upload to each site; cleared when run ends. */
-const preValidatedUrlsBySite = new Map<string, Set<string>>();
-
-/**
- * Resolves posting config to the same site list used for WordPress upload.
- */
-export function buildSitesToPostFromPosting(
-  posting: WordPressPostingOptions | undefined
-): Array<{ site: WordPressSite; sitemapType: 'post' | 'entity' }> {
-  if (!posting?.enabled) return [];
-  if (posting.sites && posting.sites.length > 0) {
-    return posting.sites.map((s) => ({ site: s.site, sitemapType: s.sitemapType }));
-  }
-  if (posting.site) {
-    return [{ site: posting.site, sitemapType: posting.sitemapType }];
-  }
-  return [];
-}
-
-/**
- * Prefetch HTTP-200 link validation for all distinct posting sites in parallel (Promise.all).
- * Run without awaiting at bulk start so it overlaps keyword research / checklist / content.
- * Background only. Upload does not wait. Article links are checked on the HTML.
- */
-export function prefetchBulkWordPressLinkValidationForRun(
-  sitesToPost: Array<{ site: WordPressSite; sitemapType: 'post' | 'entity' }>,
-  onProgress?: (message: string) => void
-): Promise<void> {
-  const seen = new Set<string>();
-  const uniqueSites = sitesToPost
-    .map((x) => x.site)
-    .filter((site) => {
-      if (!site.id || seen.has(site.id)) return false;
-      seen.add(site.id);
-      return true;
-    });
-  if (uniqueSites.length === 0) return Promise.resolve();
-
-  clearBulkUploadValidationCache(uniqueSites.map((s) => s.id));
-
-  return Promise.all(
-    uniqueSites.map(async (site) => {
-      if (!site.username || !site.appPassword) return;
-      try {
-        onProgress?.(`Validating internal links for ${site.name} (background)...`);
-        const inv = await ensureBulkGenerationWpInventory(site, onProgress);
-        const cache =
-          (inv.rows?.length ?? 0) > 0
-            ? seedSiteCacheFromBulkInventory(site, inv.rows ?? [])
-            : await createSiteCache(site, undefined, (msg) => onProgress?.(msg));
-        const validatedPosts = await getValidatedPosts(
-          site.id,
-          site.siteUrl,
-          keepBlogPlayLinkTargets(cache.posts),
-          (msg) => onProgress?.(msg)
-        );
-        const set = new Set(
-          validatedPosts.map((p) => normalizeInternalUrl(site.siteUrl, p.link)).filter(Boolean)
-        );
-        preValidatedUrlsBySite.set(site.id, set);
-      } catch (err) {
-        console.warn('[Bulk Upload] Link validation prefetch failed for site:', site.name, err);
-      }
-    })
-  ).then(() => undefined);
-}
-
-/**
- * Clears run-scoped link validation cache for the given sites. Call after bulk upload phase ends.
- */
-export function clearBulkUploadValidationCache(siteIds: string[]): void {
-  for (const id of siteIds) {
-    preValidatedUrlsBySite.delete(id);
-    clearValidationCache(id);
-  }
-}
+export {
+  buildSitesToPostFromPosting,
+  prefetchBulkWordPressLinkValidationForRun,
+  clearBulkUploadValidationCache,
+} from '@/lib/bulk/bulk-wordpress-link-prefetch';
+export {
+  buildBulkSelectedKeywordArtifactPayload,
+  resolveRankMathFromKeywordResearch,
+} from '@/lib/bulk/bulk-keyword-research-artifacts';
 
 type BulkInternalLinkRow = {
   id: number;
@@ -349,42 +292,6 @@ export function emitEntitySapPipelineHarnessDone(
   );
 }
 
-export function buildBulkSelectedKeywordArtifactPayload(
-  primaryKeyword: string,
-  selectedKeywords: string[],
-  selectedPeopleAlsoAsk: string[],
-): string {
-  return JSON.stringify(
-    {
-      primaryKeyword,
-      selectedKeywords,
-      selectedPeopleAlsoAsk,
-      generatedAt: new Date().toISOString(),
-    },
-    null,
-    2,
-  );
-}
-
-/**
- * GSC / merged research often attach rank_math_* and focus_keyword on keywordData (see DFS export JSON).
- * Use these for WordPress + Rank Math so the live post matches the research file.
- */
-export function resolveRankMathFromKeywordResearch(keywordData: KeywordData): {
-  seoTitle: string | undefined;
-  metaDescription: string | undefined;
-  focusKeyword: string | undefined;
-} {
-  const ext = keywordData as Record<string, unknown>;
-  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
-  return {
-    seoTitle: str(ext.rank_math_title) || undefined,
-    metaDescription: str(ext.rank_math_description) || undefined,
-    focusKeyword:
-      str(ext.rank_math_focus_keyword) || str(ext.focus_keyword) || undefined,
-  };
-}
-
 // Re-export types and functions for backward compatibility
 export type { CSVRow } from './bulk/bulk-csv-parser';
 export { parseCSV, parseCsvStatic, parseBlogIdeasChecklist } from './bulk/bulk-csv-parser';
@@ -404,31 +311,6 @@ export {
   WORDPRESS_POST_DESTINATION_SHORT,
   WORDPRESS_POST_DESTINATION_LONG,
 } from './bulk/bulk-auto-generate-types';
-
-function safeTrimSemrushOverviewForAcf(overview: unknown): unknown {
-  if (overview == null) return undefined;
-  try {
-    const s = JSON.stringify(overview);
-    if (s.length <= 12000) {
-      return JSON.parse(s) as unknown;
-    }
-    return { truncated: true as const, preview: s.slice(0, 12000) };
-  } catch {
-    return undefined;
-  }
-}
-
-function mergeSemrushFieldsIntoSeoResearchJson(
-  jsonStr: string,
-  extras: Record<string, unknown>
-): string {
-  try {
-    const o = JSON.parse(jsonStr) as Record<string, unknown>;
-    return JSON.stringify({ ...o, ...extras }, null, 2);
-  } catch {
-    return jsonStr;
-  }
-}
 
 /**
  * Process a single row and generate all outputs
@@ -660,95 +542,8 @@ export function addKeywordResearchSnapshotToBulkFiles(
 }
 
 /**
- * Generate blueprint and content for a row
- * This function is called after keyword research is complete
+ * Generate blueprint and content for a row (after keyword research is complete).
  */
-/**
- * Populate ACF fields from DFS data for new posts (skipping GSC)
- */
-function populateACFFieldsFromDFS(
-  row: CSVRow,
-  keywordData: KeywordData,
-  aiAnalysis: KeywordAIAnalysis,
-  keywordsWithVolumeData: any[]
-): Partial<CSVRow> {
-  const acfFields: Partial<CSVRow> = {};
-  
-  // Set date_modifier to today's date if not already set
-  if (!row.date_modifier) {
-    acfFields.date_modifier = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-  }
-
-  // Set prompt_modifier from row.modifier if not already set
-  if (!row.prompt_modifier && row.modifier) {
-    acfFields.prompt_modifier = row.modifier;
-  }
-  
-  // ACF origin: entity/SAP rows only (never standard blog posts)
-  if (row.sitemap_type === 'entity' && !row.origin?.trim()) {
-    const fromTitle = extractOriginFromSapTitle(row.title);
-    if (fromTitle) {
-      acfFields.origin = fromTitle;
-    } else if (row.entity && row.entity.trim() && row.entity.trim() !== 'N/A') {
-      acfFields.origin = row.entity.trim();
-    }
-  }
-  
-  // Set service_area_fields from entity or keyword data if available
-  // This could be expanded to include more service area data from DFS
-  if (!row.service_area_fields) {
-    const serviceAreaParts: string[] = [];
-    if (row.entity && row.entity.trim() && row.entity.trim() !== 'N/A') {
-      serviceAreaParts.push(row.entity.trim());
-    }
-    if (keywordData?.keyword) {
-      serviceAreaParts.push(keywordData.keyword);
-    }
-    if (serviceAreaParts.length > 0) {
-      acfFields.service_area_fields = serviceAreaParts.join(', ');
-    }
-  }
-  
-  return acfFields;
-}
-
-function parseOptimizedMetaFromSeoResearchJson(json: string): OptimizedMetaFields | null {
-  try {
-    const parsed = JSON.parse(json) as {
-      optimizedMeta?: Record<string, unknown>;
-      seo_title?: string;
-      meta_description?: string;
-      focus_keyword?: string;
-    };
-    const om = parsed.optimizedMeta;
-    if (om && typeof om === 'object') {
-      return {
-        rank_math_title: String(om.rank_math_title ?? parsed.seo_title ?? ''),
-        rank_math_description: String(om.rank_math_description ?? parsed.meta_description ?? ''),
-        rank_math_focus_keyword: String(om.rank_math_focus_keyword ?? parsed.focus_keyword ?? ''),
-        rank_math_canonical_url: String(om.rank_math_canonical_url ?? ''),
-        rank_math_robots: Array.isArray(om.rank_math_robots)
-          ? (om.rank_math_robots as string[])
-          : ['index', 'follow'],
-        keyword_focus: String(om.rank_math_focus_keyword ?? parsed.focus_keyword ?? ''),
-      };
-    }
-    if (parsed.seo_title || parsed.meta_description) {
-      return {
-        rank_math_title: String(parsed.seo_title ?? ''),
-        rank_math_description: String(parsed.meta_description ?? ''),
-        rank_math_focus_keyword: String(parsed.focus_keyword ?? ''),
-        rank_math_canonical_url: '',
-        rank_math_robots: ['index', 'follow'],
-        keyword_focus: String(parsed.focus_keyword ?? ''),
-      };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function generateBlueprintAndContent(
   rowIndex: number,
   row: CSVRow,
@@ -2294,7 +2089,7 @@ try {
             isEntityUpload && entityWikiForSanitize ? entityWikiForSanitize.label : undefined,
           );
 
-          const preValidatedUrls = preValidatedUrlsBySite.get(site.id);
+          const preValidatedUrls = getBulkPreValidatedUrlsForSite(site.id);
           const { html: validatedHtml } = await validateAndStripInvalidLinksFromContent(
             sanitizedHtmlContent,
             undefined,
