@@ -169,9 +169,15 @@ function bulkRowSerpLocationName(row: {
 }): string {
   return resolveSerpLocationName('', bulkRowSerpGeoText(row));
 }
-import type { WorkflowStepOutput } from '@/lib/workflow/workflow-types';
-
 // Import from new feature-based modules
+import type {
+  BulkHarnessSectionPayload,
+  BulkProcessingOptions,
+  BulkProcessingResult,
+  PrefetchedBulkKeywordResearch,
+  WordPressPostDestination,
+  WordPressPostingOptions,
+} from './bulk/bulk-auto-generate-types';
 import type { CSVRow } from './bulk/bulk-csv-parser';
 import { resolveBulkPrimaryKeyword } from './bulk/bulk-primary-keyword';
 import { buildBlogImportKeywordResearchStub } from './bulk/blog-import-parse';
@@ -384,206 +390,20 @@ export type { CSVRow } from './bulk/bulk-csv-parser';
 export { parseCSV, parseCsvStatic, parseBlogIdeasChecklist } from './bulk/bulk-csv-parser';
 export { generateEntityTitleFromSitemap } from './bulk/bulk-entity-handler';
 
-export type WordPressPostDestination = 'wordpress' | 'local' | 'direct';
-
-/** Default export destinations shown in bulk WordPress posting UI. */
-export const BULK_POST_DESTINATION_CHOICES: WordPressPostDestination[] = [
-  'wordpress',
-  'local',
-];
-
-/** Blog import tab: upload as-is to WordPress (direct) or local content + meta JSON only. */
-export const BLOG_IMPORT_POST_DESTINATION_CHOICES: WordPressPostDestination[] = [
-  'direct',
-  'local',
-];
-
-export const WORDPRESS_POST_DESTINATION_SHORT: Record<WordPressPostDestination, string> = {
-  wordpress: 'WordPress',
-  local: 'Local files',
-  direct: 'Direct',
-};
-
-export const WORDPRESS_POST_DESTINATION_LONG: Record<WordPressPostDestination, string> = {
-  wordpress: 'Post to WordPress',
-  local: 'Local only (files)',
-  direct: 'Direct',
-};
-
-export interface WordPressPostingOptions {
-  enabled: boolean;
-  site: WordPressSite; // Deprecated: use sites array instead
-  sitemapType: 'post' | 'entity'; // Which sitemap to post to
-  frequency: 'immediately' | 'daily' | 'weekly' | 'monthly' | 'custom' | 'everyNDays';
-  customInterval?: number;
-  /** When frequency is `custom`: stagger publish times across the optimized window from Start Time. */
-  customStaggerOptimized?: boolean;
-  dayOfWeek?: number;
-  startDate: Date;
-  startTime: string;
-  totalRows: number;
-  // New: Support for multiple sites
-  sites?: Array<{
-    site: WordPressSite;
-    sitemapType: 'post' | 'entity';
-  }>;
-  /** When false, ignore per-row CSV `publish_date_gmt` and use frequency schedule only (default true). */
-  useCsvPublishDates?: boolean;
-  /**
-   * `wordpress`: harness rewrite then create posts on the site(s).
-   * `direct`: format source as-is then create posts (Import only).
-   * `local`: generate files only (JSON, harness HTML, run CSV) — no WordPress upload.
-   */
-  postDestination?: WordPressPostDestination;
-  /**
-   * Header destination for the run. Per-row `CSVRow.post_destination` overrides when set.
-   */
-  headerPostDestination?: WordPressPostDestination;
-  /** Inventory occupancy for Next available slot gap scheduling. */
-  scheduleOccupancy?: import('@/lib/bulk-schedule-gap').ScheduleOccupancy;
-  useGapScheduling?: boolean;
-  /** Precomputed gap dates per batch slot (set at run start). */
-  gapDatesBySlot?: Date[];
-  /** When true, save as WordPress draft instead of publish or future. */
-  draftOnly?: boolean;
-  /** Explicit day-of-month slots for times-per-month. */
-  publishDays?: number[];
-}
-
-export type BulkHarnessSectionPayload = {
-  rowIndex: number;
-  sectionIndex: number;
-  /** Total blueprint sections for this row (fixed for the whole harness run). */
-  totalSections: number;
-  title: string;
-  phase: 'start' | 'progress' | 'done';
-  markdownSlice?: string;
-  /** True when OpenRouter finish_reason indicates output length cap. */
-  truncated?: boolean;
-};
-
-export interface BulkProcessingOptions {
-  /** Legacy field; Generator uses OpenRouter only (`openRouterApiKey`). */
-  apiKey: string;
-  openRouterApiKey: string;
-  /** Generator workspace: skip DataForSEO keyword research. */
-  openRouterOnly?: boolean;
-  /** Blog import: local file sent to OpenRouter at run start. */
-  blogImportSourceFile?: File | null;
-  blogImportForm?: {
-    focusKeyword: string;
-    titleOverride: string;
-    featuredImageMode: "y" | "n" | "google-maps";
-    entity: string;
-  };
-  /** Overrides the Research agent model only (checklist, blueprint, image planning). */
-  selectedModel?: string;
-  temperature?: number;
-  maxTokens?: number;
-  topP?: number;
-  flowPurpose?: string;
-  featuredImageType?: 'ai-generated' | 'google-maps';
-  wordPressPosting?: WordPressPostingOptions;
-  /** Header destination for the run. Per-row `CSVRow.post_destination` overrides when set. */
-  headerPostDestination?: WordPressPostDestination;
-  /**
-   * When true, checklist/blueprint use the entity (service-area) template: near [entity], Local Recommendation table, etc.
-   * Set only when posting is enabled and every target site uses entity sitemap (not post/blog sitemap).
-   */
-  useEntitySitemapTemplate?: boolean;
-  /** Started at bulk run start (tandem with research); await at WordPress upload only */
-  linkPrefetchPromise?: Promise<void>;
-  /** Entity SAP: parallel Google Maps fetch started in processRow; join at publish. */
-  googleMapsImagePromise?: Promise<void>;
-  /** SERP city composite for Google Maps label fallback (entity + city). */
-  googleMapsImageSerpLocation?: string;
-  wordPressPostsByKeyword?: Map<string, Array<{ id: number; slug: string; title: string; excerpt: string; link: string; date_gmt: string; collection?: string; postType?: string }>>;
-  onProgress?: (rowIndex: number, totalRows: number, status: string) => void;
-  onRowComplete?: (rowIndex: number, files: BulkGeneratedFile[]) => void;
-  onError?: (rowIndex: number, error: Error) => void;
-  onAppendHistory?: (entry: RunHistoryEntry) => void;
-  /** Per-section harness progress (parallel workers may emit overlapping start/done events). */
-  onHarnessSection?: (payload: BulkHarnessSectionPayload) => void;
-  /** Post creator: one OpenRouter harness call at a time (1/7, 2/7, … in order). */
-  sequentialHarnessSections?: boolean;
-  /** AI summary of site (posts sitemap scraped + summarized) for aligning service-area content */
-  siteSummary?: string;
-  /** Forge / task Instructions the writer must follow. */
-  optionalPrompt?: string;
-  /** Other managed client domains - Semrush bulk enrichment must not surface these as approved externals */
-  portfolioBlockedHosts?: string[];
-  /**
-   * Batch slot index (0..n-1) for schedule math. When set, overrides `rowIndex` for `resolveBulkWordPressPublishDate`
-   * so prompt permutations match the schedule preview.
-   */
-  bulkScheduleSlotIndex?: number;
-  /**
-   * Run-scoped Google Maps media bank: one WP upload per site + location entity.
-   * Created at bulk run start and shared across rows.
-   */
-  sapMapsMediaBank?: SapMapsMediaBank;
-  /** Rows per entityAdGroupKey for Maps progress labels (1 upload shared by N SAP pages). */
-  sapMapsEntityRowCounts?: Map<string, number>;
-  /** Connected peer sites (target sites excluded) searched for reusable featured images. */
-  peerSites?: WordPressSite[];
-  /** Run-scoped collector for the end-of-run featured image source report. */
-  peerFeaturedReport?: PeerFeaturedImageReportCollector;
-  /** Fired when a searched peer featured library CSV is ready (added to run files). */
-  onPeerFeaturedCsv?: (file: PeerFeaturedLibraryCsvFile) => void;
-  /** Pages bucket inventory for entity What We Offer table links at upload. */
-  wordPressPagesForOfferTable?: Array<{
-    id: number;
-    slug: string;
-    title: string;
-    excerpt: string;
-    link: string;
-    date_gmt: string;
-  }>;
-  /** Slugs reserved during this bulk run so back-to-back rows cannot duplicate. */
-  reservedUploadSlugsBySite?: Map<string, Set<string>>;
-  /** Workflow RAG: reuse SERP briefs from prior steps; commit new briefs for downstream agents. */
-  workflowSerpResearch?: {
-    outputs?: WorkflowStepOutput[];
-    getOutputs?: () => WorkflowStepOutput[] | undefined;
-    commitBrief?: (
-      keyword: string,
-      brief: SeoContentBriefV1,
-      storedFile: string | null,
-    ) => Promise<void>;
-  };
-  workflowDfsArticleAudit?: {
-    outputs?: WorkflowStepOutput[];
-    getOutputs?: () => WorkflowStepOutput[] | undefined;
-  };
-  /** Post creator and other local-only runs: do not fetch or inject Wikipedia. */
-  skipWikipediaLookup?: boolean;
-  /** Content optimizer: update this existing post instead of creating a new one. */
-  updateTargetPostId?: number;
-  /** Content optimizer: keep the live post title on upload (no title rewrite). */
-  optimizePreserveTitle?: string;
-  /** Content optimizer: keep the live post slug on upload. */
-  optimizePreserveSlug?: string;
-  /** Content optimizer: re-run topic fan-out and illustrative extract (never reuse brief.queryFanout). */
-  forceFreshTopicFanout?: boolean;
-  /** Content optimizer: live post H2 titles forbidden in SERP outline. */
-  forbiddenLiveH2s?: string[];
-}
-
-export interface BulkProcessingResult {
-  success: boolean;
-  totalRows: number;
-  completedRows: number;
-  failedRows: number;
-  files: BulkGeneratedFile[];
-  errors: Array<{ rowIndex: number; error: string }>;
-}
-
-/** Passed from bulk hook when Semrush + intelligent merge already ran alongside DFS. */
-export type PrefetchedBulkKeywordResearch = {
-  semrush: SemrushBulkEnrichmentResult;
-  primaryExternalCitationUrl: string | null;
-  intelligentMerge: IntelligentKeywordResearchMergeResult | null;
-};
+export type {
+  WordPressPostDestination,
+  WordPressPostingOptions,
+  BulkHarnessSectionPayload,
+  BulkProcessingOptions,
+  BulkProcessingResult,
+  PrefetchedBulkKeywordResearch,
+} from './bulk/bulk-auto-generate-types';
+export {
+  BULK_POST_DESTINATION_CHOICES,
+  BLOG_IMPORT_POST_DESTINATION_CHOICES,
+  WORDPRESS_POST_DESTINATION_SHORT,
+  WORDPRESS_POST_DESTINATION_LONG,
+} from './bulk/bulk-auto-generate-types';
 
 function safeTrimSemrushOverviewForAcf(overview: unknown): unknown {
   if (overview == null) return undefined;
