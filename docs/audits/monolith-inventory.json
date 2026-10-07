@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-07T21:01:47.493Z",
+  "generatedAt": "2026-10-07T21:48:20.774Z",
   "repoRoot": "B:/Neo Pulse",
   "scope": "desktop-app",
   "excludes": [
@@ -10,16 +10,16 @@
     "watch": 300
   },
   "summary": {
-    "monolith": 145,
-    "watch": 249,
+    "monolith": 148,
+    "watch": 255,
     "byArea": {
       "scripts": {
-        "monolith": 3,
-        "watch": 20
+        "monolith": 4,
+        "watch": 21
       },
       "src/lib": {
-        "monolith": 91,
-        "watch": 171
+        "monolith": 93,
+        "watch": 176
       },
       "src/components": {
         "monolith": 51,
@@ -57,13 +57,6 @@
       "area": "src/components"
     },
     {
-      "path": "src/lib/blog-template-builder.ts",
-      "lines": 2041,
-      "tier": "monolith",
-      "cluster": "lib-other",
-      "area": "src/lib"
-    },
-    {
       "path": "src/components/research/proposal/ProposalResearchTab.tsx",
       "lines": 1944,
       "tier": "monolith",
@@ -76,13 +69,6 @@
       "tier": "monolith",
       "cluster": "components-integrations",
       "area": "src/components"
-    },
-    {
-      "path": "src/lib/content-optimization/topic-research-fanout.ts",
-      "lines": 1678,
-      "tier": "monolith",
-      "cluster": "lib-other",
-      "area": "src/lib"
     },
     {
       "path": "src/lib/image-reference-research.ts",
@@ -106,13 +92,6 @@
       "area": "src/components"
     },
     {
-      "path": "src/lib/bulk/bulk-row-pipeline.ts",
-      "lines": 1402,
-      "tier": "monolith",
-      "cluster": "lib-bulk",
-      "area": "src/lib"
-    },
-    {
       "path": "src/lib/local-seo-strategy-from-grid.ts",
       "lines": 1348,
       "tier": "monolith",
@@ -134,13 +113,6 @@
       "area": "src/components"
     },
     {
-      "path": "src/lib/workflow/workflow-step-dispatch.ts",
-      "lines": 1239,
-      "tier": "monolith",
-      "cluster": "lib-workflow",
-      "area": "src/lib"
-    },
-    {
       "path": "src/lib/vertical-benchmark/vertical-benchmark-bulk-template.ts",
       "lines": 1221,
       "tier": "monolith",
@@ -155,10 +127,10 @@
       "area": "src/lib"
     },
     {
-      "path": "src/lib/bulk/bulk-content-generator.ts",
-      "lines": 1174,
+      "path": "src/lib/blog-template-checklist-generate.ts",
+      "lines": 1163,
       "tier": "monolith",
-      "cluster": "lib-bulk",
+      "cluster": "lib-other",
       "area": "src/lib"
     },
     {
@@ -211,13 +183,6 @@
       "area": "src/components"
     },
     {
-      "path": "scripts/research/chatgpt-audit/lib.mjs",
-      "lines": 1034,
-      "tier": "monolith",
-      "cluster": "scripts-research-chatgpt",
-      "area": "scripts"
-    },
-    {
       "path": "src/components/chat/layout/useChatShellState.ts",
       "lines": 1002,
       "tier": "monolith",
@@ -244,13 +209,6 @@
       "tier": "monolith",
       "cluster": "lib-overview-harness",
       "area": "src/lib"
-    },
-    {
-      "path": "scripts/automation-recipes/recipe-catalog.mjs",
-      "lines": 964,
-      "tier": "monolith",
-      "cluster": "scripts-other",
-      "area": "scripts"
     },
     {
       "path": "src/components/shared/bulk-details-tile-sections.tsx",
@@ -300,6 +258,13 @@
       "tier": "monolith",
       "cluster": "lib-overview-harness",
       "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/chatgpt-audit/chatgpt-login.mjs",
+      "lines": 909,
+      "tier": "monolith",
+      "cluster": "scripts-research-chatgpt",
+      "area": "scripts"
     },
     {
       "path": "src/components/integrations/WordPressFeature.tsx",
@@ -386,10 +351,24 @@
       "area": "src/lib"
     },
     {
+      "path": "src/lib/content-optimization/topic-research-fanout-verification.ts",
+      "lines": 799,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
       "path": "src/lib/wordpress-site-display-name-from-dfs-gmb.ts",
       "lines": 798,
       "tier": "monolith",
       "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/bulk-markdown-content-harness.ts",
+      "lines": 796,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
       "area": "src/lib"
     },
     {
@@ -687,6 +666,13 @@
       "area": "src/lib"
     },
     {
+      "path": "scripts/api-docs/generate-api-docs-core.mjs",
+      "lines": 618,
+      "tier": "monolith",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
       "path": "src/lib/tasks-api.ts",
       "lines": 615,
       "tier": "monolith",
@@ -736,8 +722,22 @@
       "area": "src/lib"
     },
     {
+      "path": "src/lib/workflow/workflow-dispatch-agent-core.ts",
+      "lines": 600,
+      "tier": "monolith",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
       "path": "src/lib/section-parser.ts",
       "lines": 598,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/blog-template-blueprint-generate.ts",
+      "lines": 591,
       "tier": "monolith",
       "cluster": "lib-other",
       "area": "src/lib"
@@ -755,6 +755,13 @@
       "tier": "monolith",
       "cluster": "components-manager",
       "area": "src/components"
+    },
+    {
+      "path": "src/lib/bulk/bulk-row-checklist-blueprint-phase.ts",
+      "lines": 584,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
     },
     {
       "path": "src/components/research/competitor/CompetitorSiteGrid.tsx",
@@ -804,6 +811,13 @@
       "tier": "monolith",
       "cluster": "components-other",
       "area": "src/components"
+    },
+    {
+      "path": "src/lib/bulk/bulk-row-research-enrichment.ts",
+      "lines": 561,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
     },
     {
       "path": "src/lib/content-generation/sanitizer/link-rules.ts",
@@ -988,6 +1002,13 @@
       "area": "src/lib"
     },
     {
+      "path": "scripts/automation-recipes/recipe-catalog-a.mjs",
+      "lines": 506,
+      "tier": "monolith",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
       "path": "src/lib/local-analysis/entity-sap-inventory-collision.ts",
       "lines": 506,
       "tier": "monolith",
@@ -1121,11 +1142,25 @@
       "area": "src/lib"
     },
     {
+      "path": "src/lib/bulk/bulk-row-content-media-phase.ts",
+      "lines": 479,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
       "path": "src/components/keyword-research/bulk/BulkGeneratorDetailsPanel.tsx",
       "lines": 479,
       "tier": "watch",
       "cluster": "components-other",
       "area": "src/components"
+    },
+    {
+      "path": "scripts/automation-recipes/recipe-catalog-b.mjs",
+      "lines": 478,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
     },
     {
       "path": "src/components/integrations/wordpress/PostSelector.tsx",
@@ -1919,6 +1954,13 @@
       "area": "scripts"
     },
     {
+      "path": "src/lib/bulk/bulk-content-generator.ts",
+      "lines": 367,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
       "path": "src/lib/sitemap-optimizer/sitemap-optimizer-cluster-agent.ts",
       "lines": 366,
       "tier": "watch",
@@ -1937,6 +1979,13 @@
       "lines": 365,
       "tier": "watch",
       "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-optimization/topic-research-fanout-orchestration.ts",
+      "lines": 364,
+      "tier": "watch",
+      "cluster": "lib-other",
       "area": "src/lib"
     },
     {
@@ -2514,6 +2563,13 @@
       "area": "scripts"
     },
     {
+      "path": "src/lib/bulk/bulk-row-pipeline.ts",
+      "lines": 319,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
       "path": "src/lib/overview/overview-blog-overview-harness-run.ts",
       "lines": 319,
       "tier": "watch",
@@ -2750,6 +2806,13 @@
       "tier": "watch",
       "cluster": "components-other",
       "area": "src/components"
+    },
+    {
+      "path": "src/lib/workflow/workflow-dispatch-action-agent-node.ts",
+      "lines": 302,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
     },
     {
       "path": "src/lib/workflow/workflow-then-aggregate.ts",

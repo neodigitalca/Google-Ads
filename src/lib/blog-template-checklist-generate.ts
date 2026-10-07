@@ -45,9 +45,6 @@ import {
   buildBlueprintArticleLengthBlock,
 } from "@/lib/content-generation/article-length-policy";
 import {
-  INTERNAL_LINK_PLACEHOLDER_FEATURE_SUFFIX,
-} from "@/lib/content-generation/internal-link-placeholders";
-import {
   appendUniversalContentRulesToSystemPrompt,
   enforceForbiddenWordsOnBlueprint,
   sanitizeBlueprintAgentsForPipeline,
@@ -71,13 +68,6 @@ import {
   ensureConnectedSiteHarnessMarkers,
 } from "@/lib/bulk/connected-site-harness-markers";
 import { buildPredeterminedBlogBodyHarnessTitlesFromOutline } from "@/lib/overview/overview-content-optimize-pipeline";
-
-import type { KeywordData, PeopleAlsoAsk } from "./keyword-types";
-import type { CheckedExternalLink } from "./external-research";
-import type { ImportedDraftLink } from "./bulk/blog-import-draft-links";
-import type { ModifierExternalLink, LlmAuditAuthorityLinkLike } from "./bulk/modifier-external-links";
-import type { ExternalLinkPair } from "./content-generation/external-link-placeholders";
-import { openRouterWebAppHeaders } from "@/lib/openrouter-attribution";
 import {
   buildBlogTemplateSystemPrompt,
   buildBlogTemplateUserPrompt,

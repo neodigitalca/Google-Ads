@@ -16,7 +16,11 @@ Machine-readable list: [`monolith-inventory.json`](./monolith-inventory.json).
 | `src/lib/` | |
 | `src/components/` | |
 
-**Summary (2026-10-07 scan):** 146 monoliths (≥500 lines), 243 watch (300–499), 389 files total at ≥300 lines. By area: scripts 6+15, `src/lib` 89+170, `src/components` 51+58.
+**Summary (2026-10-07 refresh):** 148 monoliths (≥500 lines), 249 watch (300–499). By area: **scripts 4** monoliths, `src/lib` 93, `src/components` 51. Regenerate: `node scripts/generate-monolith-inventory.mjs`.
+
+**Script monoliths (4):** `chatgpt-audit/chatgpt-login.mjs`, `pulse-assist/feature-playbooks.data.cjs`, `api-docs/generate-api-docs-core.mjs`, `automation-recipes/recipe-catalog-a.mjs`.
+
+**Phase 2 shipped on `main`:** `bulk-auto-generate.ts`, `blog-template-builder` facade, `topic-research-fanout` facade, `content-sanitizer` facade, bulk row pipeline phases, workflow dispatch splits.
 
 ---
 

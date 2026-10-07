@@ -10,8 +10,6 @@ import {
 } from "@/lib/content-generation/article-length-policy";
 import { INTERNAL_LINK_PLACEHOLDER_FEATURE_SUFFIX } from "@/lib/content-generation/internal-link-placeholders";
 import { formatBlogPlayLinkTargetsPrompt } from "@/lib/bulk/bulk-generation-wp-inventory";
-
-const LINK_FEATURE_PLACEHOLDER = `[LINK]: ${INTERNAL_LINK_PLACEHOLDER_FEATURE_SUFFIX}`;
 import { GLOBAL_FORBIDDEN_WORDS_PROMPT_BLOCK } from "@/lib/content-word-blocklist";
 import { AUTHENTICITY_CHECKLIST_RULE } from "@/lib/prompt-builders/core";
 import { formatResearchAsOfLabel } from "@/lib/content-optimization/topic-research-fanout";
@@ -19,6 +17,8 @@ import {
   formatSapChecklistExample,
   formatSapPageChecklistBlock,
 } from "@/lib/prompt-builders/sap-page-template";
+
+const LINK_FEATURE_PLACEHOLDER = `[LINK]: ${INTERNAL_LINK_PLACEHOLDER_FEATURE_SUFFIX}`;
 
 export type GeneratorWordPressPost = {
   id?: number;

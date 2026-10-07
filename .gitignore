@@ -99,6 +99,9 @@ NUL
 *.sln
 *.sw?
 
+# Local clone for scripts/backup-refactor-audit.mjs (separate git repo)
+refactor-audit-git/
+
 # Deploy probe tokens (local only)
 wordpress-plugins/.deploy/**/probe-token.txt
 wordpress-plugins/.deploy/**/*-probe-token.txt
