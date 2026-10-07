@@ -1,4 +1,4 @@
-const PLACEHOLDER_PATTERNS = [
+export const PLACEHOLDER_PATTERNS = [
   /\[table\]/gi,
   /\[\/table\]/gi,
   /\[list\]/gi,
