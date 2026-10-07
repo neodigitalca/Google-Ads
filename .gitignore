@@ -98,3 +98,7 @@ NUL
 *.njsproj
 *.sln
 *.sw?
+
+# Deploy probe tokens (local only)
+wordpress-plugins/.deploy/**/probe-token.txt
+wordpress-plugins/.deploy/**/*-probe-token.txt
