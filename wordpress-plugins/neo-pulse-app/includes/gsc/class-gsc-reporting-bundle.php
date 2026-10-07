@@ -9,9 +9,6 @@ defined( 'ABSPATH' ) || exit;
 
 class Neo_Pulse_App_Gsc_Reporting_Bundle {
 
-	/** Locked Search Analytics `type` for Generative AI features (AI Overviews / AI Mode). */
-	private const GENERATIVE_AI_SEARCH_TYPE = 'generativeAi';
-
 	/** @param array<string,mixed> $body */
 	public static function fetch_reporting_bundle( array $body ): array {
 		$site_url = trim( (string) ( $body['siteUrl'] ?? '' ) );
@@ -28,9 +25,12 @@ class Neo_Pulse_App_Gsc_Reporting_Bundle {
 		$start_str = $date_validation['startDateStr'];
 		$end_str   = $date_validation['endDateStr'];
 
+		$report_structure = trim( (string) ( $body['reportStructure'] ?? '' ) );
+		$period_progress  = $report_structure === 'period_progress';
+
 		$compare_start = null;
 		$compare_end   = null;
-		$has_compare   = is_string( $body['compareStartDate'] ?? null )
+		$has_compare   = ! $period_progress && is_string( $body['compareStartDate'] ?? null )
 			&& trim( (string) $body['compareStartDate'] ) !== ''
 			&& is_string( $body['compareEndDate'] ?? null )
 			&& trim( (string) $body['compareEndDate'] ) !== '';
@@ -220,7 +220,24 @@ class Neo_Pulse_App_Gsc_Reporting_Bundle {
 		$site_totals_previous_month = null;
 		$aggregate_primary          = null;
 		$aggregate_compare          = null;
-		if ( $has_compare && $compare_start && $compare_end ) {
+		$monthly_totals             = array();
+		if ( $period_progress ) {
+			$aggregate_primary = self::aggregate_totals( $successful_property, $start_str, $end_str, 'Full period' );
+			foreach ( self::calendar_month_ranges_in_period_utc( $start_str, $end_str ) as $month_range ) {
+				$row = self::aggregate_totals(
+					$successful_property,
+					$month_range['startDateStr'],
+					$month_range['endDateStr'],
+					$month_range['label']
+				);
+				if ( $row ) {
+					$monthly_totals[] = $row;
+				}
+			}
+			if ( empty( $monthly_totals ) ) {
+				return self::err( 500, 'Could not load monthly Search Console totals for this period.' );
+			}
+		} elseif ( $has_compare && $compare_start && $compare_end ) {
 			$aggregate_primary  = self::aggregate_totals( $successful_property, $start_str, $end_str );
 			$aggregate_compare  = self::aggregate_totals( $successful_property, $compare_start, $compare_end );
 		} else {
@@ -268,133 +285,16 @@ class Neo_Pulse_App_Gsc_Reporting_Bundle {
 		if ( $aggregate_compare ) {
 			$response['aggregateCompare'] = $aggregate_compare;
 		}
+		if ( $period_progress ) {
+			$response['reportStructure'] = 'period_progress';
+			$response['monthlyTotals']   = $monthly_totals;
+		}
 		$response['sitemaps'] = $sitemaps;
 		if ( $sitemaps_error ) {
 			$response['sitemapsError'] = $sitemaps_error;
 		}
 
-		// Locked Search Analytics contract: type=generativeAi (totals + page dimension).
-		// If Google rejects the type or returns no usable rows, available=false; never copy web rows.
-		$generative_ai = self::fetch_generative_ai_bundle(
-			$successful_property,
-			$start_str,
-			$end_str,
-			$date_range_label,
-			$row_limit,
-			$has_compare ? $compare_start : null,
-			$has_compare ? $compare_end : null,
-			$has_compare ? $compare_range_label : null
-		);
-		$response['generativeAi'] = $generative_ai;
-
 		return array( 'statusCode' => 200, 'body' => $response );
-	}
-
-	/**
-	 * Single generative-AI Search Analytics contract (type=generativeAi).
-	 *
-	 * @return array<string,mixed>
-	 */
-	private static function fetch_generative_ai_bundle(
-		string $property,
-		string $start,
-		string $end,
-		string $date_label,
-		int $row_limit,
-		?string $compare_start,
-		?string $compare_end,
-		?string $compare_label
-	): array {
-		$primary = self::fetch_generative_ai_period( $property, $start, $end, $date_label, $row_limit );
-		if ( empty( $primary['available'] ) ) {
-			return array(
-				'available' => false,
-				'reason'    => (string) ( $primary['reason'] ?? 'Generative AI Search Analytics unavailable for this property.' ),
-			);
-		}
-
-		$out = array(
-			'available'         => true,
-			'searchType'        => self::GENERATIVE_AI_SEARCH_TYPE,
-			'aggregatePrimary'  => $primary['aggregate'],
-			'pagesPrimary'      => $primary['pages'],
-		);
-
-		if ( $compare_start && $compare_end && $compare_label ) {
-			$compare = self::fetch_generative_ai_period( $property, $compare_start, $compare_end, $compare_label, $row_limit );
-			if ( empty( $compare['available'] ) ) {
-				return array(
-					'available' => false,
-					'reason'    => (string) ( $compare['reason'] ?? 'Generative AI Search Analytics unavailable for the comparison period.' ),
-				);
-			}
-			$out['aggregateCompare'] = $compare['aggregate'];
-			$out['pagesCompare']     = $compare['pages'];
-		}
-
-		return $out;
-	}
-
-	/**
-	 * @return array{available:bool,reason?:string,aggregate?:array<string,mixed>,pages?:array<int,array<string,mixed>>}
-	 */
-	private static function fetch_generative_ai_period(
-		string $property,
-		string $start,
-		string $end,
-		string $date_label,
-		int $row_limit
-	): array {
-		$agg_res = Neo_Pulse_App_Gsc_Service_Account::search_analytics_query(
-			$property,
-			array(
-				'startDate' => $start,
-				'endDate'   => $end,
-				'type'      => self::GENERATIVE_AI_SEARCH_TYPE,
-				'rowLimit'  => 1,
-			)
-		);
-		if ( is_wp_error( $agg_res ) ) {
-			return array(
-				'available' => false,
-				'reason'    => $agg_res->get_error_message() ?: 'Generative AI Search Analytics request failed.',
-			);
-		}
-
-		$pages_res = Neo_Pulse_App_Gsc_Service_Account::search_analytics_query(
-			$property,
-			array(
-				'startDate'  => $start,
-				'endDate'    => $end,
-				'type'       => self::GENERATIVE_AI_SEARCH_TYPE,
-				'dimensions' => array( 'page' ),
-				'rowLimit'   => $row_limit,
-				'startRow'   => 0,
-			)
-		);
-		if ( is_wp_error( $pages_res ) ) {
-			return array(
-				'available' => false,
-				'reason'    => $pages_res->get_error_message() ?: 'Generative AI page Search Analytics request failed.',
-			);
-		}
-
-		$row = $agg_res['rows'][0] ?? null;
-		$aggregate = array(
-			'label'       => self::month_label_from_range_start_utc( $start ),
-			'startDate'   => $start,
-			'endDate'     => $end,
-			'clicks'      => (int) ( is_array( $row ) ? ( $row['clicks'] ?? 0 ) : 0 ),
-			'impressions' => (int) ( is_array( $row ) ? ( $row['impressions'] ?? 0 ) : 0 ),
-			'ctr'         => (float) ( is_array( $row ) ? ( $row['ctr'] ?? 0 ) : 0 ),
-			'position'    => (float) ( is_array( $row ) ? ( $row['position'] ?? 0 ) : 0 ),
-		);
-
-		return array(
-			'available' => true,
-			'aggregate' => $aggregate,
-			'pages'     => self::map_reporting_rows( $pages_res['rows'] ?? array(), 'page', $date_label ),
-		);
 	}
 
 	/** @param array<int,array<string,mixed>> $rows @return array<int,array<string,mixed>> */
@@ -445,6 +345,37 @@ class Neo_Pulse_App_Gsc_Reporting_Bundle {
 		}
 		$d = DateTimeImmutable::createFromFormat( 'Y-m-d', $start_str, new DateTimeZone( 'UTC' ) );
 		return $d ? $d->format( 'F Y' ) : $start_str;
+	}
+
+	/**
+	 * Full calendar months overlapping start..end (inclusive), UTC.
+	 *
+	 * @return array<int,array{startDateStr:string,endDateStr:string,label:string}>
+	 */
+	private static function calendar_month_ranges_in_period_utc( string $start_str, string $end_str ): array {
+		$start = DateTimeImmutable::createFromFormat( 'Y-m-d', $start_str, new DateTimeZone( 'UTC' ) );
+		$end   = DateTimeImmutable::createFromFormat( 'Y-m-d', $end_str, new DateTimeZone( 'UTC' ) );
+		if ( ! $start || ! $end || $start > $end ) {
+			return array();
+		}
+		$cursor = $start->modify( 'first day of this month' );
+		$last   = $end->modify( 'first day of this month' );
+		$out    = array();
+		while ( $cursor <= $last ) {
+			$month_start = $cursor->modify( 'first day of this month' );
+			$month_end   = $cursor->modify( 'last day of this month' );
+			$range_start = $month_start < $start ? $start : $month_start;
+			$range_end   = $month_end > $end ? $end : $month_end;
+			if ( $range_start <= $range_end ) {
+				$out[] = array(
+					'startDateStr' => $range_start->format( 'Y-m-d' ),
+					'endDateStr'   => $range_end->format( 'Y-m-d' ),
+					'label'        => $month_start->format( 'F Y' ),
+				);
+			}
+			$cursor = $cursor->modify( '+1 month' );
+		}
+		return $out;
 	}
 
 	/** @return array{startDateStr:string,endDateStr:string,label:string} */

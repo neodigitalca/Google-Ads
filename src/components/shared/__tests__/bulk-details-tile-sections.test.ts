@@ -513,8 +513,13 @@ describe("research pipeline downloads", () => {
     expect(llm?.name).toBe("research-solar-llm-audit.json");
   });
 
-  it("maps featured image steps to Google Image, OpenRouter Image, and wordpress.json", () => {
+  it("maps featured image steps to requirements, Google Image, OpenRouter Image, and wordpress.json", () => {
     const files = [
+      {
+        name: "image-requirements.json",
+        content: JSON.stringify({ agent: "IMAGE REQUIREMENTS", checklist: [] }),
+        mimeType: "application/json",
+      },
       { name: "google-image.png", content: "data:image/png;base64,aa", mimeType: "image/png" },
       { name: "openrouter-image.png", content: "data:image/png;base64,bb", mimeType: "image/png" },
       {
@@ -526,8 +531,18 @@ describe("research pipeline downloads", () => {
     const claimed = new Set<string>();
     expect(
       resolvePipelineSectionDownloadable(
-        { sectionIndex: 0, title: "Google Image", status: "done" },
+        { sectionIndex: 0, title: "Image requirements", status: "done" },
         0,
+        files,
+        claimed,
+        null,
+        { noFallback: true },
+      )?.name,
+    ).toBe("image-requirements.json");
+    expect(
+      resolvePipelineSectionDownloadable(
+        { sectionIndex: 1, title: "Google Image", status: "done" },
+        1,
         files,
         claimed,
         null,
@@ -536,8 +551,8 @@ describe("research pipeline downloads", () => {
     ).toBe("google-image.png");
     expect(
       resolvePipelineSectionDownloadable(
-        { sectionIndex: 1, title: "OpenRouter Image", status: "done" },
-        1,
+        { sectionIndex: 2, title: "OpenRouter Image", status: "done" },
+        2,
         files,
         claimed,
         null,
@@ -546,8 +561,8 @@ describe("research pipeline downloads", () => {
     ).toBe("openrouter-image.png");
     expect(
       resolvePipelineSectionDownloadable(
-        { sectionIndex: 2, title: "WordPress upload", status: "done" },
-        2,
+        { sectionIndex: 3, title: "WordPress upload", status: "done" },
+        3,
         files,
         claimed,
         null,

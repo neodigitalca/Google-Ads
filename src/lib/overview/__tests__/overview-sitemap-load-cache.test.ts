@@ -9,10 +9,10 @@ import {
   shouldSkipOverviewSitemapLoad,
 } from "@/lib/overview/overview-sitemap-load-cache";
 
-function shutterspotSite(overrides: Partial<WordPressSite> = {}): WordPressSite {
+function shutterSpotSite(overrides: Partial<WordPressSite> = {}): WordPressSite {
   return {
     id: "shutterspot",
-    name: "Shutterspot",
+    name: "Shutter Spot",
     siteUrl: "https://shutterspot.com",
     username: "user",
     appPassword: "pass",
@@ -55,7 +55,7 @@ describe("buildOverviewSitemapLoadFingerprint", () => {
   });
 
   it("is stable for the same site and source", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     const a = buildOverviewSitemapLoadFingerprint(site, "pages");
     const b = buildOverviewSitemapLoadFingerprint(site, "pages");
     expect(a).toBe(b);
@@ -63,11 +63,11 @@ describe("buildOverviewSitemapLoadFingerprint", () => {
   });
 
   it("changes when excluded child sitemaps change", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     const before = buildOverviewSitemapLoadFingerprint(site, "pages");
-    const changed = shutterspotSite({
+    const changed = shutterSpotSite({
       sitemaps: {
-        ...shutterspotSite().sitemaps!,
+        ...shutterSpotSite().sitemaps!,
         disabledChildSitemapUrls: ["https://shutterspot.com/hunter-douglas-sitemap.xml"],
       },
     });
@@ -82,13 +82,13 @@ describe("shouldSkipOverviewSitemapLoad", () => {
   });
 
   it("returns false when cached rows are empty", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(shouldSkipOverviewSitemapLoad("shutterspot", "pages", site, null)).toBe(false);
     expect(shouldSkipOverviewSitemapLoad("shutterspot", "pages", site, [])).toBe(false);
   });
 
   it("returns false when fingerprint does not match stored value", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     setOverviewSitemapLoadFingerprint("shutterspot", "pages", "stale-fingerprint");
     expect(shouldSkipOverviewSitemapLoad("shutterspot", "pages", site, [cachedRow()])).toBe(
       false,
@@ -96,7 +96,7 @@ describe("shouldSkipOverviewSitemapLoad", () => {
   });
 
   it("returns true when fingerprint matches stored value", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     const fp = buildOverviewSitemapLoadFingerprint(site, "pages");
     setOverviewSitemapLoadFingerprint("shutterspot", "pages", fp);
     expect(shouldSkipOverviewSitemapLoad("shutterspot", "pages", site, [cachedRow()])).toBe(true);
@@ -104,7 +104,7 @@ describe("shouldSkipOverviewSitemapLoad", () => {
   });
 
   it("persists fingerprint and skips when rows exist but fingerprint was missing", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(getOverviewSitemapLoadFingerprint("shutterspot", "pages")).toBeNull();
     expect(shouldSkipOverviewSitemapLoad("shutterspot", "pages", site, [cachedRow()])).toBe(true);
     expect(getOverviewSitemapLoadFingerprint("shutterspot", "pages")).toBe(

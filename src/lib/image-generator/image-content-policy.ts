@@ -5,18 +5,16 @@
  */
 
 import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
-import { parseJsonWithRepair } from "@/lib/json-repair-utility";
-import { getResearchModel } from "@/lib/optimization-settings-storage";
+import { getMetaModel } from "@/lib/optimization-settings-storage";
+import { parseJsonObjectFromModelText } from "@/lib/openrouter-vision-chat";
 
 const SYSTEM = `You classify whether a user's image-generation prompt explicitly requests mature or adult visual content (nudity, sexual themes, explicit adult scenes).
 
-Return ONLY JSON: {"matureContentRequested": true|false}
+Return JSON only: {"matureContentRequested": true|false}
 
 Set matureContentRequested to true ONLY when the prompt clearly asks for mature/adult/explicit sexual or nude imagery.
 Set false for neutral product, landscape, business, infographic, or ambiguous prompts.
 When unsure: false.`;
-
-type PolicyResponse = { matureContentRequested?: unknown };
 
 export async function detectMatureImageRequest(args: {
   apiKey: string;
@@ -28,19 +26,21 @@ export async function detectMatureImageRequest(args: {
   if (!userPrompt || !apiKey) return false;
 
   try {
-    const { content } = await callOpenRouterChatCompletion({
+    const { parsed, content } = await callOpenRouterChatCompletion({
       apiKey,
-      model: args.model?.trim() || getResearchModel(),
+      model: args.model?.trim() || getMetaModel(),
       system: SYSTEM,
       user: userPrompt,
       temperature: 0,
       maxTokens: 64,
+      responseFormat: { type: "json_object" },
     });
 
-    const { parsed } = parseJsonWithRepair<PolicyResponse>(content, {
-      fallback: { matureContentRequested: false },
-    });
-    return parsed.matureContentRequested === true;
+    const raw =
+      parsed && typeof parsed.matureContentRequested === "boolean"
+        ? parsed
+        : parseJsonObjectFromModelText(content);
+    return raw.matureContentRequested === true;
   } catch {
     return false;
   }

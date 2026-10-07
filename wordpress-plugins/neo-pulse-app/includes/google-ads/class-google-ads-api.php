@@ -14,6 +14,52 @@ class Neo_Pulse_App_Google_Ads_Api {
 	/**
 	 * @return array{ok:bool,statusCode?:int,error?:string,customerIds?:string[]}
 	 */
+	/**
+	 * Sub-accounts under the configured MCC (descriptive name → 10-digit id).
+	 *
+	 * @return array{ok:bool,statusCode?:int,error?:string,clients?:array<int,array{name:string,customerId:string}>}
+	 */
+	public static function list_mcc_client_accounts(): array {
+		$mcc = Neo_Pulse_App_Google_Ads_Credentials::mcc_id();
+		if ( $mcc === '' || strlen( $mcc ) !== 10 ) {
+			return array( 'ok' => false, 'statusCode' => 503, 'error' => 'MCC ID is missing.' );
+		}
+		$query = 'SELECT customer_client.client_customer, customer_client.descriptive_name, customer_client.manager, customer_client.status '
+			. 'FROM customer_client WHERE customer_client.manager = FALSE AND customer_client.status = "ENABLED"';
+		$search = self::search( $mcc, $query );
+		if ( empty( $search['ok'] ) ) {
+			return $search;
+		}
+		$clients = array();
+		$results = isset( $search['results'] ) && is_array( $search['results'] ) ? $search['results'] : array();
+		foreach ( $results as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$cc = isset( $row['customerClient'] ) && is_array( $row['customerClient'] ) ? $row['customerClient'] : array();
+			$resource = (string) ( $cc['clientCustomer'] ?? '' );
+			$id       = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( $resource );
+			if ( strlen( $id ) !== 10 ) {
+				continue;
+			}
+			$name = trim( (string) ( $cc['descriptiveName'] ?? '' ) );
+			$clients[] = array(
+				'name'       => $name,
+				'customerId' => $id,
+			);
+		}
+		usort(
+			$clients,
+			static function ( $a, $b ) {
+				return strcasecmp( (string) $a['name'], (string) $b['name'] );
+			}
+		);
+		return array(
+			'ok'      => true,
+			'clients' => $clients,
+		);
+	}
+
 	public static function list_accessible_customers(): array {
 		$auth = self::authorized_headers();
 		if ( isset( $auth['error'] ) ) {
@@ -49,12 +95,32 @@ class Neo_Pulse_App_Google_Ads_Api {
 	/**
 	 * @return array{ok:bool,statusCode?:int,error?:string,results?:array<int,array<string,mixed>>}
 	 */
+	/**
+	 * Client accounts accessed directly (login-customer-id = client), not via MCC.
+	 *
+	 * @return string[]
+	 */
+	public static function direct_login_customer_ids(): array {
+		return array(
+			'2960792256', // Advance Blinds & Drapery
+		);
+	}
+
+	public static function login_customer_id_for( string $customer_id ): string {
+		$customer_id = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( $customer_id );
+		$mcc         = Neo_Pulse_App_Google_Ads_Credentials::mcc_id();
+		if ( $customer_id !== '' && in_array( $customer_id, self::direct_login_customer_ids(), true ) ) {
+			return $customer_id;
+		}
+		return $mcc;
+	}
+
 	public static function search( string $customer_id, string $query ): array {
 		$customer_id = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( $customer_id );
 		if ( $customer_id === '' ) {
 			return array( 'ok' => false, 'statusCode' => 400, 'error' => 'Google Ads customer ID is required.' );
 		}
-		$auth = self::authorized_headers();
+		$auth = self::authorized_headers( self::login_customer_id_for( $customer_id ) );
 		if ( isset( $auth['error'] ) ) {
 			return $auth;
 		}
@@ -105,7 +171,7 @@ class Neo_Pulse_App_Google_Ads_Api {
 		if ( ! $operations ) {
 			return array( 'ok' => false, 'statusCode' => 400, 'error' => 'Google Ads mutate operations are required.' );
 		}
-		$auth = self::authorized_headers();
+		$auth = self::authorized_headers( self::login_customer_id_for( $customer_id ) );
 		if ( isset( $auth['error'] ) ) {
 			return $auth;
 		}
@@ -132,7 +198,7 @@ class Neo_Pulse_App_Google_Ads_Api {
 	/**
 	 * @return array{ok:bool,headers?:array<string,string>,statusCode?:int,error?:string}
 	 */
-	private static function authorized_headers(): array {
+	private static function authorized_headers( ?string $login_customer_id = null ): array {
 		$token = Neo_Pulse_App_Google_Ads_Tokens::get_valid_access_token();
 		if ( is_wp_error( $token ) ) {
 			return array( 'ok' => false, 'statusCode' => 401, 'error' => $token->get_error_message() );
@@ -141,9 +207,15 @@ class Neo_Pulse_App_Google_Ads_Api {
 		if ( $mcc === '' || strlen( $mcc ) !== 10 ) {
 			return array( 'ok' => false, 'statusCode' => 503, 'error' => 'MCC ID is missing. Paste the 10-digit manager customer ID in Google Ads settings.' );
 		}
+		$login = $login_customer_id !== null && $login_customer_id !== ''
+			? Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( $login_customer_id )
+			: $mcc;
+		if ( strlen( $login ) !== 10 ) {
+			$login = $mcc;
+		}
 		$headers = array(
 			'Authorization'     => 'Bearer ' . $token,
-			'login-customer-id' => $mcc,
+			'login-customer-id' => $login,
 			'Content-Type'      => 'application/json',
 		);
 		$developer = Neo_Pulse_App_Google_Ads_Credentials::developer_token();

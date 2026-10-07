@@ -125,6 +125,16 @@ trait Neo_Pulse_Wp_Admin_Trait_Render_Search {
 				__( 'Number of results to show (1–20).', 'neo-pulse-wp' ),
 				' min="1" max="20"'
 			);
+			self::panel_form_field_input(
+				'neo-pulse-search-openrouter-model',
+				'neo-pulse_search[openrouter_model]',
+				__( 'Search AI model (OpenRouter)', 'neo-pulse-wp' ),
+				isset( $settings['openrouter_model'] ) ? (string) $settings['openrouter_model'] : Neo_Pulse_Wp_Search::DEFAULT_OPENROUTER_MODEL,
+				'full',
+				'text',
+				false,
+				__( 'Used for query intent, typing readiness, and popular terms. Chat and editor wands use the global Editor AI model.', 'neo-pulse-wp' )
+			);
 			?>
 			<div class="neo-pulse-schema-cell neo-pulse-schema-cell--full">
 				<fieldset class="neo-pulse-field neo-pulse-field--stacked neo-pulse-search-fieldset">

@@ -2,8 +2,11 @@ import { MANAGER_SETTINGS_CLUSTER_KEY } from "@/components/manager/manager-setti
 import { WORDPRESS_SITES_STORAGE_KEY, KB_FILES_STORAGE_KEY } from "@/components/integrations/types";
 import { WORDPRESS_BENCHMARK_CATEGORY_TAGS_KEY } from "@/lib/benchmark-category-tags";
 import {
+  NEO_PULSE_AGENT_ADS_MODEL_KEY,
   NEO_PULSE_AGENT_BLOG_MODEL_KEY,
   NEO_PULSE_AGENT_IMAGE_MODEL_KEY,
+  NEO_PULSE_AGENT_META_MODEL_KEY,
+  NEO_PULSE_AGENT_REPORT_MODEL_KEY,
   NEO_PULSE_AGENT_RESEARCH_MODEL_KEY,
 } from "@/lib/global-agent-models";
 
@@ -19,6 +22,7 @@ const STORED_BLUEPRINTS_KEY = "stored-blueprints";
 const EXACT_LOCAL_KEYS = [
   "openrouter-api-key",
   "dataforseo-api-key",
+  "semrush-api-key",
   "agentmail-api-key",
   "agentmail-general-email",
   "slack-bot-token",
@@ -39,6 +43,9 @@ const EXACT_LOCAL_KEYS = [
   NEO_PULSE_AGENT_RESEARCH_MODEL_KEY,
   NEO_PULSE_AGENT_BLOG_MODEL_KEY,
   NEO_PULSE_AGENT_IMAGE_MODEL_KEY,
+  NEO_PULSE_AGENT_META_MODEL_KEY,
+  NEO_PULSE_AGENT_REPORT_MODEL_KEY,
+  NEO_PULSE_AGENT_ADS_MODEL_KEY,
 ] as const;
 
 const PREFIX_KEYS = ["optimization_settings_", "optimization_mode_"] as const;

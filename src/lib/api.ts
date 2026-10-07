@@ -23,6 +23,7 @@ interface ChatCompletionRequest {
 
 const OPENROUTER_API_KEY_STORAGE_KEY = "openrouter-api-key";
 const DATAFORSEO_API_KEY_STORAGE_KEY = "dataforseo-api-key";
+const SEMRUSH_API_KEY_STORAGE_KEY = "semrush-api-key";
 const AGENTMAIL_API_KEY_STORAGE_KEY = "agentmail-api-key";
 const AGENTMAIL_INBOX_STORAGE_KEY = "agentmail-general-email";
 const SLACK_BOT_TOKEN_STORAGE_KEY = "slack-bot-token";
@@ -66,6 +67,31 @@ export const saveDataForSEOApiKey = (key: string) => {
         localStorage.setItem(DATAFORSEO_API_KEY_STORAGE_KEY, key);
     } else {
         localStorage.removeItem(DATAFORSEO_API_KEY_STORAGE_KEY);
+    }
+};
+
+export const loadSemrushApiKey = () => {
+    const envKey =
+      typeof process !== "undefined"
+        ? (process.env.SEMRUSH_API_KEY ?? process.env.NEO_PULSE_APP_SEMRUSH_API_KEY)?.trim() ?? ""
+        : "";
+    if (envKey) return envKey;
+    if (typeof localStorage === "undefined") return "";
+    return localStorage.getItem(SEMRUSH_API_KEY_STORAGE_KEY) || "";
+};
+
+/** Browser calls omit MCP PAT so the server can use the configured Semrush API key. */
+export const loadSemrushApiKeyForAppRequests = (): string => {
+    const key = loadSemrushApiKey().trim();
+    if (key.startsWith("semrtkn-")) return "";
+    return key;
+};
+
+export const saveSemrushApiKey = (key: string) => {
+    if (key) {
+        localStorage.setItem(SEMRUSH_API_KEY_STORAGE_KEY, key);
+    } else {
+        localStorage.removeItem(SEMRUSH_API_KEY_STORAGE_KEY);
     }
 };
 

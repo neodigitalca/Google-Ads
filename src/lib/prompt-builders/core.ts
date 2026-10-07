@@ -15,6 +15,7 @@ import {
 } from "@/lib/content-optimization/first-party-authority-prompt";
 import { UNIFIED_COPY_FORMATTING_RULE, HARNESS_HEADING_TITLE_CASE_RULE } from "@/lib/prompt-builders/title-rules";
 import { UNIQUE_DYNAMIC_BODY_H2_RULE } from "@/lib/content-optimization/harness-heading-titles";
+import { HARNESS_LABELED_LIST_HTML_RULE } from "@/lib/prompt-builders/harness-labeled-list-html-rule";
 
 // --- System Prompt Core ---
 
@@ -122,21 +123,27 @@ ${FORBIDDEN_WORDS_USER_PROMPT_REMINDER}`;
   }
 
   if (agent.id === BLOG_HARNESS_SUMMARY_AGENT_ID) {
-    const overviewLinkRules =
-      "- Each bullet: **2-3 word label**: one short sentence with exactly ONE in-page link ([2-4 word phrase](#exact-id) in markdown, or [[SCROLL:#exact-id|2-4 word phrase]] in HTML).\n" +
-      "- The IN-PAGE anchor tagged ILLUSTRATIVE MUST use bullet label **Real-World Example** (exact words).\n" +
+    const overviewLinkRulesShared =
       "- FORBIDDEN: bullet labels Section, Section N, Second Example, or a second homeowner or example bullet. Exactly one Real-World Example bullet when an ILLUSTRATIVE anchor exists. Never list a placeholder H2.\n" +
       "- Second lead sentence: state the article includes a labeled real-world hypothetical (one genderless named persona under stated assumptions with a site-level business recommendation); point forward to the Real-World Example section. When ASSIGNED ILLUSTRATIVE PERSONA block is in the user prompt, use that personaName exactly. Do not paste the full scenario in Overview. Forbidden: payback years, install cost, or savings totals in Overview prose.\n" +
       `- ${OVERVIEW_ASSIGNED_PERSONA_RULE}\n` +
       "- FORBIDDEN per bullet: two links, duplicate links to the same #id, keyword-echo second links, or \"including [link]\" phrasing.\n" +
       "- FORBIDDEN in all Overview copy: em dashes (Unicode U+2014 or U+2013). Use comma, period, or hyphen instead.\n" +
       '- FORBIDDEN: "see below", "below", "click here", "fits your SEO plan", "See how", or any SEO-stub template. Link text must belong in the sentence.';
+    const overviewLinkRulesMd =
+      "- Each bullet: **2-3 word label**: one short sentence with exactly ONE in-page link ([2-4 word phrase](#exact-id)).\n" +
+      "- The IN-PAGE anchor tagged ILLUSTRATIVE MUST use bullet label **Real-World Example** (exact words).\n" +
+      overviewLinkRulesShared;
+    const overviewLinkRulesHtml =
+      "- Each bullet: <strong>2-3 word label</strong>: one short sentence with exactly ONE in-page link (<a href=\"#exact-id\">2-4 words</a> or [[SCROLL:#exact-id|2-4 word phrase]]).\n" +
+      "- The IN-PAGE anchor tagged ILLUSTRATIVE MUST use bullet label <strong>Real-World Example</strong> (exact words). Never **Real-World Example** markdown.\n" +
+      overviewLinkRulesShared;
     if (useMarkdown) {
       return `## Overview
 Rules:
 - Lead with what remaining sections cover. Do not answer the article question again. Forbidden: restating Answer's dates, rates, percentages, dollar figures, statute-name stack, or closing company sentence. Do not open with "{keyword} offers/are/provide" or "This article/guide". The keyword may appear later in the lead, not as the first clause.
 - Output ## Overview, 1-2 short lead paragraphs, then a mandatory - bullet list (one item per IN-PAGE anchor).
-${overviewLinkRules}
+${overviewLinkRulesMd}
 - Use exact #ids from IN-PAGE ANCHORS in the user prompt. Stop after the bullet list.
 - Markdown only.
 ${FORBIDDEN_WORDS_USER_PROMPT_REMINDER}`;
@@ -145,9 +152,10 @@ ${FORBIDDEN_WORDS_USER_PROMPT_REMINDER}`;
 Rules:
 - Lead with what remaining sections cover. Do not answer the article question again. Forbidden: restating Answer's dates, rates, percentages, dollar figures, statute-name stack, or closing company sentence. Do not open with "{keyword} offers/are/provide" or "This article/guide". The keyword may appear later in the lead, not as the first clause.
 - Output <h2>Overview</h2>, 1-2 short <p> lead paragraphs, then mandatory <ul><li> list (never markdown * or - bullets).
-${overviewLinkRules}
+${overviewLinkRulesHtml}
 - Use exact #ids from IN-PAGE ANCHORS in the user prompt. Stop after </ul>.
 - HTML only. Every bullet must be <li><strong>Label</strong>: sentence with <a href="#id">2-4 words</a> woven before the period.
+${HARNESS_LABELED_LIST_HTML_RULE}
 ${FORBIDDEN_WORDS_USER_PROMPT_REMINDER}`;
   }
 
@@ -355,7 +363,13 @@ ${illustrativeHarnessContract}
           ? "\n**HARNESS KEYWORD**: Weave the **writing keyword** phrase at least once inside a complete sentence (see KEYWORD PUNCTUATION block). After a period, the next sentence starts with a capital letter. Forbidden leftover after a period: \". durable window coverings\". If you cannot weave it mid-sentence, STOP. Canonical hyphens required (X-ray, e-commerce). Semantic synonyms elsewhere only."
           : "\n**HARNESS KEYWORD**: Weave the **writing keyword** phrase once inside a complete sentence, not in the first sentence and never as the last words of a sentence. After a period, the next sentence starts with a capital letter. Forbidden leftover after a period: \". durable window coverings\". If you cannot weave it mid-sentence, STOP. Never wrap it in **markdown** or <strong>. Canonical hyphens required (X-ray, e-commerce). Semantic synonyms elsewhere only."
         : "";
-    contentInstruction = `[Write content in HTML. Based on: ${agent.description}${agent.features.length > 0 ? `\nKey points: ${featureInstructions}` : ''}${harnessBodyContract}${authenticityNote}${harnessHeadingTitleCaseNote}${laterSectionOpeningNote}${illustrativeBlockquoteNote}${nonIllustrativeHypotheticalBan}${firstAgentSpecialInstructions}${harnessScopeNote}${harnessKeywordNote}${sublistPreventionNote}${listFormatNote}${quoteFormatNoteHtml} Use <${hTag}>, <p>, <ul><li>, <ol><li>, <a href=\"...\">text</a>, <table>, <blockquote><p>. NEVER markdown, never **asterisks**, never a keyword or [[LINK]] after the final period or as the last words of a sentence. After a period, capitalize the next sentence. Never wrap a quote with the word blockquote.]`;
+    const harnessLabeledListNote =
+      contentKind !== "press_release" &&
+      agent.id !== BLOG_HARNESS_ANSWER_AGENT_ID &&
+      agent.id !== BLOG_HARNESS_SUMMARY_AGENT_ID
+        ? `\n${HARNESS_LABELED_LIST_HTML_RULE}`
+        : "";
+    contentInstruction = `[Write content in HTML. Based on: ${agent.description}${agent.features.length > 0 ? `\nKey points: ${featureInstructions}` : ''}${harnessBodyContract}${authenticityNote}${harnessHeadingTitleCaseNote}${laterSectionOpeningNote}${illustrativeBlockquoteNote}${nonIllustrativeHypotheticalBan}${firstAgentSpecialInstructions}${harnessScopeNote}${harnessKeywordNote}${harnessLabeledListNote}${sublistPreventionNote}${listFormatNote}${quoteFormatNoteHtml} Use <${hTag}>, <p>, <ul><li>, <ol><li>, <a href=\"...\">text</a>, <table>, <blockquote><p>. NEVER markdown, never **asterisks**, never a keyword or [[LINK]] after the final period or as the last words of a sentence. After a period, capitalize the next sentence. Never wrap a quote with the word blockquote.]`;
   }
 
   let sectionPrompt =

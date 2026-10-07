@@ -22,6 +22,64 @@ class Neo_Pulse_Wp_Tools_Handlers {
 	}
 
 	/**
+	 * @param array<string, mixed> $params Params (zip_url, confirm).
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function wp_plugin_upgrade_from_zip_url( array $params ) {
+		if ( empty( $params['confirm'] ) ) {
+			return new WP_Error(
+				'neo-pulse_confirm_required',
+				__( 'params.confirm must be true to upgrade the plugin from a zip URL.', 'neo-pulse-wp' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$zip_url = isset( $params['zip_url'] ) ? esc_url_raw( (string) $params['zip_url'] ) : '';
+		if ( $zip_url === '' || ! wp_http_validate_url( $zip_url ) ) {
+			return new WP_Error(
+				'neo-pulse_tools',
+				__( 'A valid params.zip_url is required.', 'neo-pulse-wp' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+
+		$tmp = download_url( $zip_url, 300 );
+		if ( is_wp_error( $tmp ) ) {
+			return $tmp;
+		}
+
+		$skin     = new Automatic_Upgrader_Skin();
+		$upgrader = new Plugin_Upgrader( $skin );
+		$result   = $upgrader->install( $tmp, array( 'overwrite_package' => true ) );
+		@unlink( $tmp );
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+		if ( ! $result ) {
+			return new WP_Error(
+				'neo-pulse_plugin_upgrade_failed',
+				__( 'Plugin upgrade from zip failed.', 'neo-pulse-wp' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		if ( class_exists( 'Neo_Pulse_Wp_Activation', false ) ) {
+			Neo_Pulse_Wp_Activation::on_activate();
+		}
+
+		return array(
+			'ok'      => true,
+			'version' => defined( 'NEO_PULSE_WP_VERSION' ) ? NEO_PULSE_WP_VERSION : '',
+			'zip_url' => $zip_url,
+		);
+	}
+
+	/**
 	 * @param array<string, mixed> $params Params.
 	 * @return array<string, mixed>|WP_Error
 	 */
@@ -107,15 +165,27 @@ class Neo_Pulse_Wp_Tools_Handlers {
 		if ( array_key_exists( 'logged_in_only', $params ) ) {
 			$patch['logged_in_only'] = ! empty( $params['logged_in_only'] );
 		}
+		if ( array_key_exists( 'header_search_opens_sidebar', $params ) ) {
+			$patch['header_search_opens_sidebar'] = ! empty( $params['header_search_opens_sidebar'] );
+		}
 		if ( empty( $patch ) ) {
 			return new WP_Error( 'neo_pulse_chat_settings', __( 'No settings to update.', 'neo-pulse-wp' ), array( 'status' => 400 ) );
 		}
 		Neo_Pulse_Wp_Chat::save_settings( $patch );
+		if ( array_key_exists( 'header_search_opens_sidebar', $patch ) ) {
+			$design = Neo_Pulse_Wp_Ai_Widget_Design::get_settings();
+			if ( ! isset( $design['chat_sidebar'] ) || ! is_array( $design['chat_sidebar'] ) ) {
+				$design['chat_sidebar'] = Neo_Pulse_Wp_Ai_Widget_Design::default_chat_sidebar_config();
+			}
+			$design['chat_sidebar']['header_search_opens_sidebar'] = ! empty( $patch['header_search_opens_sidebar'] );
+			Neo_Pulse_Wp_Ai_Widget_Design::save( $design );
+		}
 		$settings = Neo_Pulse_Wp_Chat::get_settings();
 		return array(
-			'ok'             => true,
-			'enabled'        => ! empty( $settings['enabled'] ),
-			'logged_in_only' => ! empty( $settings['logged_in_only'] ),
+			'ok'                           => true,
+			'enabled'                      => ! empty( $settings['enabled'] ),
+			'logged_in_only'               => ! empty( $settings['logged_in_only'] ),
+			'header_search_opens_sidebar'  => ! empty( $settings['header_search_opens_sidebar'] ),
 		);
 	}
 

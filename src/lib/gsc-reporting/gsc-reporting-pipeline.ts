@@ -16,14 +16,39 @@ import {
   buildSapFilteredPagesChunkText,
   isPagesMomReportingFile,
 } from "@/lib/gsc-reporting/gsc-reporting-sap-entity-context";
-import { isGenerativeAiReportingFile } from "@/lib/gsc-reporting/gsc-reporting-generative-ai";
+import { stripGenerativeAiSections } from "@/lib/gsc-reporting/gsc-reporting-outline";
+import {
+  bundleHasValidGaOrganicTrafficData,
+  isGaTrafficReportingFile,
+} from "@/lib/gsc-reporting/gsc-reporting-fetch";
+import {
+  buildGaTrafficExecutivePinText,
+  GA_TRAFFIC_EXECUTIVE_PIN_SOURCE,
+} from "@/lib/gsc-reporting/gsc-reporting-ga-traffic-headline";
+import { applyGaTrafficSectionGate } from "@/lib/gsc-reporting/gsc-reporting-outline";
 import {
   buildCompareSignalsPinChunk,
   COMPARE_SIGNALS_SECTION_KINDS,
   ensureCompareSignalsFile,
+  QUERY_SPOTLIGHT_SECTION_KINDS,
 } from "@/lib/gsc-reporting/gsc-reporting-compare-signals";
+import { buildQuerySpotlightPinChunk } from "@/lib/gsc-reporting/gsc-query-spotlight";
+import {
+  organicTrafficTableFromBundledFiles,
+  spliceOrganicTrafficAcquisitionTableIntoMarkdown,
+} from "@/lib/gsc-reporting/gsc-reporting-ga-organic-table";
+import { assembleSearchPerformanceSectionBody } from "@/lib/gsc-reporting/gsc-reporting-search-performance-layout";
+import {
+  siteTotalsTableFromBundledFiles,
+  spliceGscSiteTotalsIntoSearchPerformance,
+} from "@/lib/gsc-reporting/gsc-reporting-site-totals-table";
+import { sapEntityPagesTableFromBundledFiles } from "@/lib/gsc-reporting/gsc-reporting-sap-pages-table";
+import { topQueriesTableFromBundledFiles } from "@/lib/gsc-reporting/gsc-reporting-top-queries-table";
 import { runGscReportingOutline } from "@/lib/gsc-reporting/gsc-reporting-outline";
-import { applyGscReportingMarkdownPost } from "@/lib/gsc-reporting/gsc-reporting-markdown-post";
+import {
+  applyGscReportingFinalMarkdownPost,
+  applyGscReportingMarkdownPost,
+} from "@/lib/gsc-reporting/gsc-reporting-markdown-post";
 import {
   buildUserMessageForSection,
   getGscReportingSectionSystemPrompt,
@@ -36,13 +61,22 @@ import type {
 } from "@/lib/gsc-reporting/gsc-reporting-types";
 import * as gscProgressLog from "@/lib/gsc-reporting/gsc-reporting-progress-log";
 import { buildGscReportDocumentHeading } from "@/lib/gsc-reporting/gsc-reporting-document-title";
-
+import { siteTotalsByMonthTableFromBundledFiles } from "@/lib/gsc-reporting/gsc-reporting-monthly-totals-table";
 const RETRIEVAL_MAX_TOTAL_CHARS = 28_000;
 const RETRIEVAL_MAX_CHUNKS = 12;
 /** Executive summary allows more rows after per-file pins without raising the char budget. */
 const RETRIEVAL_MAX_CHUNKS_EXEC_SUMMARY = 18;
 /** Larger pool before merge so pins do not replace all lexical hits. */
 const RETRIEVAL_SCORED_POOL_CHUNKS = 24;
+
+const GSC_SITE_WIDE_CLICKS_FILES = new Set([
+  "Site-totals-MoM.csv",
+  "Site-totals-by-month.csv",
+]);
+
+function isGscSiteWideClicksSourceFile(sourceFile: string): boolean {
+  return GSC_SITE_WIDE_CLICKS_FILES.has(sourceFile.trim());
+}
 
 function stripLeadingH2Duplicate(md: string, expectedTitle: string): string {
   const lines = md.split("\n");
@@ -64,6 +98,9 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
     sapEntityGrounding,
     compareKind = "mom",
     compareLabel = "",
+    documentTitlePeriod = "",
+    reportStructure = "compare",
+    progressMonthCount = 0,
     clientSeason = null,
     signal,
     onProgress,
@@ -80,14 +117,35 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
   const nonEmpty = files.filter((f) => f.content.trim().length > 0);
   if (nonEmpty.length === 0) throw new Error("All GSC files are empty.");
 
+  const periodProgress = compareKind === "period_progress" || reportStructure === "period_progress";
   const bundledFiles =
-    compareLabel.trim().length > 0
-      ? ensureCompareSignalsFile(nonEmpty, compareKind, compareLabel)
-      : nonEmpty;
+    periodProgress || compareLabel.trim().length === 0
+      ? nonEmpty
+      : ensureCompareSignalsFile(nonEmpty, compareKind, compareLabel);
 
-  const { outline, truncatedInput, filenames, outlineRequestBodyJson } = savedOutline
+  const includeGaTraffic = bundleHasValidGaOrganicTrafficData(bundledFiles);
+  if (!includeGaTraffic) {
+    throw new Error(
+      "GA4 organic traffic is required for SEO reporting. GA4 is website traffic; Search Console is keywords and visibility.",
+    );
+  }
+
+  const savedOutlineMissingGaSection =
+    Boolean(savedOutline) &&
+    includeGaTraffic &&
+    !savedOutline!.sections.some((s) => s.kind === "website_traffic_acquisition");
+
+  const useSavedOutline = Boolean(savedOutline) && !savedOutlineMissingGaSection;
+
+  const { outline: outlineRaw, truncatedInput, filenames, outlineRequestBodyJson } = useSavedOutline
     ? {
-        outline: savedOutline,
+        outline: {
+          ...savedOutline!,
+          sections: stripGenerativeAiSections(
+            applyGaTrafficSectionGate(savedOutline!.sections, includeGaTraffic, compareKind),
+            compareKind,
+          ),
+        },
         truncatedInput: false,
         filenames: bundledFiles.map((f) => f.name),
         outlineRequestBodyJson: savedOutlineRequestBodyJson ?? "",
@@ -104,6 +162,11 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
         signal,
       });
 
+  const outline = {
+    ...outlineRaw,
+    sections: stripGenerativeAiSections(outlineRaw.sections, compareKind),
+  };
+
   if (!savedOutline) {
     onOutlineReady?.({ outline, outlineRequestBodyJson });
   }
@@ -115,9 +178,13 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
         label: gscProgressLog.formatGscOutlineCompleteLabel(outline.sections),
   });
   const chunks = splitGscFilesIntoChunks(bundledFiles);
-  const compareSignalsPin = buildCompareSignalsPinChunk(bundledFiles);
-  const priorByIndex = new Map(priorSectionResults.map((row) => [row.index, row]));
-  const sectionResults: GscReportingSectionResult[] = [...priorSectionResults];
+  const compareSignalsPin = periodProgress ? null : buildCompareSignalsPinChunk(bundledFiles);
+  const querySpotlightPin = periodProgress ? null : buildQuerySpotlightPinChunk(bundledFiles);
+  const resumedSections = priorSectionResults.filter(
+    (row) => (row.plan.kind as string) !== "generative_ai_impressions",
+  );
+  const priorByIndex = new Map(resumedSections.map((row) => [row.index, row]));
+  const sectionResults: GscReportingSectionResult[] = [...resumedSections];
 
   const plans = outline.sections;
   const sectionTotal = plans.length;
@@ -140,8 +207,8 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
 
     const pinnedBase = pickFirstChunkPerSourceFile(chunks);
     let pinned: GscReportingChunk[] = pinnedBase;
-    if (plan.kind === "generative_ai_impressions") {
-      pinned = pinnedBase.filter((c) => isGenerativeAiReportingFile(c.sourceFile));
+    if (plan.kind === "website_traffic_acquisition") {
+      pinned = pinnedBase.filter((c) => isGaTrafficReportingFile(c.sourceFile));
     } else if (plan.kind === "sap_local_seo" && sapEntityGrounding) {
       pinned = pinnedBase.filter((c) => !isPagesMomReportingFile(c.sourceFile));
     }
@@ -173,14 +240,48 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
           ]
         : [];
 
-    const pinnedMerged = [...compareSignalPins, ...sapPins, ...pinned];
+    const querySpotlightPins: GscReportingChunk[] =
+      querySpotlightPin && QUERY_SPOTLIGHT_SECTION_KINDS.has(plan.kind)
+        ? [
+            {
+              id: querySpotlightPin.id,
+              sourceFile: querySpotlightPin.sourceFile,
+              text: querySpotlightPin.text,
+            },
+          ]
+        : [];
+
+    const gaExecutivePins: GscReportingChunk[] =
+      plan.kind === "executive_summary" && includeGaTraffic
+        ? [
+            {
+              id: "ga4-website-traffic-pin",
+              sourceFile: GA_TRAFFIC_EXECUTIVE_PIN_SOURCE,
+              text: buildGaTrafficExecutivePinText({
+                files: bundledFiles,
+                compareKind,
+              }),
+            },
+            ...pinnedBase.filter((c) => isGaTrafficReportingFile(c.sourceFile)),
+          ]
+        : [];
+
+    const pinnedMerged = [
+      ...gaExecutivePins,
+      ...compareSignalPins,
+      ...querySpotlightPins,
+      ...sapPins,
+      ...pinned,
+    ];
 
     const chunksForRag =
-      plan.kind === "generative_ai_impressions"
-        ? chunks.filter((c) => isGenerativeAiReportingFile(c.sourceFile))
-        : plan.kind === "sap_local_seo" && sapEntityGrounding
-          ? chunks.filter((c) => !isPagesMomReportingFile(c.sourceFile))
-          : chunks;
+      plan.kind === "website_traffic_acquisition"
+        ? chunks.filter((c) => isGaTrafficReportingFile(c.sourceFile))
+        : plan.kind === "executive_summary"
+          ? chunks.filter((c) => !isGscSiteWideClicksSourceFile(c.sourceFile))
+          : plan.kind === "sap_local_seo" && sapEntityGrounding
+            ? chunks.filter((c) => !isPagesMomReportingFile(c.sourceFile))
+            : chunks;
 
     const scoredPool = retrieveTopChunks({
       chunks: chunksForRag,
@@ -199,6 +300,13 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
     });
     const retrievedContext = retrieved.map((c) => c.text).join("\n\n---\n\n");
 
+    let fixedTablesMarkdown: string | undefined;
+    if (plan.kind === "sap_local_seo" && sapEntityGrounding) {
+      const sapTable = sapEntityPagesTableFromBundledFiles(sapEntityGrounding, bundledFiles, {
+        periodProgress,
+      });
+      if (sapTable.trim()) fixedTablesMarkdown = sapTable.trim();
+    }
     const user = buildUserMessageForSection({
       siteName,
       siteUrl,
@@ -207,10 +315,12 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
       retrievedContext,
       clientSeason,
       compareLabel,
+      compareKind,
+      fixedTablesMarkdown,
     });
 
     const system = getGscReportingSectionSystemPrompt(plan.kind, compareKind);
-    const maxTokens = Math.min(16_000, getCompetitorReportMaxOutputTokens(model));
+    const maxTokens = getCompetitorReportMaxOutputTokens(model);
 
     const requestBodyJson = buildOpenRouterChatPostBodyJson({
       model,
@@ -231,6 +341,20 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
     let body = sanitizeStrategistMarkdownSection(content.trim());
     body = stripLeadingH2Duplicate(body, plan.h2Title);
     body = applyGscReportingMarkdownPost(body, plan.kind);
+    if (plan.kind === "search_performance_period") {
+      const siteTotals = periodProgress
+        ? ""
+        : siteTotalsTableFromBundledFiles(bundledFiles, compareLabel);
+      const topQueries = topQueriesTableFromBundledFiles(bundledFiles, compareLabel, {
+        periodProgress,
+      });
+      const injectedTables = [siteTotals, topQueries].filter((t) => t.trim()).join("\n\n");
+      body = assembleSearchPerformanceSectionBody({
+        modelBody: body,
+        injectedTables,
+        includeInsightBullets: !periodProgress,
+      });
+    }
     const markdownBlock = `## ${plan.h2Title}\n\n${body.trim()}\n`;
     const row: GscReportingSectionResult = {
       plan,
@@ -249,14 +373,32 @@ export async function runGscReportingPipeline(args: RunGscReportingPipelineArgs)
   }
 
   const title = [
-    `# ${buildGscReportDocumentHeading(compareLabel)}`,
+    `# ${buildGscReportDocumentHeading(siteName, compareLabel, {
+      reportStructure: periodProgress ? "period_progress" : "compare",
+      monthCount: progressMonthCount > 0 ? progressMonthCount : undefined,
+      documentTitlePeriod: documentTitlePeriod || undefined,
+    })}`,
     "",
     AGENCY_NAME,
     `Prepared for: ${siteName}`,
     "",
   ].join("\n");
   const orderedSections = [...sectionResults].sort((a, b) => a.index - b.index);
-  const markdown = [title, ...orderedSections.map((s) => s.markdownBlock)].join("\n");
+  let markdown = [title, ...orderedSections.map((s) => s.markdownBlock)].join("\n");
+
+  if (!periodProgress) {
+    const siteTotalsTable = siteTotalsTableFromBundledFiles(bundledFiles, compareLabel);
+    if (siteTotalsTable) {
+      markdown = spliceGscSiteTotalsIntoSearchPerformance(markdown, siteTotalsTable);
+    }
+  }
+
+  const organicTable = organicTrafficTableFromBundledFiles(bundledFiles, compareLabel);
+  if (organicTable) {
+    markdown = spliceOrganicTrafficAcquisitionTableIntoMarkdown(markdown, organicTable);
+  }
+
+  markdown = applyGscReportingFinalMarkdownPost(markdown);
 
   return {
     markdown,

@@ -1,3 +1,39 @@
-import { callGscReportingOpenRouterChatCompletion } from "@/lib/gsc-reporting/gsc-reporting-openrouter";
+import { REPORT_TEMPERATURE } from "@/lib/competitor-research/competitor-report-openrouter-limits";
+import {
+  openRouterPromptText,
+  postOpenRouterAppChat,
+  type OpenRouterAppResponseFormat,
+} from "@/lib/openrouter-app-api";
 
-export const callAdsReportingOpenRouterChatCompletion = callGscReportingOpenRouterChatCompletion;
+export async function callAdsReportingOpenRouterChatCompletion(args: {
+  apiKey?: string;
+  model: string;
+  system: string;
+  user: string;
+  maxTokens: number;
+  signal?: AbortSignal;
+  temperature?: number;
+  responseFormat?: OpenRouterAppResponseFormat;
+}): Promise<{
+  raw: unknown;
+  content: string;
+  finishReason?: string;
+  nativeFinishReason?: string;
+  parsed?: Record<string, unknown>;
+}> {
+  const system = openRouterPromptText(args.system);
+  const user = openRouterPromptText(args.user);
+  if (!system || !user) {
+    throw new Error("Ads reporting OpenRouter call missing system or user prompt text.");
+  }
+  return postOpenRouterAppChat({
+    apiKey: args.apiKey,
+    model: args.model,
+    system,
+    user,
+    maxTokens: args.maxTokens,
+    signal: args.signal,
+    temperature: args.temperature ?? REPORT_TEMPERATURE,
+    responseFormat: args.responseFormat,
+  });
+}

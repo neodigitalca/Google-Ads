@@ -20,17 +20,36 @@ describe("gsc-reporting-document-title", () => {
     );
   });
 
-  it("builds the report H1 with Neo Digital SEO Report and the full current range", () => {
-    expect(buildGscReportDocumentHeading("August 1, 2026 to August 31, 2026 vs July 1–31, 2026")).toBe(
-      "Neo Digital SEO Report - August 1, 2026 to August 31, 2026",
-    );
+  it("builds client - SEO Report - month-year for compare", () => {
+    expect(
+      buildGscReportDocumentHeading(
+        "Advance Blinds: Blinds, Shades & Drapery In Manitoba",
+        "August 1, 2026 to August 31, 2026 vs July 1–31, 2026",
+        { documentTitlePeriod: "August 2026 vs July 2026" },
+      ),
+    ).toBe("Advance Blinds - SEO Report - August 2026 vs July 2026");
+  });
+
+  it("uses month-year span for period progress", () => {
+    expect(
+      buildGscReportDocumentHeading("Ridgeline Solar", "July 1, 2025 to September 30, 2025", {
+        reportStructure: "period_progress",
+        monthCount: 3,
+        documentTitlePeriod: "July 2025 to September 2025",
+      }),
+    ).toBe("Ridgeline Solar - SEO Report - July 2025 to September 2025");
   });
 
   it("reads period back from markdown heading", () => {
     expect(
       reportPeriodFromMarkdownHeading(
-        "# Neo Digital SEO Report - August 1, 2026 to August 31, 2026\n\nNeo Digital Inc",
+        "# Advance Blinds - SEO Report - August 2026 vs July 2026\n\nNeo Digital Inc",
       ),
-    ).toBe("August 1, 2026 to August 31, 2026");
+    ).toBe("August 2026 vs July 2026");
+    expect(
+      reportPeriodFromMarkdownHeading(
+        "# Advance Blinds - SEO REPORT - August 2026 vs July 2026\n\nNeo Digital Inc",
+      ),
+    ).toBe("August 2026 vs July 2026");
   });
 });

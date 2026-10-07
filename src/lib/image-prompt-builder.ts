@@ -1,5 +1,7 @@
 import { AgentConfig } from "@/types/agent-config";
 import { isReportInfographicSection } from "./image-checklist-builder";
+import { IMAGE_SCENE_PLAUSIBILITY_PROMPT } from "@/lib/image-scene-plausibility";
+import { windowTreatmentImagePromptSuffix } from "@/lib/image-window-treatment-prompt-rules";
 
 export interface ImagePromptOptions {
   userPrompt?: string;
@@ -139,6 +141,15 @@ export const buildImagePrompt = (
 
   // Add instruction for featured image style
   prompt += '. Create a professional featured image that represents this content visually. Do NOT include or mention any image generation settings (aspect ratio, style, color scheme, or specific color values) in the image itself.';
+
+  if (blueprintContext.finalOutput && !blueprintContext.selectedSection) {
+    prompt += `. ${IMAGE_SCENE_PLAUSIBILITY_PROMPT}`;
+    prompt += windowTreatmentImagePromptSuffix(
+      blueprintContext.flowTitle,
+      blueprintContext.finalOutput,
+      options.userPrompt,
+    );
+  }
 
   return prompt;
 };

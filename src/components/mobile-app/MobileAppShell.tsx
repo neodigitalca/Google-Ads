@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTeam } from "@/contexts/TeamContext";
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 import { useMobilePushContext } from "@/contexts/MobilePushContext";
 import { isAgentRunTerminal } from "@/lib/agent-runs-types";
 import type { MobilePushDeepLink } from "@/lib/mobile-push/types";

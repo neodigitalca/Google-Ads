@@ -14,6 +14,16 @@ describe("resolveGscReportingRunConfig", () => {
     expect(resolveGscReportingRunConfig(null)).toMatchObject({
       comparePreset: "mom",
       presetId: "mom",
+      gscReportStructure: "compare",
+    });
+  });
+
+  it("reads period progress structure from payload", () => {
+    expect(
+      resolveGscReportingRunConfig({ gscReportStructure: "period_progress", gscComparePresetId: "m3" }),
+    ).toMatchObject({
+      gscReportStructure: "period_progress",
+      presetId: "m3",
     });
   });
 

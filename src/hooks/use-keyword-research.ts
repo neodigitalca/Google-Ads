@@ -23,6 +23,10 @@ import { formatKeyword } from "@/lib/keyword-formatter";
 import { getResearchModel } from "@/lib/optimization-settings-storage";
 import type { ConnectedSiteSummary } from "@/components/integrations/types";
 import { getPublicSiteUrl } from "@/lib/wordpress-site-public-url";
+import {
+  dataForSeoRequestHeaders,
+  withDataForSeoRequestAuth,
+} from "@/lib/dataforseo-request-auth";
 
 function emptyKeywordAiAnalysis(primaryKeyword: string): KeywordAIAnalysis {
   const primary = primaryKeyword.trim();
@@ -107,12 +111,14 @@ export function useKeywordResearch({
         
         const response = await fetch(`${MCP_API_BASE}/DataForSEO_dataforseo_labs_google_keyword_overview`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            keywords: [primaryKeyword],
-            location_name: options.location || "United States",
-            language_code: options.language || "en",
-          }),
+          headers: dataForSeoRequestHeaders(),
+          body: JSON.stringify(
+            withDataForSeoRequestAuth({
+              keywords: [primaryKeyword],
+              location_name: options.location || "United States",
+              language_code: options.language || "en",
+            }),
+          ),
         });
         
         console.log('[Keyword Research] Response status:', response.status);
@@ -212,8 +218,8 @@ export function useKeywordResearch({
           
           const serpResponse = await fetch(`${MCP_API_BASE}/DataForSEO_serp_organic_live_advanced`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(serpRequestPayload),
+            headers: dataForSeoRequestHeaders(),
+            body: JSON.stringify(withDataForSeoRequestAuth(serpRequestPayload)),
           });
           
           if (serpResponse.ok) {

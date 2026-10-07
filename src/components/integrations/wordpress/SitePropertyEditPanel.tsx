@@ -89,21 +89,7 @@ export const SitePropertyEditPanel: React.FC<SitePropertyEditPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [
-    formReady,
-    site,
-    formGbpLocationId,
-    formGa4PropertyId,
-    formGoogleAdsCustomerId,
-    onFormGbpLocationIdChange,
-    onFormGa4PropertyIdChange,
-    onFormGoogleAdsCustomerIdChange,
-    onPatchSite,
-  ]);
-
-  const persistedGbp = site.gbpLocationId?.trim() || "";
-  const persistedGa4 = site.ga4PropertyId?.trim() || "";
-  const persistedAds = site.googleAdsCustomerId?.trim() || "";
+  }, [formReady, site, onFormGbpLocationIdChange, onFormGa4PropertyIdChange, onFormGoogleAdsCustomerIdChange, onPatchSite]);
 
   return (
     <div
@@ -128,9 +114,6 @@ export const SitePropertyEditPanel: React.FC<SitePropertyEditPanelProps> = ({
             onFormGa4PropertyIdChange={onFormGa4PropertyIdChange}
             onFormGoogleAdsCustomerIdChange={onFormGoogleAdsCustomerIdChange}
             onPatchSite={onPatchSite}
-            persistedGbpLocationId={persistedGbp}
-            persistedGa4PropertyId={persistedGa4}
-            persistedGoogleAdsCustomerId={persistedAds}
             chrome={isModalFlat ? "dark" : "light"}
             className="py-0"
           />

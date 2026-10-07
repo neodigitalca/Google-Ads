@@ -5,7 +5,11 @@
     if (!el || !el.closest) {
       return false;
     }
-    if (el.closest('#neo-pulse-chat-widget-root, .fai-sidebar-panel, .fcw-launcher')) {
+    if (
+      el.closest(
+        '#neo-pulse-chat-widget-root, .fai-sidebar-panel, .fcw-launcher, .neo-pulse-search-wrap, [data-header-search-trigger]'
+      )
+    ) {
       return false;
     }
     var node = el.closest('a, button, [role="button"], .elementor-search-form__toggle');

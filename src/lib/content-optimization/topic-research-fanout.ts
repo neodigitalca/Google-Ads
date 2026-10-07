@@ -1,6 +1,7 @@
 import type { WordPressSite } from "@/components/integrations/types";
 import pLimit from "p-limit";
 import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
+import { getCompetitorReportMaxOutputTokens } from "@/lib/competitor-research/competitor-report-openrouter-limits";
 import { parseJsonWithRepair } from "@/lib/json-repair-utility";
 import { fetchChatGptCompanyAuthority } from "@/lib/llm-audit/llm-audit-dataforseo";
 import { fetchSerpOrganicForQuery } from "@/lib/llm-audit/fetch-seo-content-brief-wave";
@@ -41,6 +42,11 @@ export const TOPIC_RESEARCH_FANOUT_CITY_REQUIRED =
   "Topic fan-out requires a company city on the connected site";
 
 export const TOPIC_RESEARCH_PLAN_TEMPERATURE = 0.55;
+
+/** Structured JSON fan-out calls: use the model’s full allowed completion budget. */
+export function topicResearchFanoutMaxTokens(modelId: string): number {
+  return getCompetitorReportMaxOutputTokens(modelId);
+}
 
 export const TOPIC_RESEARCH_PLAN_SYSTEM = `You invent localized buyer research questions for a first-party company page.
 
@@ -290,13 +296,13 @@ export async function extractIllustrativeExample(input: {
   const chatGptContext = (input.chatGptByQuery ?? [])
     .map((r) => r.responseText?.trim())
     .filter(Boolean)
-    .slice(0, 2)
     .join("\n\n");
   const researchText = [serpContext, chatGptText || chatGptContext].filter(Boolean).join("\n\n").trim();
   const apiKey = await resolveOpenRouterApiKeyForHarness();
+  const illustrativeModel = getResearchModel(input.siteId);
   const { content } = await callOpenRouterChatCompletion({
     apiKey,
-    model: getResearchModel(input.siteId),
+    model: illustrativeModel,
     system: ILLUSTRATIVE_EXTRACT_SYSTEM,
     user: [
       formatPageLocalContextPromptBlock(pageCtx),
@@ -309,17 +315,17 @@ export async function extractIllustrativeExample(input: {
       location && location !== pageCtx.primaryCity ? `Legacy location hint: ${location}` : "",
       `Connected business (recommendation paragraph MUST open with this name as the subject): ${companyName}`,
       `Research as-of: ${input.researchAsOf.trim()}`,
-      input.pageExcerpt?.trim() ? `Page context: ${input.pageExcerpt.trim().slice(0, 1500)}` : "",
+      input.pageExcerpt?.trim() ? `Page context: ${input.pageExcerpt.trim()}` : "",
       formatAnswerTopicContractForIllustrativeExtract(input.answerSectionHtml),
-      researchText ? `\nResearch snippets:\n${researchText.slice(0, 6000)}` : "",
+      researchText ? `\nResearch snippets:\n${researchText}` : "",
     ]
       .filter(Boolean)
       .join("\n"),
-    maxTokens: 4000,
+    maxTokens: topicResearchFanoutMaxTokens(illustrativeModel),
     temperature: ILLUSTRATIVE_PERSONA_EXTRACT_TEMPERATURE,
     responseFormat: {
       type: "json_schema",
-      json_schema: { name: "illustrative_example_extract", strict: true, schema: ILLUSTRATIVE_EXTRACT_SCHEMA },
+      json_schema: { name: "illustrative_example_extract", strict: false, schema: ILLUSTRATIVE_EXTRACT_SCHEMA },
     },
   });
   let parsed: unknown;
@@ -469,15 +475,15 @@ function buildTopicResearchPlanUser(input: {
   ];
   if (input.pageUrl?.trim()) lines.push(`Page URL: ${input.pageUrl.trim()}`);
   if (input.metaDescription?.trim()) {
-    lines.push(`Meta description: ${input.metaDescription.trim().slice(0, 400)}`);
+    lines.push(`Meta description: ${input.metaDescription.trim()}`);
   }
   if (input.pageExcerpt?.trim()) {
-    lines.push(`Page excerpt:\n${input.pageExcerpt.trim().slice(0, 1200)}`);
+    lines.push(`Page excerpt:\n${input.pageExcerpt.trim()}`);
   }
   if (input.serpPeopleAlsoAsk?.length) {
     lines.push(
       "SERP people-also-ask (intent hints only; do not copy verbatim):",
-      ...input.serpPeopleAlsoAsk.slice(0, 8).map((question) => `- ${question.trim()}`),
+      ...input.serpPeopleAlsoAsk.map((question) => `- ${question.trim()}`),
     );
   }
   if (input.swotText?.trim()) lines.push(`SWOT / research:\n${input.swotText.trim()}`);
@@ -725,7 +731,7 @@ export function pickOfficialOrganicResult(
 
 export function organicTopFromSerpDump(serpDumpJson: Record<string, unknown>): SerpOrganicTopEntry[] {
   const extracted = extractDataForSeoSerpBrief(serpDumpJson);
-  return extracted.organic.slice(0, 5).map((o) => ({
+  return extracted.organic.map((o) => ({
     domain: o.domain,
     url: o.url,
     title: o.title,
@@ -759,12 +765,12 @@ function buildFactualVerificationPlanUser(input: {
     `Research as of: ${input.researchAsOf.trim()}`,
   ];
   if (input.pageExcerpt?.trim()) {
-    lines.push(`Page excerpt:\n${input.pageExcerpt.trim().slice(0, 1200)}`);
+    lines.push(`Page excerpt:\n${input.pageExcerpt.trim()}`);
   }
   if (input.serpPeopleAlsoAsk?.length) {
     lines.push(
       "SERP people-also-ask (intent hints):",
-      ...input.serpPeopleAlsoAsk.slice(0, 6).map((q) => `- ${q.trim()}`),
+      ...input.serpPeopleAlsoAsk.map((q) => `- ${q.trim()}`),
     );
   }
   lines.push("", `Return 0-${TOPIC_RESEARCH_MAX_VERIFICATION_QUERIES} official-source verification queries.`);
@@ -946,9 +952,10 @@ export async function extractCheckableClaimsFromPageExcerpt(input: {
   try {
     const location = requireFanoutLocation(input.location);
     const apiKey = await resolveOpenRouterApiKeyForHarness();
+    const inventoryModel = getResearchModel(input.siteId);
     const { content } = await callOpenRouterChatCompletion({
       apiKey,
-      model: getResearchModel(input.siteId),
+      model: inventoryModel,
       system: PAGE_CLAIM_INVENTORY_SYSTEM,
       user: [
         `Keyword: ${input.keyword.trim()}`,
@@ -956,13 +963,13 @@ export async function extractCheckableClaimsFromPageExcerpt(input: {
         `Research as of: ${input.researchAsOf.trim()}`,
         "",
         "Page excerpt:",
-        excerpt.slice(0, 6000),
+        excerpt,
       ].join("\n"),
-      maxTokens: 1200,
+      maxTokens: topicResearchFanoutMaxTokens(inventoryModel),
       temperature: 0.1,
       responseFormat: {
         type: "json_schema",
-        json_schema: { name: "page_claim_inventory", strict: true, schema: PAGE_CLAIM_INVENTORY_SCHEMA },
+        json_schema: { name: "page_claim_inventory", strict: false, schema: PAGE_CLAIM_INVENTORY_SCHEMA },
       },
     });
     const { parsed } = parseJsonWithRepair<unknown>(content);
@@ -1002,16 +1009,17 @@ export async function planFactualVerificationQueries(input: {
   try {
     const location = requireFanoutLocation(input.location);
     const apiKey = await resolveOpenRouterApiKeyForHarness();
+    const verificationPlanModel = getResearchModel(input.siteId);
     const { content } = await callOpenRouterChatCompletion({
       apiKey,
-      model: getResearchModel(input.siteId),
+      model: verificationPlanModel,
       system: FACTUAL_VERIFICATION_PLAN_SYSTEM,
       user: buildFactualVerificationPlanUser({ ...input, location }),
-      maxTokens: 900,
+      maxTokens: topicResearchFanoutMaxTokens(verificationPlanModel),
       temperature: 0.2,
       responseFormat: {
         type: "json_schema",
-        json_schema: { name: "factual_verification_plan", strict: true, schema: FACTUAL_VERIFICATION_PLAN_SCHEMA },
+        json_schema: { name: "factual_verification_plan", strict: false, schema: FACTUAL_VERIFICATION_PLAN_SCHEMA },
       },
     });
     const { parsed } = parseJsonWithRepair<unknown>(content);
@@ -1067,7 +1075,7 @@ async function extractVerifiedFactFromPageText(input: {
   researchAsOf: string;
   siteId?: string;
 }): Promise<VerifiedFact> {
-  const clipped = input.pageText.trim().slice(0, 8000);
+  const clipped = input.pageText.trim();
   if (!clipped) {
     return {
       claimLabel: input.claimLabel,
@@ -1079,9 +1087,10 @@ async function extractVerifiedFactFromPageText(input: {
     };
   }
   const apiKey = await resolveOpenRouterApiKeyForHarness();
+  const factExtractModel = getResearchModel(input.siteId);
   const { content } = await callOpenRouterChatCompletion({
     apiKey,
-    model: getResearchModel(input.siteId),
+    model: factExtractModel,
     system: VERIFIED_FACT_EXTRACT_SYSTEM,
     user: [
       `claimLabel: ${input.claimLabel}`,
@@ -1091,11 +1100,11 @@ async function extractVerifiedFactFromPageText(input: {
       "Official page text:",
       clipped,
     ].join("\n"),
-    maxTokens: 500,
+    maxTokens: topicResearchFanoutMaxTokens(factExtractModel),
     temperature: 0,
     responseFormat: {
       type: "json_schema",
-      json_schema: { name: "verified_fact_extract", strict: true, schema: VERIFIED_FACT_EXTRACT_SCHEMA },
+      json_schema: { name: "verified_fact_extract", strict: false, schema: VERIFIED_FACT_EXTRACT_SCHEMA },
     },
   });
   const { parsed } = parseJsonWithRepair<unknown>(content);
@@ -1124,12 +1133,13 @@ async function verifyClaimViaOpenRouter(input: {
   });
   try {
     const apiKey = await resolveOpenRouterApiKeyForHarness();
+    const verifyModel = getResearchModel();
     const { content } = await postOpenRouterAppChat({
       apiKey,
-      model: getResearchModel(),
+      model: verifyModel,
       system: "You verify facts from official government web sources only. Follow the user format exactly.",
       user: userPrompt,
-      maxTokens: 600,
+      maxTokens: topicResearchFanoutMaxTokens(verifyModel),
       temperature: 0,
       signal: AbortSignal.timeout(90_000),
     });
@@ -1418,11 +1428,11 @@ export async function planTopicResearchQueries(input: {
     model: plannerModel,
     system: TOPIC_RESEARCH_PLAN_SYSTEM,
     user: buildTopicResearchPlanUser({ ...input, location, researchAsOf }),
-    maxTokens: 800,
+    maxTokens: topicResearchFanoutMaxTokens(plannerModel),
     temperature: TOPIC_RESEARCH_PLAN_TEMPERATURE,
     responseFormat: {
       type: "json_schema",
-      json_schema: { name: "topic_research_plan", strict: true, schema: PLAN_SCHEMA },
+      json_schema: { name: "topic_research_plan", strict: false, schema: PLAN_SCHEMA },
     },
   });
   const { parsed } = parseJsonWithRepair<unknown>(content);
@@ -1456,16 +1466,17 @@ export async function extractFirstPartyClaims(input: {
   const sourceText = collectFirstPartyClaimSourceText(input);
   if (!sourceText) return [];
   const apiKey = await resolveOpenRouterApiKeyForHarness();
+  const claimsModel = getResearchModel();
   const { content } = await callOpenRouterChatCompletion({
     apiKey,
-    model: getResearchModel(),
+    model: claimsModel,
     system: CLAIMS_SYSTEM,
     user: sourceText,
-    maxTokens: 1200,
+    maxTokens: topicResearchFanoutMaxTokens(claimsModel),
     temperature: 0,
     responseFormat: {
       type: "json_schema",
-      json_schema: { name: "first_party_claims", strict: true, schema: CLAIMS_SCHEMA },
+      json_schema: { name: "first_party_claims", strict: false, schema: CLAIMS_SCHEMA },
     },
   });
   const { parsed } = parseJsonWithRepair<unknown>(content);

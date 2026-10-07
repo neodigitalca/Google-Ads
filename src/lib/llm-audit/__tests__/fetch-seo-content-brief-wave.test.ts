@@ -162,6 +162,21 @@ describe("fetch-seo-content-brief-wave", () => {
     expect(resolveSerpLocationName("", "ontario solar grants")).toBe("Toronto,Ontario,Canada");
   });
 
+  it("resolveSerpLocationName uses Canada when title or query mentions Canada or Canadian", () => {
+    expect(
+      resolveSerpLocationName(
+        "Edmonton, AB",
+        "Hunter Douglas shades Canadian winters drafty windows",
+      ),
+    ).toBe("Canada");
+    expect(
+      resolveSerpLocationName(
+        "",
+        "A Complete Buying Guide To Hunter Douglas Top-Down Bottom-Up Shades In Canada 2026",
+      ),
+    ).toBe("Canada");
+  });
+
   it("extractSerpDumpJsonFromMcpResponse reads nested tasks", () => {
     expect(extractSerpDumpJsonFromMcpResponse({ tasks: [{ result: [] }] })).toEqual({
       tasks: [{ result: [] }],

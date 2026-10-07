@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, ExternalLink, GripVertical, Loader2, MapPin } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, GripVertical, MapPin } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
@@ -116,9 +116,14 @@ export type BlogIdeaRowCompactProps = {
 };
 
 function sapUrlPathFromRow(row: CSVRow): string {
-  const slug = buildSapSlugFromKeywordEntity(row.keyword ?? "", row.entity ?? "");
-  const path = slug ? `/${slug}/` : "";
-  return path;
+  const locked = row.target_slug?.trim().replace(/^\/+|\/+$/g, "");
+  if (locked) return `/${locked}/`;
+  const entity = row.entity?.trim();
+  if (entity && entity !== "N/A") {
+    const slug = buildSapSlugFromKeywordEntity(row.keyword ?? "", entity);
+    return slug ? `/${slug}/` : "";
+  }
+  return "";
 }
 
 function previewPathLabel(previewUrl: string, row: CSVRow): string {
@@ -331,14 +336,12 @@ function DirectionsLinkButton({
 }
 
 function ActionsCell({
-  busy,
   isExpanded,
   entity,
   directionsSiteName,
   showDirections = true,
   onToggleExpand,
 }: {
-  busy: boolean;
   isExpanded: boolean;
   entity?: string;
   directionsSiteName?: string;
@@ -348,9 +351,6 @@ function ActionsCell({
   return (
     <div className={BLOG_IDEA_ROW_EXPAND_CELL}>
       {showDirections ? <DirectionsLinkButton entity={entity} siteName={directionsSiteName} /> : null}
-      {busy ? (
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-400" aria-label="Working" />
-      ) : null}
       <button
         type="button"
         className="flex h-7 w-7 shrink-0 items-center justify-center text-zinc-300 hover:text-white sm:h-8 sm:w-8"
@@ -724,7 +724,6 @@ export function BlogIdeaRowCompact({
           />
         </div>
         <ActionsCell
-          busy={busy}
           isExpanded={isExpanded}
           entity={row.entity}
           directionsSiteName={directionsSiteName}
@@ -790,7 +789,6 @@ export function BlogIdeaRowCompact({
       ) : null}
 
       <ActionsCell
-        busy={busy}
         isExpanded={isExpanded}
         entity={row.entity}
         directionsSiteName={directionsSiteName}
@@ -854,7 +852,6 @@ export function BlogIdeaRowCompact({
       ) : null}
 
       <ActionsCell
-        busy={busy}
         isExpanded={false}
         entity={row.entity}
         directionsSiteName={directionsSiteName}

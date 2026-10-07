@@ -1,10 +1,130 @@
 /**
  * Deterministic SAP grounding: filter GSC Pages MoM rows to URLs from the entity sitemap allowlist.
  */
+import type { WordPressSite } from "@/components/integrations/types";
 import Papa from "papaparse";
+import { isEntitySitemapDisabled } from "@/lib/entity-endpoint-extractor";
+import { parseSitemap } from "@/lib/wordpress-api";
+import { GSC_PAGES_PERIOD_FILENAME } from "@/lib/gsc-reporting/gsc-reporting-monthly-totals";
+import { parseCanadianNumber, splitCsvLine } from "@/lib/gsc-reporting/gsc-number-format";
+
+export const GSC_SITEMAPS_BUNDLE_FILENAME = "GSC-sitemaps.csv";
+
+/** Common SAP-related sitemap filenames (reference / tests; not guessed on origin during reporting). */
+export const SAP_CANONICAL_SITEMAP_LEAVES = [
+  "service-area-sitemap.xml",
+  "service-areas-sitemap.xml",
+  "service_area-sitemap.xml",
+  "location-sitemap.xml",
+  "locations-sitemap.xml",
+  "entity-sitemap.xml",
+] as const;
 
 /** Max characters for the synthetic FILTERED_PAGES_FOR_SAP block (fits retrieval budget). */
 export const SAP_FILTERED_PAGES_MAX_CHARS = 12_000;
+
+/** Max extra child sitemap XML fetches per report (local + entity). */
+const SAP_EXTRA_SITEMAP_PARSE_LIMIT = 12;
+
+/** Bundle file: SAP URL allowlist (entity sitemap + local service area pages). */
+export const GSC_ENTITY_SITEMAP_URLS_FILENAME = "Entity-sitemap-urls.csv";
+
+/** Path prefixes for local service area landings (city/area pages) in SAP. */
+export const SAP_LOCAL_PATHNAME_PREFIXES = [
+  "/service-area",
+  "/service-areas",
+  "/location",
+  "/locations",
+] as const;
+
+const SAP_CHILD_SITEMAP_FILENAME =
+  /(?:^|\/)(service-area|service-areas|location|locations|local|near|entity)[^/]*\.xml$/i;
+
+function sitemapLeafLooksLikeSapSource(leaf: string): boolean {
+  const lower = leaf.toLowerCase();
+  if (SAP_CHILD_SITEMAP_FILENAME.test(leaf)) return true;
+  if (!lower.includes("sitemap")) return false;
+  return (
+    lower.includes("service-area") ||
+    lower.includes("service-areas") ||
+    lower.includes("service_area") ||
+    lower.includes("location") ||
+    lower.includes("entity")
+  );
+}
+
+function pathOrUrlLooksLikeSapSitemap(pathOrUrl: string): boolean {
+  const t = pathOrUrl.trim();
+  if (!t) return false;
+  const leaf = t.split("/").filter(Boolean).pop() ?? t;
+  return sitemapLeafLooksLikeSapSource(leaf);
+}
+
+/** Resolve GSC / relative sitemap path to absolute URL on the report property. */
+export function resolveAbsoluteSitemapUrl(pathOrUrl: string, publicSiteUrl: string): string | null {
+  const t = pathOrUrl.trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  const origin = siteOriginFromPublicUrl(publicSiteUrl);
+  if (!origin) return null;
+  return t.startsWith("/") ? `${origin}${t}` : `${origin}/${t}`;
+}
+
+/** Paths from Search Console submitted sitemaps bundle (column Path). */
+export function gscSubmittedSitemapPathsFromBundle(files: { name: string; content: string }[]): string[] {
+  const file = files.find((f) => f.name.trim() === GSC_SITEMAPS_BUNDLE_FILENAME);
+  if (!file?.content.trim()) return [];
+  const parsed = Papa.parse<Record<string, string>>(file.content, {
+    header: true,
+    skipEmptyLines: true,
+  });
+  const pathKey = parsed.meta.fields?.find((h) => h.trim().toLowerCase() === "path");
+  if (!pathKey) return [];
+  const out: string[] = [];
+  for (const row of parsed.data ?? []) {
+    const p = String(row[pathKey] ?? "").trim();
+    if (p) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Every SAP-related sitemap XML to parse: entity config, service-area sitemap, GSC submissions, site index children.
+ */
+export function discoverReportingSapSitemapUrls(args: {
+  site: WordPressSite;
+  publicSiteUrl: string;
+  files?: { name: string; content: string }[];
+}): string[] {
+  const disabled = new Set(
+    (args.site.sitemaps?.disabledChildSitemapUrls ?? []).map((u) => u.trim()).filter(Boolean),
+  );
+  const candidates = new Set<string>();
+
+  const consider = (raw: string) => {
+    const abs = resolveAbsoluteSitemapUrl(raw, args.publicSiteUrl);
+    if (!abs || disabled.has(abs)) return;
+    if (pathOrUrlLooksLikeSapSitemap(abs)) candidates.add(abs);
+  };
+
+  const entityUrl = args.site.entitySitemapUrl?.trim();
+  if (entityUrl && !isEntitySitemapDisabled(args.site)) {
+    consider(entityUrl);
+  }
+
+  for (const raw of args.site.sitemaps?.childSitemaps ?? []) {
+    consider(raw);
+  }
+  for (const raw of Object.keys(args.site.sitemaps?.endpoints ?? {})) {
+    consider(raw);
+  }
+
+  for (const path of gscSubmittedSitemapPathsFromBundle(args.files ?? [])) {
+    consider(path);
+  }
+
+  return [...candidates].slice(0, SAP_EXTRA_SITEMAP_PARSE_LIMIT);
+}
 
 export type SapEntityGrounding = {
   /** Human-readable source (e.g. entity sitemap filename). */
@@ -46,6 +166,204 @@ export function buildAllowlistPathnameSet(allowlistUrls: string[]): Set<string> 
     if (k) set.add(k);
   }
   return set;
+}
+
+/** Keep only URLs on the report property origin. */
+export function filterUrlsToSiteOrigin(urls: string[], publicSiteUrl: string): string[] {
+  const origin = siteOriginFromPublicUrl(publicSiteUrl).toLowerCase();
+  if (!origin) return [...urls];
+  const out: string[] = [];
+  for (const raw of urls) {
+    const u = raw.trim();
+    if (!u) continue;
+    try {
+      if (new URL(u).origin.toLowerCase() === origin) out.push(u);
+    } catch {
+      /* skip invalid */
+    }
+  }
+  return out;
+}
+
+export function entitySitemapUrlsBundleCsv(allowlistUrls: string[], sourceLabel: string): string {
+  const header = `# ${sourceLabel.trim() || "Entity sitemap"}\nurl`;
+  if (allowlistUrls.length === 0) return `${header}\n`;
+  return `${header}\n${allowlistUrls.join("\n")}\n`;
+}
+
+export function appendEntitySitemapUrlsBundleFile(
+  files: { name: string; content: string }[],
+  allowlistUrls: string[],
+  sourceLabel: string,
+): void {
+  if (files.some((f) => f.name.trim() === GSC_ENTITY_SITEMAP_URLS_FILENAME)) return;
+  files.push({
+    name: GSC_ENTITY_SITEMAP_URLS_FILENAME,
+    content: entitySitemapUrlsBundleCsv(allowlistUrls, sourceLabel),
+  });
+}
+
+export function pathnameMatchesSapLocalOrEntityArea(pathKey: string | null): boolean {
+  if (!pathKey) return false;
+  const p = pathKey.toLowerCase();
+  for (const pref of SAP_LOCAL_PATHNAME_PREFIXES) {
+    if (p === pref || p.startsWith(`${pref}/`)) return true;
+  }
+  return false;
+}
+
+export function dedupeSapAllowlistUrls(urls: string[]): string[] {
+  const byKey = new Map<string, string>();
+  for (const raw of urls) {
+    const u = raw.trim();
+    if (!u) continue;
+    const k = pathnameKeyFromUrl(u);
+    if (k && !byKey.has(k)) byKey.set(k, u);
+  }
+  return [...byKey.values()];
+}
+
+async function fetchSitemapUrlsOnOrigin(args: {
+  site: WordPressSite;
+  sitemapUrl: string;
+  publicSiteUrl: string;
+}): Promise<string[]> {
+  const user = args.site.username?.trim();
+  const pass = args.site.appPassword?.trim();
+  const result = await parseSitemap(
+    args.site.siteUrl,
+    args.sitemapUrl,
+    user || undefined,
+    pass || undefined,
+  );
+  const raw = (result?.urls ?? []).map((u) => String(u ?? "").trim()).filter((u) => u.length > 0);
+  return filterUrlsToSiteOrigin(raw, args.publicSiteUrl);
+}
+
+/** Entity sitemap + service-area sitemap + local sitemaps (Integrations, GSC submissions, canonical XML). */
+export async function resolveReportingSapAllowlistFromSitemaps(args: {
+  site: WordPressSite;
+  publicSiteUrl: string;
+  files?: { name: string; content: string }[];
+}): Promise<{ allowlistUrls: string[]; sourceLabel: string }> {
+  const sitemapXmlUrls = discoverReportingSapSitemapUrls(args);
+  const labels: string[] = [];
+  const merged: string[] = [];
+
+  for (const sitemapUrl of sitemapXmlUrls) {
+    const leaf = sitemapUrl.split("/").filter(Boolean).pop() ?? sitemapUrl;
+    if (!labels.includes(leaf)) labels.push(leaf);
+    merged.push(
+      ...(await fetchSitemapUrlsOnOrigin({
+        site: args.site,
+        sitemapUrl,
+        publicSiteUrl: args.publicSiteUrl,
+      })),
+    );
+  }
+
+  const allowlistUrls = dedupeSapAllowlistUrls(merged);
+  if (allowlistUrls.length === 0) {
+    return {
+      allowlistUrls: [],
+      sourceLabel:
+        sitemapXmlUrls.length > 0
+          ? "Entity + service area sitemaps (XML loaded but no page URLs)"
+          : "Entity / service area sitemap (none discovered)",
+    };
+  }
+  const sourceLabel =
+    labels.length > 0
+      ? `Entity + service area sitemaps (${labels.join(", ")})`
+      : "Entity + service area sitemaps";
+  return { allowlistUrls, sourceLabel };
+}
+
+/** @deprecated Use resolveReportingSapAllowlistFromSitemaps */
+export async function resolveReportingSapEntityAllowlist(args: {
+  site: WordPressSite;
+  publicSiteUrl: string;
+}): Promise<{ allowlistUrls: string[]; sourceLabel: string }> {
+  return resolveReportingSapAllowlistFromSitemaps(args);
+}
+
+function pageUrlsFromPeriodCsv(csvText: string): string[] {
+  const lines = csvText.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith("#"));
+  const headerIdx = lines.findIndex((l) => /^Page,/i.test(l.trimStart()));
+  if (headerIdx < 0) return [];
+  const out: string[] = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const page = splitCsvLine(lines[i]!)[0]?.trim();
+    if (page) out.push(page);
+  }
+  return out;
+}
+
+function pageUrlsFromMomCsv(csvText: string): string[] {
+  const lines = csvText.split(/\r?\n/);
+  let i = 0;
+  while (i < lines.length && lines[i]!.trim().startsWith("#")) i++;
+  const parsed = Papa.parse<Record<string, string>>(lines.slice(i).join("\n"), {
+    header: true,
+    skipEmptyLines: true,
+  });
+  const pageKey = parsed.meta.fields?.find((h) => h.trim().toLowerCase() === "page");
+  if (!pageKey) return [];
+  const out: string[] = [];
+  for (const row of parsed.data ?? []) {
+    const page = String(row[pageKey] ?? "").trim();
+    if (page) out.push(page);
+  }
+  return out;
+}
+
+/** Add local service area page URLs from GSC Pages exports (e.g. /location/cochrane/). */
+export function expandSapAllowlistFromPagesFiles(args: {
+  allowlistUrls: string[];
+  files: { name: string; content: string }[];
+  publicSiteUrl: string;
+}): string[] {
+  const origin = siteOriginFromPublicUrl(args.publicSiteUrl).toLowerCase();
+  const merged = [...args.allowlistUrls];
+  for (const f of args.files) {
+    const n = f.name.trim();
+    const isPeriod = n === GSC_PAGES_PERIOD_FILENAME;
+    const isMom = isPagesMomReportingFile(f.name, f.content);
+    if (!isPeriod && !isMom) continue;
+    const pages = isPeriod ? pageUrlsFromPeriodCsv(f.content) : pageUrlsFromMomCsv(f.content);
+    for (const page of pages) {
+      try {
+        if (origin && new URL(page).origin.toLowerCase() !== origin) continue;
+      } catch {
+        continue;
+      }
+      const pk = pathnameKeyFromUrl(page);
+      if (pathnameMatchesSapLocalOrEntityArea(pk)) merged.push(page);
+    }
+  }
+  return dedupeSapAllowlistUrls(merged);
+}
+
+/** Full SAP allowlist: sitemaps then GSC Pages paths for local/entity landings. */
+export async function resolveReportingSapAllowlist(args: {
+  site: WordPressSite;
+  publicSiteUrl: string;
+  files: { name: string; content: string }[];
+}): Promise<{ allowlistUrls: string[]; sourceLabel: string }> {
+  const fromSitemaps = await resolveReportingSapAllowlistFromSitemaps({
+    site: args.site,
+    publicSiteUrl: args.publicSiteUrl,
+    files: args.files,
+  });
+  const allowlistUrls = expandSapAllowlistFromPagesFiles({
+    allowlistUrls: fromSitemaps.allowlistUrls,
+    files: args.files,
+    publicSiteUrl: args.publicSiteUrl,
+  });
+  return {
+    allowlistUrls,
+    sourceLabel: fromSitemaps.sourceLabel,
+  };
 }
 
 /** Pages MoM bundle file from fetch or uploads with the same naming pattern. */
@@ -113,12 +431,18 @@ export function buildSapFilteredPagesEvidence(args: {
       if (pk && pathKeys.has(pk)) matched.push(r as Record<string, unknown>);
     }
 
-    matched.sort(
-      (a, b) => parsePrimaryImpressions(fields, b) - parsePrimaryImpressions(fields, a),
-    );
+    matched.sort((a, b) => {
+      const clkKey = fields.find((f) => /^\s*Clicks\s+\(/i.test(f.trim()));
+      if (clkKey) {
+        const na = parseCanadianNumber(String(a[clkKey] ?? "").trim());
+        const nb = parseCanadianNumber(String(b[clkKey] ?? "").trim());
+        if (Number.isFinite(na) && Number.isFinite(nb) && nb !== na) return nb - na;
+      }
+      return parsePrimaryImpressions(fields, b) - parsePrimaryImpressions(fields, a);
+    });
 
     const preamble = [
-      `# Filtered from ${f.name}: entity sitemap URL pathnames only.`,
+      `# Filtered from ${f.name}: entity + local service area URL pathnames only.`,
       `#`,
     ].join("\n");
 
@@ -177,7 +501,7 @@ export function buildSapEntityAllowlistChunkText(grounding: SapEntityGrounding):
   const header = [
     "--- BLOCK: ENTITY_SITEMAP_ALLOWLIST ---",
     `Source: ${grounding.sourceLabel}`,
-    `Allowlist: ${n} URLs. SAP **Page** table rows must use **only** URLs from this list (pathname match).`,
+    `Allowlist: ${n} URLs (entity sitemap + **service area sitemap** + local landings). SAP **Page** table rows must use **only** URLs from this list (pathname match).`,
     "Ignore other Pages CSV rows elsewhere in RETRIEVED DATA for the SAP table.",
     "Do not repeat query-theme bullets from other sections in SAP.",
     "",

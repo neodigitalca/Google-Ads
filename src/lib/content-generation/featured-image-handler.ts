@@ -4,7 +4,9 @@
  */
 
 import { notify } from "@/lib/app-notifications";
-import { NOTIFY_FEATURED_IMAGE_GENERATED_BUT_UPLOAD_FAIL, NOTIFY_FEATURED_IMAGE_GENERATION_FAILED_CONTINU, NOTIFY_GOOGLE_MAPS_FEATURED_IMAGE_GENERATED_BUT, notifyFeaturedImageGeneratedAndUploadedId, notifyGoogleMapsFeaturedImageGeneratedAnd, notifyGoogleMapsFeaturedImageGenerationFa, notifyKeepingExistingFeaturedImageIdX } from "@/lib/notify-messages";
+import { NOTIFY_FEATURED_IMAGE_GENERATED_BUT_UPLOAD_FAIL, NOTIFY_GOOGLE_MAPS_FEATURED_IMAGE_GENERATED_BUT, notifyFeaturedImageGeneratedAndUploadedId, notifyGoogleMapsFeaturedImageGeneratedAnd, notifyGoogleMapsFeaturedImageGenerationFa, notifyKeepingExistingFeaturedImageIdX } from "@/lib/notify-messages";
+import { IMAGE_SCENE_PLAUSIBILITY_PROMPT } from "@/lib/image-scene-plausibility";
+import { windowTreatmentImagePromptSuffix } from "@/lib/image-window-treatment-prompt-rules";
 import { getMuteOptimizationToasts } from "@/hooks/content-optimization/optimization-toast-mute";
 import { streamChatCompletion } from "@/lib/api";
 import { uploadWordPressMedia } from "@/lib/wordpress-api";
@@ -174,7 +176,10 @@ export async function handleFeaturedImage(
       // Get final content from result
       imageChecklistContent = checklistResult.content || imageChecklistContent;
       
-      const imageChecklist: ImageChecklistItem[] = parseImageChecklist(imageChecklistContent);
+      const imageChecklist: ImageChecklistItem[] = parseImageChecklist(
+        imageChecklistContent,
+        { strictFeatured: true },
+      );
       
       // Save checklist file to fileManager
       const checklistFileName = OptimizationFileManager.generateFilename('featured-image-checklist', primaryKeyword, 'json');
@@ -225,7 +230,14 @@ export async function handleFeaturedImage(
         ? `\n\nImage Generation Checklist:\n${imageChecklist.map((item, idx) => `${idx + 1}. ${item.title}\n   ${item.description}`).join('\n')}`
         : '';
       
-      const prompt = basePrompt + checklistText + '\n\nFollow the checklist above EXACTLY. Ensure all requirements are met, especially regarding what should and should NOT be included. This is a WordPress featured image - no text, words, or labels should be included.';
+      const prompt =
+        basePrompt +
+        checklistText +
+        `\n\nFollow the checklist above EXACTLY. Ensure all requirements are met, especially regarding what should and should NOT be included. This is a WordPress featured image - no text, words, or labels should be included. ${IMAGE_SCENE_PLAUSIBILITY_PROMPT}${windowTreatmentImagePromptSuffix(
+          blueprintResult.title || existingTitle || primaryKeyword,
+          contentForImage,
+          primaryKeyword,
+        )}`;
       
       setProgress({ step: 'Generating featured image...', progress: 89, message: 'Generating image with AI...' });
 
@@ -237,6 +249,7 @@ export async function handleFeaturedImage(
           purpose: blueprintResult.purpose || buildFocusedArticlePurpose(primaryKeyword),
           body: contentForImage,
         },
+        groundingProfile: 'featured',
       });
       const groundedPrompt = prompt + buildGroundedImagePromptSuffix(research.references);
       
@@ -311,8 +324,6 @@ export async function handleFeaturedImage(
       }
     } catch (error) {
       console.error('[Optimize Content] Error generating/uploading featured image:', error);
-      if (!getMuteOptimizationToasts()) notify.warning(NOTIFY_FEATURED_IMAGE_GENERATION_FAILED_CONTINU, { duration: 5000 });
-      // Continue without featured image - don't fail the entire process
     }
     }
   }

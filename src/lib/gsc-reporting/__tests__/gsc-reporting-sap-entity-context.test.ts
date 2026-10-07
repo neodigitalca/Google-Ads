@@ -5,7 +5,13 @@ import {
   buildSapEntityGrounding,
   buildSapFilteredPagesEvidence,
   buildSapFilteredPagesChunkText,
+  entitySitemapUrlsBundleCsv,
+  discoverReportingSapSitemapUrls,
+  expandSapAllowlistFromPagesFiles,
+  filterUrlsToSiteOrigin,
   isPagesMomReportingFile,
+  pathnameMatchesSapLocalOrEntityArea,
+  SAP_CANONICAL_SITEMAP_LEAVES,
   pathnameKeyFromUrl,
   siteOriginFromPublicUrl,
 } from "@/lib/gsc-reporting/gsc-reporting-sap-entity-context";
@@ -94,6 +100,108 @@ describe("buildSapEntityGrounding + chunk text", () => {
     const t = buildSapFilteredPagesChunkText(g);
     expect(t).toMatch(/FILTERED_PAGES_FOR_SAP/);
     expect(t).toMatch(/No Pages-MoM/);
+  });
+});
+
+describe("discoverReportingSapSitemapUrls", () => {
+  it("includes entity + SAP-shaped sitemaps from site and GSC bundle only (no guessed filenames)", () => {
+    const urls = discoverReportingSapSitemapUrls({
+      site: {
+        id: "1",
+        name: "Blinds West",
+        siteUrl: "https://blindswest.ca",
+        username: "",
+        appPassword: "",
+        connectedAt: 0,
+        entitySitemapUrl: "https://blindswest.ca/entity-sitemap.xml",
+      },
+      publicSiteUrl: "https://blindswest.ca/",
+      files: [
+        {
+          name: "GSC-sitemaps.csv",
+          content: [
+            "Path,LastSubmitted",
+            "https://blindswest.ca/service-area-sitemap.xml,2026-01-01",
+            "https://blindswest.ca/post-sitemap.xml,2026-01-01",
+          ].join("\n"),
+        },
+      ],
+    });
+    expect(urls.some((u) => u.includes("service-area-sitemap.xml"))).toBe(true);
+    expect(urls.some((u) => u.includes("entity-sitemap.xml"))).toBe(true);
+    expect(urls.some((u) => u.includes("post-sitemap.xml"))).toBe(false);
+  });
+
+  it("does not probe canonical SAP filenames when nothing is configured", () => {
+    const urls = discoverReportingSapSitemapUrls({
+      site: {
+        id: "2",
+        name: "Example",
+        siteUrl: "https://example.com",
+        username: "",
+        appPassword: "",
+        connectedAt: 0,
+      },
+      publicSiteUrl: "https://example.com/",
+      files: [],
+    });
+    expect(urls).toEqual([]);
+    for (const leaf of SAP_CANONICAL_SITEMAP_LEAVES) {
+      expect(urls.some((u) => u.endsWith(`/${leaf}`))).toBe(false);
+    }
+  });
+});
+
+describe("pathnameMatchesSapLocalOrEntityArea", () => {
+  it("matches location and service-area paths", () => {
+    expect(pathnameMatchesSapLocalOrEntityArea("/location/cochrane")).toBe(true);
+    expect(pathnameMatchesSapLocalOrEntityArea("/service-area/hunter-douglas-bridgeland")).toBe(true);
+    expect(pathnameMatchesSapLocalOrEntityArea("/")).toBe(false);
+    expect(pathnameMatchesSapLocalOrEntityArea("/blog/post")).toBe(false);
+  });
+});
+
+describe("expandSapAllowlistFromPagesFiles", () => {
+  it("adds local city pages from Pages-Period.csv", () => {
+    const files = [
+      {
+        name: "Pages-Period.csv",
+        content: [
+          "# Pages",
+          "Page,Clicks,Impressions,CTR,Position",
+          "https://blindswest.ca/location/cochrane/,7,1949,0.4%,12.4",
+          "https://blindswest.ca/,65,19120,0.3%,10.4",
+        ].join("\n"),
+      },
+    ];
+    const out = expandSapAllowlistFromPagesFiles({
+      allowlistUrls: [],
+      files,
+      publicSiteUrl: "https://blindswest.ca/",
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]).toContain("/location/cochrane");
+  });
+});
+
+describe("filterUrlsToSiteOrigin", () => {
+  it("drops off-origin URLs", () => {
+    const out = filterUrlsToSiteOrigin(
+      ["https://blindswest.ca/service-area/cochrane/", "https://other.example.com/x/"],
+      "https://blindswest.ca/",
+    );
+    expect(out).toEqual(["https://blindswest.ca/service-area/cochrane/"]);
+  });
+});
+
+describe("entitySitemapUrlsBundleCsv", () => {
+  it("writes url header and rows", () => {
+    const csv = entitySitemapUrlsBundleCsv(
+      ["https://blindswest.ca/service-area/cochrane/"],
+      "Entity sitemap (service-area-sitemap.xml)",
+    );
+    expect(csv).toContain("service-area/cochrane");
+    expect(csv).toMatch(/^# Entity sitemap/m);
   });
 });
 

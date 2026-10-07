@@ -13,10 +13,16 @@ import {
   writeStoredManagerSettingsCluster,
 } from "@/components/manager/manager-settings-cluster";
 import {
+  readGlobalAdsAgentModel,
   readGlobalBlogAgentModel,
   readGlobalImageAgentModel,
+  readGlobalMetaAgentModel,
+  readGlobalReportAgentModel,
   readGlobalResearchAgentModel,
+  writeGlobalAdsAgentModel,
   writeGlobalImageAgentModel,
+  writeGlobalMetaAgentModel,
+  writeGlobalReportAgentModel,
   writeGlobalResearchAgentModel,
 } from "@/lib/global-agent-models";
 import { dashboardClusterToArea, useTeamPermission } from "@/hooks/use-team-permission";
@@ -29,12 +35,21 @@ export interface ManagerSettingsContentProps {
   dataForSEOApiKey: string;
   setDataForSEOApiKey: (key: string) => void;
   saveDataForSEOApiKeyToStorage: (key: string) => void;
+  semrushApiKey: string;
+  setSemrushApiKey: (key: string) => void;
+  saveSemrushApiKeyToStorage: (key: string) => void;
   selectedModel: string;
   setSelectedModel: (model: string) => void;
   agentResearchModel?: string;
   setAgentResearchModel?: (model: string) => void;
   agentImageModel?: string;
   setAgentImageModel?: (model: string) => void;
+  agentMetaModel?: string;
+  setAgentMetaModel?: (model: string) => void;
+  agentReportModel?: string;
+  setAgentReportModel?: (model: string) => void;
+  agentAdsModel?: string;
+  setAgentAdsModel?: (model: string) => void;
   temperature: number;
   setTemperature: (value: number) => void;
   maxTokens: number;
@@ -52,12 +67,21 @@ export function ManagerSettingsContent({
   dataForSEOApiKey,
   setDataForSEOApiKey,
   saveDataForSEOApiKeyToStorage,
+  semrushApiKey,
+  setSemrushApiKey,
+  saveSemrushApiKeyToStorage,
   selectedModel,
   setSelectedModel,
   agentResearchModel: agentResearchModelProp,
   setAgentResearchModel: setAgentResearchModelProp,
   agentImageModel: agentImageModelProp,
   setAgentImageModel: setAgentImageModelProp,
+  agentMetaModel: agentMetaModelProp,
+  setAgentMetaModel: setAgentMetaModelProp,
+  agentReportModel: agentReportModelProp,
+  setAgentReportModel: setAgentReportModelProp,
+  agentAdsModel: agentAdsModelProp,
+  setAgentAdsModel: setAgentAdsModelProp,
   temperature,
   setTemperature,
   maxTokens,
@@ -69,8 +93,14 @@ export function ManagerSettingsContent({
 }: ManagerSettingsContentProps) {
   const [fallbackResearch, setFallbackResearch] = useState(readGlobalResearchAgentModel);
   const [fallbackImage, setFallbackImage] = useState(readGlobalImageAgentModel);
+  const [fallbackMeta, setFallbackMeta] = useState(readGlobalMetaAgentModel);
+  const [fallbackReport, setFallbackReport] = useState(readGlobalReportAgentModel);
+  const [fallbackAds, setFallbackAds] = useState(readGlobalAdsAgentModel);
   const agentResearchModel = agentResearchModelProp ?? fallbackResearch;
   const agentImageModel = agentImageModelProp ?? fallbackImage;
+  const agentMetaModel = agentMetaModelProp ?? fallbackMeta;
+  const agentReportModel = agentReportModelProp ?? fallbackReport;
+  const agentAdsModel = agentAdsModelProp ?? fallbackAds;
   const setAgentResearchModel =
     setAgentResearchModelProp ??
     ((model: string) => {
@@ -82,6 +112,24 @@ export function ManagerSettingsContent({
     ((model: string) => {
       setFallbackImage(model);
       writeGlobalImageAgentModel(model);
+    });
+  const setAgentMetaModel =
+    setAgentMetaModelProp ??
+    ((model: string) => {
+      setFallbackMeta(model);
+      writeGlobalMetaAgentModel(model);
+    });
+  const setAgentReportModel =
+    setAgentReportModelProp ??
+    ((model: string) => {
+      setFallbackReport(model);
+      writeGlobalReportAgentModel(model);
+    });
+  const setAgentAdsModel =
+    setAgentAdsModelProp ??
+    ((model: string) => {
+      setFallbackAds(model);
+      writeGlobalAdsAgentModel(model);
     });
   const blogModel = selectedModel || readGlobalBlogAgentModel();
 
@@ -132,6 +180,14 @@ export function ManagerSettingsContent({
     [setDataForSEOApiKey, saveDataForSEOApiKeyToStorage],
   );
 
+  const handleSemrushSave = useCallback(
+    (key: string) => {
+      setSemrushApiKey(key);
+      saveSemrushApiKeyToStorage(key);
+    },
+    [setSemrushApiKey, saveSemrushApiKeyToStorage],
+  );
+
   const sections = [
     {
       id: "properties" as const,
@@ -147,6 +203,9 @@ export function ManagerSettingsContent({
           dataForSEOApiKey={dataForSEOApiKey}
           setDataForSEOApiKey={setDataForSEOApiKey}
           saveDataForSEOApiKey={handleDataForSEOSave}
+          semrushApiKey={semrushApiKey}
+          setSemrushApiKey={setSemrushApiKey}
+          saveSemrushApiKey={handleSemrushSave}
           selectedModel={selectedModel}
           temperature={temperature}
           maxTokens={maxTokens}
@@ -168,6 +227,12 @@ export function ManagerSettingsContent({
           setBlogModel={setSelectedModel}
           imageModel={agentImageModel}
           setImageModel={setAgentImageModel}
+          metaModel={agentMetaModel}
+          setMetaModel={setAgentMetaModel}
+          reportModel={agentReportModel}
+          setReportModel={setAgentReportModel}
+          adsModel={agentAdsModel}
+          setAdsModel={setAgentAdsModel}
           temperature={temperature}
           setTemperature={setTemperature}
           maxTokens={maxTokens}

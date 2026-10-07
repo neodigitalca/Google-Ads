@@ -8,6 +8,8 @@ import type { GeneratorFreeFlowBindings } from "@/components/generator/generator
 import { CompetitorGeneratorShell } from "@/components/competitor-generator/CompetitorGeneratorShell";
 import { SapGeneratorShell } from "@/components/sap-generator/SapGeneratorShell";
 import { ContentOptimizerTabContent } from "@/components/content-optimizer/ContentOptimizerTabContent";
+import { setRuntimeDataForSeoApiKey } from "@/lib/integration-api-keys-runtime";
+import { loadDataForSEOApiKey } from "@/lib/api";
 import {
   type BlogGeneratorSectionId,
   readStoredBlogGeneratorSection,
@@ -56,6 +58,11 @@ export const BlogGeneratorShell: React.FC<BlogGeneratorShellProps> = ({
     registerBlogGeneratorSectionListener(onExternalSection);
     return () => unregisterBlogGeneratorSectionListener(onExternalSection);
   }, []);
+
+  useEffect(() => {
+    const key = dataForSEOApiKey?.trim() || loadDataForSEOApiKey()?.trim() || "";
+    setRuntimeDataForSeoApiKey(key);
+  }, [dataForSEOApiKey]);
 
   const sharedTabProps = useMemo(
     () => ({

@@ -15,6 +15,12 @@ class Neo_Pulse_App_Openrouter_Chat_Completion_Route {
 	 * @param array<string,mixed>  $body    JSON body.
 	 */
 	public static function dispatch_http( string $subpath, string $method, array $body ): void {
+		if ( $subpath === 'models' && $method === 'GET' ) {
+			if ( class_exists( 'Neo_Pulse_App_Openrouter_Models_Catalog_Route' ) ) {
+				Neo_Pulse_App_Openrouter_Models_Catalog_Route::send_catalog();
+				return;
+			}
+		}
 		if ( $subpath === 'chat-completion' && $method === 'POST' ) {
 			self::chat_completion( $body );
 			return;
@@ -120,6 +126,7 @@ class Neo_Pulse_App_Openrouter_Chat_Completion_Route {
 				array(
 					'ok'                 => true,
 					'content'            => $result['content'],
+					'parsed'             => $result['parsed'],
 					'finishReason'       => $result['finishReason'],
 					'nativeFinishReason' => $result['nativeFinishReason'],
 					'raw'                => $result['raw'],
@@ -142,54 +149,98 @@ class Neo_Pulse_App_Openrouter_Chat_Completion_Route {
 	 */
 	private static function normalize_messages( array $body ): array {
 		if ( isset( $body['messages'] ) && is_array( $body['messages'] ) && count( $body['messages'] ) > 0 ) {
-			$out = array();
-			foreach ( $body['messages'] as $msg ) {
-				if ( ! is_array( $msg ) ) {
-					continue;
-				}
-				$role = isset( $msg['role'] ) ? trim( (string) $msg['role'] ) : '';
-				if ( $role === '' ) {
-					continue;
-				}
-				$content = $msg['content'] ?? null;
-				$entry   = array(
-					'role'    => $role,
-					'content' => is_array( $content ) ? $content : ( $content === null ? null : (string) $content ),
-				);
-				if ( isset( $msg['tool_calls'] ) && is_array( $msg['tool_calls'] ) ) {
-					$entry['tool_calls'] = $msg['tool_calls'];
-				}
-				if ( isset( $msg['tool_call_id'] ) && is_string( $msg['tool_call_id'] ) && $msg['tool_call_id'] !== '' ) {
-					$entry['tool_call_id'] = $msg['tool_call_id'];
-				}
-				if ( isset( $msg['name'] ) && is_string( $msg['name'] ) && $msg['name'] !== '' ) {
-					$entry['name'] = $msg['name'];
-				}
-				$out[] = $entry;
+			$from_messages = self::normalize_messages_array( $body['messages'] );
+			if ( count( $from_messages ) > 0 ) {
+				return $from_messages;
 			}
-			return $out;
 		}
+
 		$system = isset( $body['system'] ) ? trim( (string) $body['system'] ) : '';
 		$user   = isset( $body['user'] ) ? trim( (string) $body['user'] ) : '';
-		if ( $system === '' || $user === '' ) {
-			return array();
+		if ( $user === '' && isset( $body['userMessage'] ) ) {
+			$user = trim( (string) $body['userMessage'] );
 		}
-		return array(
-			array(
-				'role'    => 'system',
-				'content' => $system,
-			),
-			array(
-				'role'    => 'user',
-				'content' => $user,
-			),
-		);
+		if ( $user === '' && isset( $body['user_message'] ) ) {
+			$user = trim( (string) $body['user_message'] );
+		}
+
+		if ( $system !== '' && $user !== '' ) {
+			return array(
+				array(
+					'role'    => 'system',
+					'content' => $system,
+				),
+				array(
+					'role'    => 'user',
+					'content' => $user,
+				),
+			);
+		}
+		if ( $user !== '' ) {
+			return array(
+				array(
+					'role'    => 'user',
+					'content' => $user,
+				),
+			);
+		}
+		if ( $system !== '' ) {
+			return array(
+				array(
+					'role'    => 'system',
+					'content' => $system,
+				),
+			);
+		}
+
+		return array();
+	}
+
+	/**
+	 * @param array<int,mixed> $messages Raw messages from JSON body.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private static function normalize_messages_array( array $messages ): array {
+		$out = array();
+		foreach ( $messages as $msg ) {
+			if ( ! is_array( $msg ) ) {
+				continue;
+			}
+			$role = isset( $msg['role'] ) ? trim( (string) $msg['role'] ) : '';
+			if ( $role === '' ) {
+				continue;
+			}
+			$content = $msg['content'] ?? null;
+			if ( is_string( $content ) ) {
+				$content = trim( $content );
+				if ( $content === '' && ! isset( $msg['tool_calls'] ) ) {
+					continue;
+				}
+			} elseif ( $content === null && ! isset( $msg['tool_calls'] ) ) {
+				continue;
+			}
+			$entry = array(
+				'role'    => $role,
+				'content' => is_array( $content ) ? $content : ( $content === null ? null : (string) $content ),
+			);
+			if ( isset( $msg['tool_calls'] ) && is_array( $msg['tool_calls'] ) ) {
+				$entry['tool_calls'] = $msg['tool_calls'];
+			}
+			if ( isset( $msg['tool_call_id'] ) && is_string( $msg['tool_call_id'] ) && $msg['tool_call_id'] !== '' ) {
+				$entry['tool_call_id'] = $msg['tool_call_id'];
+			}
+			if ( isset( $msg['name'] ) && is_string( $msg['name'] ) && $msg['name'] !== '' ) {
+				$entry['name'] = $msg['name'];
+			}
+			$out[] = $entry;
+		}
+		return $out;
 	}
 
 	/**
 	 * @param array<string,mixed> $payload OpenRouter body.
 	 * @param string              $api_key Key.
-	 * @return array{content:string,finishReason:?string,nativeFinishReason:?string,raw:array<string,mixed>|null}
+	 * @return array{content:string,parsed:?array<string,mixed>,finishReason:?string,nativeFinishReason:?string,raw:array<string,mixed>|null}
 	 */
 	private static function json_openrouter( array $payload, string $api_key ): array {
 		$response = wp_remote_post(
@@ -212,19 +263,183 @@ class Neo_Pulse_App_Openrouter_Chat_Completion_Route {
 			throw new Exception( 'OpenRouter ' . $code . ': ' . $msg );
 		}
 
-		$content = trim( (string) ( $raw['choices'][0]['message']['content'] ?? '' ) );
-		$tool_calls = $raw['choices'][0]['message']['tool_calls'] ?? null;
+		$message    = is_array( $raw['choices'][0]['message'] ?? null ) ? $raw['choices'][0]['message'] : array();
+		$content    = self::message_text_content( $message );
+		$reasoning  = self::message_reasoning_text( $message );
+		$structured = ! empty( $payload['response_format'] ) && is_array( $payload['response_format'] );
+		$tool_calls = $message['tool_calls'] ?? null;
 		$has_tool_calls = is_array( $tool_calls ) && count( $tool_calls ) > 0;
-		if ( $content === '' && ! $has_tool_calls && empty( $raw['choices'][0]['message']['images'] ) && empty( $payload['modalities'] ) ) {
-			throw new Exception( 'OpenRouter returned empty content' );
+		$parsed     = self::parsed_object_from_structured_content( $content, $payload, is_array( $raw ) ? $raw : null );
+		if ( $parsed === null && $structured && $reasoning !== '' ) {
+			$parsed = self::parsed_object_from_structured_content( $reasoning, $payload, null );
+		}
+		if ( $content === '' && ! $structured && $reasoning !== '' ) {
+			$content = $reasoning;
+		}
+		if ( is_array( $parsed ) ) {
+			$content = wp_json_encode( $parsed );
+		} elseif ( $structured && $parsed === null && $content !== '' && ! self::text_is_json_object( $content ) ) {
+			if ( $reasoning !== '' ) {
+				$parsed = self::decode_json_object_from_text( $reasoning );
+				if ( is_array( $parsed ) ) {
+					$content = wp_json_encode( $parsed );
+				}
+			}
+		}
+		if ( $structured && $parsed === null && $content !== '' && ! self::text_is_json_object( $content ) ) {
+			throw new Exception(
+				'OpenRouter returned prose instead of JSON for structured output. Use a model that supports response_format json_object.'
+			);
+		}
+		if ( $content === '' && $parsed === null && ! $has_tool_calls && empty( $message['images'] ) && empty( $payload['modalities'] ) ) {
+			$finish = isset( $raw['choices'][0]['finish_reason'] ) ? (string) $raw['choices'][0]['finish_reason'] : '';
+			throw new Exception(
+				'OpenRouter returned empty content'
+				. ( $finish !== '' ? ' (finish_reason=' . $finish . ')' : '' )
+			);
 		}
 
 		return array(
 			'content'            => $content,
+			'parsed'             => $parsed,
 			'finishReason'       => isset( $raw['choices'][0]['finish_reason'] ) ? (string) $raw['choices'][0]['finish_reason'] : null,
 			'nativeFinishReason' => isset( $raw['choices'][0]['native_finish_reason'] ) ? (string) $raw['choices'][0]['native_finish_reason'] : null,
 			'raw'                => is_array( $raw ) ? $raw : null,
 		);
+	}
+
+	/**
+	 * @param array<string,mixed> $message OpenRouter assistant message.
+	 */
+	private static function message_text_content( array $message ): string {
+		$content = $message['content'] ?? '';
+		if ( is_string( $content ) ) {
+			return trim( $content );
+		}
+		if ( ! is_array( $content ) ) {
+			return '';
+		}
+		$parts = array();
+		foreach ( $content as $part ) {
+			if ( ! is_array( $part ) ) {
+				continue;
+			}
+			if ( isset( $part['text'] ) && is_string( $part['text'] ) ) {
+				$text = trim( $part['text'] );
+				if ( $text !== '' ) {
+					$parts[] = $text;
+				}
+			}
+		}
+		return trim( implode( "\n", $parts ) );
+	}
+
+	/**
+	 * Reasoning models (e.g. DeepSeek V4.1 Flash) may leave assistant content empty and put output in reasoning.
+	 *
+	 * @param array<string,mixed> $message OpenRouter assistant message.
+	 */
+	private static function message_reasoning_text( array $message ): string {
+		if ( isset( $message['reasoning'] ) && is_string( $message['reasoning'] ) ) {
+			$text = trim( $message['reasoning'] );
+			if ( $text !== '' ) {
+				return $text;
+			}
+		}
+		$details = $message['reasoning_details'] ?? null;
+		if ( ! is_array( $details ) ) {
+			return '';
+		}
+		$parts = array();
+		foreach ( $details as $detail ) {
+			if ( ! is_array( $detail ) ) {
+				continue;
+			}
+			if ( isset( $detail['text'] ) && is_string( $detail['text'] ) ) {
+				$text = trim( $detail['text'] );
+				if ( $text !== '' ) {
+					$parts[] = $text;
+				}
+			}
+		}
+		return trim( implode( "\n", $parts ) );
+	}
+
+	/**
+	 * @param array<string,mixed>|null $openrouter_raw Full OpenRouter JSON body.
+	 */
+	private static function parsed_object_from_structured_content( string $content, array $payload, ?array $openrouter_raw = null ): ?array {
+		if ( empty( $payload['response_format'] ) || ! is_array( $payload['response_format'] ) ) {
+			return null;
+		}
+		$from_message = self::parsed_object_from_openrouter_message( $openrouter_raw );
+		if ( $from_message !== null ) {
+			return $from_message;
+		}
+		$text = trim( $content );
+		if ( $text === '' ) {
+			return null;
+		}
+		if ( str_starts_with( $text, '```' ) ) {
+			$text = preg_replace( '/^```(?:json)?\s*/i', '', $text );
+			$text = preg_replace( '/\s*```\s*$/m', '', $text );
+			$text = trim( (string) $text );
+		}
+		return self::decode_json_object_from_text( $text );
+	}
+
+	/**
+	 * Parse a JSON object from assistant text (whole string or first `{` … last `}` slice).
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	private static function decode_json_object_from_text( string $text ): ?array {
+		$text = trim( $text );
+		if ( $text === '' ) {
+			return null;
+		}
+		if ( str_starts_with( $text, '```' ) ) {
+			$text = preg_replace( '/^```(?:json)?\s*/i', '', $text );
+			$text = preg_replace( '/\s*```\s*$/m', '', $text );
+			$text = trim( (string) $text );
+		}
+		$decoded = json_decode( $text, true );
+		if ( is_array( $decoded ) ) {
+			return $decoded;
+		}
+		$start = strpos( $text, '{' );
+		$end   = strrpos( $text, '}' );
+		if ( $start === false || $end === false || $end <= $start ) {
+			return null;
+		}
+		$slice   = substr( $text, $start, $end - $start + 1 );
+		$decoded = json_decode( $slice, true );
+		return is_array( $decoded ) ? $decoded : null;
+	}
+
+	private static function text_is_json_object( string $text ): bool {
+		return self::decode_json_object_from_text( $text ) !== null;
+	}
+
+	/**
+	 * Provider-native structured object on the assistant message (when present).
+	 *
+	 * @param array<string,mixed>|null $openrouter_raw Full OpenRouter JSON body.
+	 * @return array<string,mixed>|null
+	 */
+	private static function parsed_object_from_openrouter_message( ?array $openrouter_raw ): ?array {
+		if ( $openrouter_raw === null ) {
+			return null;
+		}
+		$message = $openrouter_raw['choices'][0]['message'] ?? null;
+		if ( ! is_array( $message ) ) {
+			return null;
+		}
+		$parsed = $message['parsed'] ?? null;
+		if ( is_array( $parsed ) ) {
+			return $parsed;
+		}
+		return null;
 	}
 
 	/**

@@ -2,10 +2,15 @@ import { createRequire } from "node:module";
 import http from "node:http";
 import https from "node:https";
 import {
+  dataForSeoAuthConfigError,
   handleDataForSeoLlmResponsesLive,
   isLlmResponsesLiveRequest,
-  loadDataForSeoAuth,
+  resolveDataForSeoAuthFromRequest,
 } from "./dataforseo-llm-responses-direct.mjs";
+import {
+  handleOpenRouterModelsCatalog,
+  isOpenRouterModelsCatalogRequest,
+} from "./openrouter-models-direct.mjs";
 
 const require = createRequire(import.meta.url);
 const { resolveDevApiTarget, isLocalWpProxyTarget } = require("./resolve-dev-api-target.cjs");
@@ -51,8 +56,36 @@ function upstreamRequest(url, options, body) {
   });
 }
 
+function isTransientProxyTransportError(message) {
+  const m = String(message ?? "").toLowerCase();
+  return (
+    m.includes("unexpected eof") ||
+    m.includes("econnreset") ||
+    m.includes("socket hang up") ||
+    m.includes("curl error 56") ||
+    m.includes("ssl_read")
+  );
+}
+
 async function fetchUpstream(url, options, body, targetOrigin, redirectsLeft = 5) {
-  const response = await upstreamRequest(url, options, body);
+  let response;
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      response = await upstreamRequest(url, options, body);
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      if (attempt >= 2 || !isTransientProxyTransportError(error instanceof Error ? error.message : error)) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  if (!response) {
+    throw lastError ?? new Error("Local API proxy failed");
+  }
   const status = response.status;
   if (redirectsLeft <= 0 || status < 300 || status >= 400) {
     return response;
@@ -92,22 +125,45 @@ export function localWpApiProxyPlugin() {
       if (!isLocalWpProxyTarget(target)) return;
 
       const targetOrigin = new URL(target).origin;
-      const dfsAuth = loadDataForSeoAuth();
 
       server.middlewares.use(async (req, res, next) => {
         const rawUrl = req.url ?? "";
         const path = rawUrl.split("?")[0] ?? "";
 
-        if (isLlmResponsesLiveRequest(req.method, path)) {
-          if (!dfsAuth) {
+        if (isOpenRouterModelsCatalogRequest(req.method ?? "GET", path)) {
+          try {
+            const result = await handleOpenRouterModelsCatalog(req);
+            res.statusCode = result.status;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.setHeader("cache-control", "no-store");
+            res.end(JSON.stringify(result.json));
+          } catch (error) {
             res.statusCode = 502;
             res.setHeader("content-type", "application/json; charset=utf-8");
-            res.end(JSON.stringify({ error: "DATAFORSEO_API_LOGIN / DATAFORSEO_API_PASSWORD missing in .env" }));
-            return;
+            res.end(
+              JSON.stringify({
+                ok: false,
+                error: error instanceof Error ? error.message : "OpenRouter models request failed",
+              }),
+            );
           }
+          return;
+        }
+
+        if (isLlmResponsesLiveRequest(req.method, path)) {
           try {
-            const body = req.method && !["GET", "HEAD"].includes(req.method) ? await readRequestBody(req) : undefined;
-            const result = await handleDataForSeoLlmResponsesLive(body, dfsAuth);
+            const body =
+              req.method && !["GET", "HEAD"].includes(req.method) ? await readRequestBody(req) : undefined;
+            const bodyJson = body?.length ? JSON.parse(body.toString("utf8")) : {};
+            const auth = resolveDataForSeoAuthFromRequest(req, bodyJson);
+            if (!auth) {
+              const err = dataForSeoAuthConfigError(req, bodyJson);
+              res.statusCode = 401;
+              res.setHeader("content-type", "application/json; charset=utf-8");
+              res.end(JSON.stringify(err));
+              return;
+            }
+            const result = await handleDataForSeoLlmResponsesLive(body, auth);
             res.statusCode = result.status;
             res.setHeader("content-type", "application/json; charset=utf-8");
             res.end(JSON.stringify(result.json));

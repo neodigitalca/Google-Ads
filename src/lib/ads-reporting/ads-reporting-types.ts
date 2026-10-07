@@ -1,3 +1,19 @@
+export type AdsReportingDateRange = { startDate: string; endDate: string };
+
+export type AdsReportingDateRanges = {
+  primary: AdsReportingDateRange;
+  compare: AdsReportingDateRange;
+};
+
+/** Filter = single period (API period_progress). Compare = two periods. */
+export type AdsReportStructure = "compare" | "filter";
+
+export function adsReportStructureToApi(structure: AdsReportStructure): "compare" | "period_progress" {
+  return structure === "filter" ? "period_progress" : "compare";
+}
+
+export type AdsReportingCompareKind = "mom" | "yoy" | "custom" | "period_progress";
+
 export type AdsReportingSectionKind =
   | "executive_summary"
   | "ad_performance_period"

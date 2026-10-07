@@ -9,6 +9,34 @@ defined( 'ABSPATH' ) || exit;
 
 class Neo_Pulse_App_Manager_Route_Handlers {
 
+	/**
+	 * Merge one API key into workspace manager settings (server-side Semrush, DataForSEO, etc.).
+	 */
+	private static function merge_manager_snapshot_api_key( string $key_id, string $value ): void {
+		$path = Neo_Pulse_App_Data_Paths::manager_settings_path();
+		$data = Neo_Pulse_App_Json_File_Store::read( $path );
+		if ( ! is_array( $data ) ) {
+			$data = array();
+		}
+		if ( ! isset( $data['snapshot'] ) || ! is_array( $data['snapshot'] ) ) {
+			$data['snapshot'] = array(
+				'version'     => 1,
+				'collectedAt' => gmdate( 'c' ),
+				'keys'        => array(),
+			);
+		}
+		if ( ! isset( $data['snapshot']['keys'] ) || ! is_array( $data['snapshot']['keys'] ) ) {
+			$data['snapshot']['keys'] = array();
+		}
+		if ( $value !== '' ) {
+			$data['snapshot']['keys'][ $key_id ] = $value;
+		} else {
+			unset( $data['snapshot']['keys'][ $key_id ] );
+		}
+		$data['updatedAt'] = gmdate( 'c' );
+		Neo_Pulse_App_Json_File_Store::write( $path, $data );
+	}
+
 	private static function file_store_status(): array {
 		return array(
 			'ok'                  => true,
@@ -128,6 +156,19 @@ class Neo_Pulse_App_Manager_Route_Handlers {
 				Neo_Pulse_App_Json_File_Store::write( $keys_path, $existing );
 			}
 			Neo_Pulse_App_Api_Dispatcher::send_json( array( 'ok' => true, 'updated' => $openrouter !== '' ? 1 : 0 ) );
+			return;
+		}
+
+		if ( $subpath === 'sync-semrush' && $method === 'POST' ) {
+			$semrush = isset( $body['semrushApiKey'] ) ? trim( (string) $body['semrushApiKey'] ) : '';
+			if ( $semrush !== '' && str_starts_with( $semrush, 'semrtkn-' ) ) {
+				$server = Neo_Pulse_App_Secrets::semrush_workspace_api_key();
+				if ( $server !== '' ) {
+					$semrush = $server;
+				}
+			}
+			self::merge_manager_snapshot_api_key( 'semrush-api-key', $semrush );
+			Neo_Pulse_App_Api_Dispatcher::send_json( array( 'ok' => true, 'updated' => $semrush !== '' ? 1 : 0 ) );
 			return;
 		}
 

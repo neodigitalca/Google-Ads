@@ -99,6 +99,10 @@ class Neo_Pulse_App_Data_Paths {
 		return self::root() . '/ga-service-account.json';
 	}
 
+	public static function gsc_service_account_path(): string {
+		return self::root() . '/gsc-service-account.json';
+	}
+
 	public static function gmb_oauth_config_path(): string {
 		return self::root() . '/gmb-oauth.json';
 	}

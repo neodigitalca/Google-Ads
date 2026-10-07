@@ -3,7 +3,7 @@
  * Plugin Name:       NEO Pulse WP
  * Plugin URI:        https://github.com/neo-pulse/neo-pulse
  * Description:       NEO Pulse AI tools for WordPress — chat, search, SEO, and editor wands.
- * Version:           0.9.228
+ * Version:           0.9.230
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            NEO Pulse
@@ -16,9 +16,21 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NEO_PULSE_WP_VERSION', '0.9.228' );
+define( 'NEO_PULSE_WP_VERSION', '0.9.230' );
 define( 'NEO_PULSE_WP_PLUGIN_FILE', __FILE__ );
 define( 'NEO_PULSE_WP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
+
+/**
+ * Require a plugin file when present (avoids fatals on partial deploys of newer builds).
+ *
+ * @param string $relative Path under the plugin root.
+ */
+function neo_pulse_wp_require_if_present( string $relative ): void {
+	$path = NEO_PULSE_WP_PLUGIN_DIR . ltrim( $relative, '/' );
+	if ( is_readable( $path ) ) {
+		require_once $path;
+	}
+}
 
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-env.php';
 Neo_Pulse_Wp_Env::load();
@@ -74,14 +86,14 @@ require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-ai-body-rest
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-editor.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-rest.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-global-css.php';
-require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-index-rules.php';
+neo_pulse_wp_require_if_present( 'includes/class-neo-pulse-wp-index-rules.php' );
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-sitemap-settings.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-sitemap-cache.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-sitemap-generator.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-sitemap.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-robots-txt.php';
-require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-frontend-seo.php';
-require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-llms-txt.php';
+neo_pulse_wp_require_if_present( 'includes/class-neo-pulse-wp-frontend-seo.php' );
+neo_pulse_wp_require_if_present( 'includes/class-neo-pulse-wp-llms-txt.php' );
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-redirects-csv.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-redirects.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-script-manager-rules.php';
@@ -101,7 +113,7 @@ require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-cache.
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-warm.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-minify.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-front.php';
-require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-a11y-front.php';
+neo_pulse_wp_require_if_present( 'includes/class-neo-pulse-wp-a11y-front.php' );
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-html.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-assets.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-speed-aggregator.php';
@@ -171,22 +183,11 @@ require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/admin/class-neo-pulse-wp-admin-
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-admin.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-dashboard-preferences.php';
 require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-content-tools.php';
+require_once NEO_PULSE_WP_PLUGIN_DIR . 'includes/class-neo-pulse-wp-activation.php';
 
 register_activation_hook(
 	NEO_PULSE_WP_PLUGIN_FILE,
-	static function () {
-		Neo_Pulse_Wp_Llms_Txt::register_rewrites();
-		Neo_Pulse_Wp_Sitemap::flush_rewrites();
-		Neo_Pulse_Wp_Redirects::install();
-		Neo_Pulse_Wp_Chat_Logs::install();
-		Neo_Pulse_Wp_Search_Logs::install();
-		Neo_Pulse_Wp_Script_Manager::install();
-		Neo_Pulse_Wp_Overseer::install();
-		Neo_Pulse_Wp_Forms::install();
-		Neo_Pulse_Wp_Seo_Builder::install();
-		Neo_Pulse_Wp_Speed_Cache::ensure_dirs();
-		Neo_Pulse_Wp_Speed_Settings::seed_default_config_if_missing();
-	}
+	array( 'Neo_Pulse_Wp_Activation', 'on_activate' )
 );
 
 add_action(
@@ -199,30 +200,8 @@ add_action(
 	4
 );
 
-add_action(
-	'init',
-	static function () {
-		$installed = (string) get_option( 'neo_pulse_wp_installed_version', '' );
-		if ( $installed === NEO_PULSE_WP_VERSION ) {
-			return;
-		}
-		update_option( 'neo_pulse_wp_installed_version', NEO_PULSE_WP_VERSION, false );
-		Neo_Pulse_Wp_Llms_Txt::register_rewrites();
-		Neo_Pulse_Wp_Sitemap::flush_rewrites();
-		if ( class_exists( 'Neo_Pulse_Wp_Cache_Flush', false ) ) {
-			Neo_Pulse_Wp_Cache_Flush::flush_all();
-		}
-		if ( class_exists( 'WpeCommon' ) ) {
-			if ( method_exists( 'WpeCommon', 'purge_memcached' ) ) {
-				WpeCommon::purge_memcached();
-			}
-			if ( method_exists( 'WpeCommon', 'purge_varnish_cache' ) ) {
-				WpeCommon::purge_varnish_cache();
-			}
-		}
-	},
-	20
-);
+add_action( 'init', array( 'Neo_Pulse_Wp_Activation', 'maybe_run_pending' ), 5 );
+add_action( 'init', array( 'Neo_Pulse_Wp_Activation', 'maybe_run_version_migration' ), 20 );
 
 add_action(
 	'plugins_loaded',
@@ -239,10 +218,18 @@ add_action(
 		Neo_Pulse_Wp_Global_Css::init();
 		Neo_Pulse_Wp_Sitemap::init();
 		Neo_Pulse_Wp_Robots_Txt::init();
-		Neo_Pulse_Wp_Index_Rules::init();
-		Neo_Pulse_Wp_Frontend_Seo::init();
-		Neo_Pulse_Wp_A11y_Front::init();
-		Neo_Pulse_Wp_Llms_Txt::init();
+		if ( class_exists( 'Neo_Pulse_Wp_Index_Rules', false ) ) {
+			Neo_Pulse_Wp_Index_Rules::init();
+		}
+		if ( class_exists( 'Neo_Pulse_Wp_Frontend_Seo', false ) ) {
+			Neo_Pulse_Wp_Frontend_Seo::init();
+		}
+		if ( class_exists( 'Neo_Pulse_Wp_A11y_Front', false ) ) {
+			Neo_Pulse_Wp_A11y_Front::init();
+		}
+		if ( class_exists( 'Neo_Pulse_Wp_Llms_Txt', false ) ) {
+			Neo_Pulse_Wp_Llms_Txt::init();
+		}
 		Neo_Pulse_Wp_Redirects::init();
 		Neo_Pulse_Wp_Script_Manager::init();
 		Neo_Pulse_Wp_Script_Manager_Output::init();

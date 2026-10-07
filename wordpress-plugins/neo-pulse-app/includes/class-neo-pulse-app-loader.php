@@ -74,6 +74,7 @@ class Neo_Pulse_App_Loader {
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/config/class-openrouter-attribution.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/storage/class-neo-pulse-data-paths.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/storage/class-json-file-store.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/http/class-http-transient-retry.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/router/class-api-dispatcher.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/webhook/class-chekkit-webhook.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/agentmail/class-agentmail-api.php';
@@ -101,6 +102,7 @@ class Neo_Pulse_App_Loader {
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/semrush/class-semrush-organic-competitors.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/semrush/class-semrush-projects-api.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/semrush/class-semrush-overview-json.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/semrush/class-semrush-position-tracking-compare.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/semrush/class-semrush-route-handlers.php';
 
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/proposal/class-proposal-lighthouse-parse.php';
@@ -114,6 +116,7 @@ class Neo_Pulse_App_Loader {
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/gsc/class-gsc-performance-batch.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/gsc/class-gsc-entity-performance.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/gsc/class-gsc-reporting-bundle.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/gsc/class-gsc-query-daily.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/gsc/class-gsc-indexing.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/gsc/class-gsc-route-handlers.php';
 
@@ -285,6 +288,8 @@ class Neo_Pulse_App_Loader {
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/bulk/class-validate-internal-links.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/proxy/class-wikipedia-proxy.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/proxy/class-url-text-proxy.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/ollama/class-ollama-route.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/openrouter/class-openrouter-models-catalog-route.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/openrouter/class-openrouter-chat-completion-route.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/maps/class-entity-maps-image.php';
 

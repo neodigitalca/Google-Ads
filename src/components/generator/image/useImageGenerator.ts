@@ -231,7 +231,16 @@ export function useImageGenerator({
     let checklist = imageChecklist;
     if (imageSourceMode !== "solo" && (!hasGeneratedChecklist || checklist.length === 0)) {
       checklist = await handleGenerateChecklist();
-      if (checklist.length === 0) return;
+      if (checklist.length === 0) {
+        checklist = [
+          {
+            title: "Physical scene plausibility",
+            description:
+              "Photoreal scene with correct install context: window treatments in a window frame, not on bare wall.",
+          },
+        ];
+        setImageChecklist(checklist);
+      }
     }
 
     setIsGenerating(true);

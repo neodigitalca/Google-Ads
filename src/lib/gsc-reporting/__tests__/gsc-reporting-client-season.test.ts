@@ -245,6 +245,14 @@ describe("applySeasonalDemandSectionGate", () => {
     ]);
   });
 
+  it("parseGscReportingOutlineJson accepts fenced model JSON", () => {
+    const raw = `\`\`\`json
+{"executiveSummary":"Summary line.","topOpportunities":[]}
+\`\`\``;
+    const outline = parseGscReportingOutlineJson(raw);
+    expect(outline.executiveSummary).toBe("Summary line.");
+  });
+
   it("parseGscReportingOutlineJson builds default sections in code (ignores model sections)", () => {
     const raw = JSON.stringify({
       executiveSummary: "Traffic held steady.",
@@ -263,9 +271,8 @@ describe("applySeasonalDemandSectionGate", () => {
     expect(outline.sections.map((s) => s.kind)).toEqual([
       "executive_summary",
       "search_performance_period",
-      "key_performance_insights",
-      "sap_local_seo",
       "content_performance",
+      "sap_local_seo",
     ]);
   });
 });

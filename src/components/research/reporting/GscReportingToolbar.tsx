@@ -1,105 +1,103 @@
-import { Copy, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { GeneratorToolbarFrame } from "@/components/blog-generator/GeneratorToolbarFrame";
-import { GeneratorToolbarOptionsFlyout } from "@/components/blog-generator/GeneratorToolbarOptionsFlyout";
-import { GscReportingComparePopover } from "@/components/research/reporting/GscReportingComparePopover";
+import {
+  GscReportingComparePopover,
+  type GscReportingDateMenuTab,
+} from "@/components/research/reporting/GscReportingComparePopover";
+export type { GscReportingDateMenuTab };
 import { GscReportingRunActions } from "@/components/research/reporting/GscReportingRunActions";
-import { BULK_HEADER_TOOL_BTN } from "@/components/keyword-research/bulk/bulk-workspace-header-styles";
-import type { GscCompareRanges, GscReportingComparePresetId } from "@/lib/gsc-reporting/gsc-fetch-date-presets";
+import { GscReportingSupplementUpload } from "@/components/research/reporting/GscReportingSupplementUpload";
+import type { ReportingWorkspaceMode } from "@/components/research/reporting/ReportingModePills";
+import type {
+  GscCompareRanges,
+  GscReportStructureUi,
+  GscReportingComparePresetId,
+} from "@/lib/gsc-reporting/gsc-fetch-date-presets";
+import type { GscReportingSupplementFiles } from "@/lib/gsc-reporting/gsc-reporting-supplements-types";
 
 export type GscReportingToolbarProps = {
   busy: boolean;
+  gscReportStructure: GscReportStructureUi;
+  onDateMenuTabChange: (tab: GscReportingDateMenuTab) => void;
   gscFetchPreset: GscReportingComparePresetId;
-  onGscFetchPresetChange: (preset: GscReportingComparePresetId) => void;
+  onSelectLastMonths: (monthCount: number, dateMenuTab: GscReportingDateMenuTab) => void;
+  onSelectCustomDates: () => void;
   compareRangeDraft: GscCompareRanges;
   onCompareRangeDraftChange: (updater: (prev: GscCompareRanges) => GscCompareRanges) => void;
   trailingMonthCount: number | null;
   trailingMonthCountDraft: string;
   onTrailingMonthCountDraftChange: (value: string) => void;
-  onApplyTrailingMonths: (monthCount: number) => void;
   todayYmdMax: string;
-  hasReport: boolean;
   onGenerate: () => void;
   onCancel: () => void;
-  onCopyMarkdown: () => void;
-  onDownloadMarkdown: () => void;
-  onExportKb: () => void;
+  canClearReport: boolean;
+  onClearReport: () => void;
+  reportMode: ReportingWorkspaceMode;
+  supplements: GscReportingSupplementFiles;
+  onSupplementsChange: (next: GscReportingSupplementFiles) => void;
+  dateRangePopoverOpen?: boolean;
+  onDateRangePopoverOpenChange?: (open: boolean) => void;
 };
 
 export function GscReportingToolbar({
   busy,
+  gscReportStructure,
+  onDateMenuTabChange,
   gscFetchPreset,
-  onGscFetchPresetChange,
+  onSelectLastMonths,
+  onSelectCustomDates,
   compareRangeDraft,
   onCompareRangeDraftChange,
   trailingMonthCount,
   trailingMonthCountDraft,
   onTrailingMonthCountDraftChange,
-  onApplyTrailingMonths,
   todayYmdMax,
-  hasReport,
   onGenerate,
   onCancel,
-  onCopyMarkdown,
-  onDownloadMarkdown,
-  onExportKb,
+  canClearReport,
+  onClearReport,
+  reportMode,
+  supplements,
+  onSupplementsChange,
+  dateRangePopoverOpen,
+  onDateRangePopoverOpenChange,
 }: GscReportingToolbarProps) {
   return (
     <GeneratorToolbarFrame
-      options={
+      primary={
         <GscReportingComparePopover
           busy={busy}
+          gscReportStructure={gscReportStructure}
+          onDateMenuTabChange={onDateMenuTabChange}
           gscFetchPreset={gscFetchPreset}
-          onGscFetchPresetChange={onGscFetchPresetChange}
+          onSelectLastMonths={onSelectLastMonths}
+          onSelectCustomDates={onSelectCustomDates}
           compareRangeDraft={compareRangeDraft}
           onCompareRangeDraftChange={onCompareRangeDraftChange}
           trailingMonthCount={trailingMonthCount}
           trailingMonthCountDraft={trailingMonthCountDraft}
           onTrailingMonthCountDraftChange={onTrailingMonthCountDraftChange}
-          onApplyTrailingMonths={onApplyTrailingMonths}
           todayYmdMax={todayYmdMax}
+          open={dateRangePopoverOpen}
+          onOpenChange={onDateRangePopoverOpenChange}
         />
       }
-      primary={
-        <GeneratorToolbarOptionsFlyout disabled={busy || !hasReport} label="Export">
-          <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={BULK_HEADER_TOOL_BTN}
-              disabled={!hasReport || busy}
-              onClick={onCopyMarkdown}
-            >
-              <Copy className="h-4 w-4 shrink-0" aria-hidden />
-              Copy report
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={BULK_HEADER_TOOL_BTN}
-              disabled={!hasReport || busy}
-              onClick={onDownloadMarkdown}
-            >
-              <Download className="h-4 w-4 shrink-0" aria-hidden />
-              Download report
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className={BULK_HEADER_TOOL_BTN}
-              disabled={!hasReport || busy}
-              onClick={onExportKb}
-            >
-              Knowledge base
-            </Button>
-          </div>
-        </GeneratorToolbarOptionsFlyout>
-      }
       actions={
-        <GscReportingRunActions busy={busy} onGenerate={onGenerate} onCancel={onCancel} />
+        <>
+          {reportMode === "seo" || reportMode === "both" ? (
+            <GscReportingSupplementUpload
+              busy={busy}
+              value={supplements}
+              onChange={onSupplementsChange}
+            />
+          ) : null}
+          <GscReportingRunActions
+            busy={busy}
+            canClear={canClearReport}
+            onGenerate={onGenerate}
+            onCancel={onCancel}
+            onClear={onClearReport}
+          />
+        </>
       }
     />
   );

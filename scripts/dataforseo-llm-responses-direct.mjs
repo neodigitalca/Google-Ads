@@ -54,9 +54,6 @@ function pickTask(body) {
   }
   if (body.web_search != null) task.web_search = Boolean(body.web_search);
   if (body.force_web_search != null) task.force_web_search = Boolean(body.force_web_search);
-  if (body.max_output_tokens != null && Number.isFinite(Number(body.max_output_tokens))) {
-    task.max_output_tokens = Number(body.max_output_tokens);
-  }
   if (Array.isArray(body.message_chain)) {
     const chain = [];
     for (const entry of body.message_chain) {
@@ -71,10 +68,85 @@ function pickTask(body) {
   return task;
 }
 
+function readSecretsPhpLogin() {
+  try {
+    const src = readFileSync(
+      join(root, "wordpress-plugins/neo-pulse-app/includes/neo-pulse-app-secrets.php"),
+      "utf8",
+    );
+    return src.match(/NEO_PULSE_APP_DATAFORSEO_LOGIN',\s*'([^']*)'/)?.[1]?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function resolveDataForSeoLoginFromEnv() {
+  const env = loadDotEnv();
+  return (
+    env.DATAFORSEO_API_LOGIN ||
+    env.DATAFORSEO_LOGIN ||
+    env.NEO_PULSE_APP_DATAFORSEO_LOGIN ||
+    readSecretsPhpLogin() ||
+    ""
+  ).trim();
+}
+
+/** Settings API password + DATAFORSEO_API_LOGIN in .env (optional login:password in Settings). */
+export function authBase64FromSettingsApiKey(raw) {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return null;
+  const colon = trimmed.indexOf(":");
+  if (colon > 0) {
+    const login = trimmed.slice(0, colon).trim();
+    const password = trimmed.slice(colon + 1).trim();
+    if (login && password) {
+      return Buffer.from(`${login}:${password}`).toString("base64");
+    }
+  }
+  const login = resolveDataForSeoLoginFromEnv();
+  if (!login) return null;
+  return Buffer.from(`${login}:${trimmed}`).toString("base64");
+}
+
+/** @param {import('node:http').IncomingMessage} req */
+export function resolveDataForSeoAuthFromRequest(req, bodyJson) {
+  const headerRaw = req.headers["x-dataforseo-api-key"];
+  const header = Array.isArray(headerRaw) ? headerRaw[0] : headerRaw;
+  const fromHeader = authBase64FromSettingsApiKey(header ?? "");
+  if (fromHeader) return fromHeader;
+  const bodyKey =
+    bodyJson && typeof bodyJson.dataForSeoApiKey === "string" ? bodyJson.dataForSeoApiKey : "";
+  return authBase64FromSettingsApiKey(bodyKey);
+}
+
+export function dataForSeoAuthConfigError(req, bodyJson) {
+  const headerRaw = req.headers["x-dataforseo-api-key"];
+  const header = (Array.isArray(headerRaw) ? headerRaw[0] : headerRaw) ?? "";
+  const bodyKey =
+    bodyJson && typeof bodyJson.dataForSeoApiKey === "string" ? bodyJson.dataForSeoApiKey : "";
+  const key = String(header || bodyKey).trim();
+  if (!key) {
+    return { error: "DataForSEO API key required", hint: "Save your API password in Dashboard → Settings → DataForSEO." };
+  }
+  if (!resolveDataForSeoLoginFromEnv()) {
+    return {
+      error: "DataForSEO account login missing",
+      hint: "Set DATAFORSEO_API_LOGIN in the repo .env (account email). Settings holds the API password only.",
+    };
+  }
+  return { error: "DataForSEO auth failed", hint: "Check Settings API password and DATAFORSEO_API_LOGIN in .env." };
+}
+
+/** CLI / check scripts only (.env login + password). */
 export function loadDataForSeoAuth() {
   const env = loadDotEnv();
-  const login = env.DATAFORSEO_API_LOGIN || env.DATAFORSEO_LOGIN || "";
-  const pass = env.DATAFORSEO_API_PASSWORD || env.DATAFORSEO_PASSWORD || "";
+  const login =
+    env.DATAFORSEO_API_LOGIN || env.DATAFORSEO_LOGIN || env.NEO_PULSE_APP_DATAFORSEO_LOGIN || "";
+  const pass =
+    env.DATAFORSEO_API_PASSWORD ||
+    env.DATAFORSEO_PASSWORD ||
+    env.NEO_PULSE_APP_DATAFORSEO_PASSWORD ||
+    "";
   if (!login || !pass) return null;
   return Buffer.from(`${login}:${pass}`).toString("base64");
 }

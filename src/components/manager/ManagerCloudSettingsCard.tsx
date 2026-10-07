@@ -23,6 +23,7 @@ import { loadAgentMailApiKey, loadAgentMailInbox } from "@/lib/api";
 export type ManagerCloudSettingsCardProps = {
   apiKey: string;
   dataForSEOApiKey: string;
+  semrushApiKey: string;
   selectedModel: string;
   temperature: number;
   maxTokens: number;
@@ -32,6 +33,7 @@ export type ManagerCloudSettingsCardProps = {
 export function ManagerCloudSettingsCard({
   apiKey,
   dataForSEOApiKey,
+  semrushApiKey,
   selectedModel,
   temperature,
   maxTokens,
@@ -62,6 +64,7 @@ export function ManagerCloudSettingsCard({
         {
           "openrouter-api-key": apiKey,
           "dataforseo-api-key": dataForSEOApiKey,
+          "semrush-api-key": semrushApiKey,
           "agentmail-api-key": loadAgentMailApiKey(),
           "agentmail-general-email": loadAgentMailInbox(),
         },
@@ -80,7 +83,7 @@ export function ManagerCloudSettingsCard({
     } finally {
       setSaving(false);
     }
-  }, [user, apiKey, dataForSEOApiKey, selectedModel, temperature, maxTokens, topP, activeTeam?.id]);
+  }, [user, apiKey, dataForSEOApiKey, semrushApiKey, selectedModel, temperature, maxTokens, topP, activeTeam?.id]);
 
   const handleLoadFromCloud = useCallback(async () => {
     if (!user) {

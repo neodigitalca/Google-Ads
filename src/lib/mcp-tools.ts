@@ -4,6 +4,10 @@
  * MCP tools are called through a backend API endpoint that interfaces with the MCP server
  */
 
+import {
+  dataForSeoRequestHeaders,
+  withDataForSeoRequestAuth,
+} from "@/lib/dataforseo-request-auth";
 import { BACKEND_CONNECTION_ERROR, resolveBackendApiBase } from "@/lib/wordpress-api/connection";
 import { NEO_PULSE_CA_DEPLOY } from "@/lib/neo-pulse-deploy";
 import { isViteDev, readViteEnv } from "@/lib/vite-env";
@@ -73,10 +77,8 @@ async function callMCPToolOnce(toolName: string, params: unknown): Promise<unkno
 
   const response = await fetch(url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(params),
+    headers: dataForSeoRequestHeaders(),
+    body: JSON.stringify(withDataForSeoRequestAuth(params)),
   });
 
   if (!response.ok) {
@@ -235,6 +237,7 @@ export const mcp_DataForSEO_llm_responses_live = async (params: {
   model_name: string;
   user_prompt: string;
   system_message?: string;
+  message_chain?: Array<{ role: "user"; message: string }>;
   web_search?: boolean;
   force_web_search?: boolean;
   web_search_country_iso_code?: string;

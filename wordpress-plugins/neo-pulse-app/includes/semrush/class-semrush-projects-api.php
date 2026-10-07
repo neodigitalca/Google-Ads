@@ -30,12 +30,13 @@ class Neo_Pulse_App_Semrush_Projects_Api {
 			self::MANAGEMENT_PROJECTS
 		);
 
-		$response = wp_remote_get(
+		$response = Neo_Pulse_App_Http_Transient_Retry::remote_get(
 			$url,
 			array(
 				'timeout' => 60,
 				'headers' => array( 'Accept' => 'application/json' ),
-			)
+			),
+			3
 		);
 
 		if ( is_wp_error( $response ) ) {

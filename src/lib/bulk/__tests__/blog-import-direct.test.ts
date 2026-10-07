@@ -58,7 +58,7 @@ function metaJson(partial: {
 
 describe("Import Direct destination", () => {
   it("lists Direct only on Import choices", () => {
-    expect(BLOG_IMPORT_POST_DESTINATION_CHOICES).toEqual(["direct", "wordpress", "local"]);
+    expect(BLOG_IMPORT_POST_DESTINATION_CHOICES).toEqual(["direct", "local"]);
     expect(BULK_POST_DESTINATION_CHOICES).toEqual(["wordpress", "local"]);
     expect(WORDPRESS_POST_DESTINATION_SHORT.direct).toBe("Direct");
   });

@@ -1,14 +1,19 @@
 import type { WordPressSite } from "@/components/integrations/types";
 import { resolveOpenRouterApiKeyForHarness } from "@/lib/openrouter-api-key-resolve";
-import { getResearchModel } from "@/lib/optimization-settings-storage";
+import { getAdsModel } from "@/lib/optimization-settings-storage";
 import { getPublicSiteUrl } from "@/lib/wordpress-site-public-url";
 import {
   computeCompareRangesForPreset,
-  formatGscComparePeriodLabel,
-  formatGscReportFullDateRange,
-  validateGscCompareFetchRanges,
-  type GscCompareRanges,
-} from "@/lib/gsc-reporting/gsc-fetch-date-presets";
+  formatComparePeriodLabel,
+  formatReportFullDateRange,
+} from "@/lib/reporting/reporting-date-presets";
+import { formatReportingDocumentTitlePeriod } from "@/lib/reporting/reporting-document-title";
+import type {
+  AdsReportStructure,
+  AdsReportingCompareKind,
+  AdsReportingDateRanges,
+} from "@/lib/ads-reporting/ads-reporting-types";
+import { adsReportStructureToApi } from "@/lib/ads-reporting/ads-reporting-types";
 import { fetchAdsReportingBundle } from "@/lib/ads-reporting/ads-reporting-fetch";
 import { runAdsReportingPipeline } from "@/lib/ads-reporting/ads-reporting-pipeline";
 import {
@@ -19,14 +24,27 @@ import {
   type AdsReportingSectionResult,
 } from "@/lib/ads-reporting/ads-reporting-types";
 import { formatAdsBundleApiLabel, formatAdsBundleReadyLabel } from "@/lib/ads-reporting/ads-reporting-progress-log";
+import { resolveGoogleAdsCustomerIdForReportingAsync } from "@/lib/ads-reporting/ads-reporting-metrics";
 import type { AgentRunResumePoint } from "@/lib/agent-runs-types";
 
 export type AdsReportingAutomationComparePreset = "mom" | "yoy";
 
+function resolveAdsCompareKind(
+  comparePreset: AdsReportingAutomationComparePreset,
+  compareRanges: AdsReportingDateRanges | undefined,
+  reportStructure: AdsReportStructure,
+): AdsReportingCompareKind {
+  if (reportStructure === "filter") return "period_progress";
+  if (comparePreset === "yoy") return "yoy";
+  if (compareRanges) return "custom";
+  return "mom";
+}
+
 export type RunAdsReportingAgentHarnessArgs = {
   site: WordPressSite;
   comparePreset?: AdsReportingAutomationComparePreset;
-  compareRanges?: GscCompareRanges;
+  compareRanges?: AdsReportingDateRanges;
+  adsReportStructure?: AdsReportStructure;
   cachedFiles?: { name: string; content: string }[];
   resumePoint?: AgentRunResumePoint | null;
   signal?: AbortSignal;
@@ -49,18 +67,28 @@ export async function runAdsReportingAgentHarness(
   args: RunAdsReportingAgentHarnessArgs,
 ): Promise<AdsReportingAgentHarnessResult> {
   const comparePreset = args.comparePreset ?? "mom";
-  const apiKey = (await resolveOpenRouterApiKeyForHarness())?.trim();
-  if (!apiKey) throw new Error("Add an OpenRouter API key in Settings.");
-  const customerId = args.site.googleAdsCustomerId?.trim() ?? "";
-  if (!customerId) throw new Error("Set a Google Ads customer ID on this property.");
+  const reportStructure = args.adsReportStructure ?? "compare";
+  const periodProgress = reportStructure === "filter";
+  const compareRangeDraft =
+    args.compareRanges ?? computeCompareRangesForPreset(comparePreset === "yoy" ? "yoy" : "mom");
 
-  const compareRangeDraft = args.compareRanges ?? computeCompareRangesForPreset(comparePreset === "yoy" ? "yoy" : "mom");
-  const check = validateGscCompareFetchRanges(compareRangeDraft.primary, compareRangeDraft.compare);
-  if (!check.ok) throw new Error(check.error);
+  await args.onProgress?.(
+    { step: 0, total: 1, label: "Fetching Google Ads…" },
+    { phase: "ads_fetch", comparePreset },
+  );
+
+  const customerId = await resolveGoogleAdsCustomerIdForReportingAsync(args.site);
+
   if (await args.isCancelled?.()) throw new Error("Cancelled");
 
-  const compareKind = comparePreset === "yoy" ? "yoy" : args.compareRanges ? "custom" : "mom";
-  const compareLabelDraft = `${formatGscReportFullDateRange(compareRangeDraft.primary.startDate, compareRangeDraft.primary.endDate)} vs ${formatGscComparePeriodLabel(compareRangeDraft.compare.startDate, compareRangeDraft.compare.endDate)}`;
+  const compareKind = resolveAdsCompareKind(comparePreset, args.compareRanges, reportStructure);
+  const primaryPeriodLabel = formatReportFullDateRange(
+    compareRangeDraft.primary.startDate,
+    compareRangeDraft.primary.endDate,
+  );
+  const compareLabelDraft = periodProgress
+    ? primaryPeriodLabel
+    : `${primaryPeriodLabel} vs ${formatComparePeriodLabel(compareRangeDraft.compare.startDate, compareRangeDraft.compare.endDate)}`;
 
   const resumePayload = args.resumePoint?.payload ?? {};
   const resumeCachedFiles = Array.isArray(resumePayload.cachedFiles)
@@ -92,8 +120,11 @@ export async function runAdsReportingAgentHarness(
       { phase: "ads_fetch", comparePreset },
     );
     const res = await fetchAdsReportingBundle(customerId, compareRangeDraft, {
+      site: args.site,
+      siteId: args.site.id,
       compareKind,
       compareLabel: compareLabelDraft,
+      reportStructure: adsReportStructureToApi(reportStructure),
     });
     fetchRange = { startDate: res.startDate, endDate: res.endDate };
     compareFetchRange = { startDate: res.compareStartDate, endDate: res.compareEndDate };
@@ -105,6 +136,10 @@ export async function runAdsReportingAgentHarness(
   }
 
   if (await args.isCancelled?.()) throw new Error("Cancelled");
+
+  const apiKey = (await resolveOpenRouterApiKeyForHarness())?.trim();
+  if (!apiKey) throw new Error("Add an OpenRouter API key in Settings.");
+
   await args.onProgress?.(
     { step: 0, total: 1, label: ADS_REPORTING_PROGRESS_LABELS.outlineGenerating },
     { phase: "ads_outline_generating", comparePreset },
@@ -112,14 +147,20 @@ export async function runAdsReportingAgentHarness(
 
   let sectionResultsAcc = [...priorSectionResults];
   let outlineRef = savedOutline;
+  const documentTitlePeriod = formatReportingDocumentTitlePeriod({
+    structure: periodProgress ? "filter" : "compare",
+    primary: fetchRange,
+    compare: periodProgress ? undefined : compareFetchRange,
+  });
   const result = await runAdsReportingPipeline({
     apiKey,
-    model: getResearchModel(args.site.id),
+    model: getAdsModel(args.site.id),
     siteName: args.site.name,
-    siteUrl: getPublicSiteUrl(args.site).trim(),
+    siteUrl: getPublicSiteUrl(args.site).trim() || (args.site.siteUrl ?? "").trim(),
     files: pipelineFiles,
     compareKind,
     compareLabel: compareLabelDraft,
+    documentTitlePeriod,
     signal: args.signal,
     priorSectionResults,
     savedOutline,
@@ -150,7 +191,9 @@ export async function runAdsReportingAgentHarness(
     ...result,
     files: pipelineFiles,
     comparePreset,
-    compareLabel: `${formatGscReportFullDateRange(fetchRange.startDate, fetchRange.endDate)} vs ${formatGscComparePeriodLabel(compareFetchRange.startDate, compareFetchRange.endDate)}`,
+    compareLabel: periodProgress
+      ? formatReportFullDateRange(fetchRange.startDate, fetchRange.endDate)
+      : `${formatReportFullDateRange(fetchRange.startDate, fetchRange.endDate)} vs ${formatComparePeriodLabel(compareFetchRange.startDate, compareFetchRange.endDate)}`,
     fetchRange,
     compareFetchRange,
   };

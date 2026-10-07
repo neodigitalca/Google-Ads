@@ -173,7 +173,6 @@ export function buildDfsArticleAuditTask(
     }),
     system_message: buildDfsArticleAuditSystemMessage(),
     web_search: true,
-    max_output_tokens: 4096,
   };
   const location = input.location?.trim() || "";
   const iso = webSearchCountryIso(location);
@@ -217,7 +216,6 @@ export async function fetchDfsArticleAuditPlatforms(input: {
             : undefined,
         web_search_city:
           typeof task.web_search_city === "string" ? task.web_search_city : undefined,
-        max_output_tokens: 4096,
       });
       result = extractLlmAuditPlatformResult(platform, cfg.label, cfg.model_name, dfsJson);
     } catch (err) {

@@ -57,16 +57,16 @@ import {
   overviewRowsInBulkScope,
 } from "@/lib/overview/overview-bulk-row-scope";
 import { loadApiKey } from "@/lib/api";
-import { fetchGoogleMapsImageForEntity } from "@/lib/content-generation/google-maps-image-api";
-import { sapMapsImageFileName, sapMapsMediaTitleAlt } from "@/lib/bulk/sap-maps-media-bank";
-import { resolveLocalImagePlaceEntity } from "@/lib/overview/overview-local-image-dfs-normalize";
-import { postBodyHtmlFromInventoryRow } from "@/lib/overview/overview-inventory-seo-fields";
+import { runOverviewAiseoFeaturedImageRow } from "@/lib/overview/overview-aiseo-featured-image-run";
+import { logFeaturedImagePipeline } from "@/lib/image-generator/featured-image-pipeline-log";
+import { resolveAiseoHarnessSourceHtml } from "@/lib/overview/overview-aiseo-source-html";
 import { updateWordPressPost, uploadWordPressMedia } from "@/lib/wordpress-api";
 import {
   generatedFilesForUrl,
   storageKeyForUrlGeneratedFiles,
 } from "@/lib/content-optimization/content-optimizer-bulk-generator-bindings";
 import { mergeGeneratedFilesByName } from "@/lib/overview/overview-peer-csv-details";
+import { setOptimizingState } from "@/hooks/content-optimization/optimization-helpers-a";
 
 type Args = Pick<
   OverviewTabBase,
@@ -666,39 +666,69 @@ export function useOverviewTabResearchPipelines({
       notify.error(NOTIFY_CONNECT_A_WORDPRESS_SITE_FIRST_IN_THE_IN);
       return;
     }
-    const scopeKeys = bulkScopeUrlKeysRef.current;
+    const scopeKeys = bulkScopeUrlKeys;
     const scoped = overviewBulkRowEntries(rowsRef.current, scopeKeys);
     if (scoped.length === 0) {
-      throw new Error("No posts in the current grid.");
+      notify.error("No posts in the current selection. Check rows or clear filters.");
+      return;
     }
     const apiKey = loadApiKey().trim();
     if (!apiKey) {
-      throw new Error("OpenRouter API key is missing");
+      notify.error("OpenRouter API key is missing. Set it in Settings.");
+      return;
     }
 
     const batchKey = `${site.id}-batch`;
     const urls = scoped.map((entry) => entry.row.url.trim()).filter(Boolean);
-    opt.resetBulkBatch(batchKey);
-    opt.setBulkOptimizationState((prev) => ({
-      ...prev,
-      [batchKey]: {
-        urls,
-        currentIndex: 0,
-        urlStatuses: {},
-        currentStep: "Featured image",
-        currentUrl: urls[0],
-        runKind: "aiFeaturedImage",
-        harnessStartedAt: Date.now(),
-        urlGeneratedFiles: {},
-      },
-    }));
 
-    setBulkActionProgress((p) => {
-      const next = { ...p };
-      delete next.optimizeAll;
-      next.aiFeaturedImage = initBulkSliceWithStatus("aiFeaturedImage", scoped.length, 0);
-      return next;
+    flushSync(() => {
+      opt.resetBulkBatch(batchKey);
+      setOptimizingState(opt.setIsOptimizingContent, batchKey, true);
+      opt.setBulkOptimizationState((prev) => ({
+        ...prev,
+        [batchKey]: {
+          urls,
+          currentIndex: 0,
+          urlStatuses: {},
+          currentStep: "Featured image",
+          currentUrl: urls[0],
+          runKind: "aiFeaturedImage",
+          harnessStartedAt: Date.now(),
+          urlGeneratedFiles: {},
+        },
+      }));
+      setBulkActionProgress((p) => {
+        const next = { ...p };
+        delete next.optimizeAll;
+        next.aiFeaturedImage = initBulkSliceWithStatus("aiFeaturedImage", scoped.length, 0);
+        return next;
+      });
     });
+
+    notify.info(`Featured image: ${scoped.length} post(s). Watch the progress bar below.`, {
+      duration: 6000,
+    });
+
+    logFeaturedImagePipeline("Batch started", {
+      site: site.name,
+      rowCount: scoped.length,
+      urls,
+    });
+
+    patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+      statusMessage: "Loading post HTML…",
+    });
+    if (site.username?.trim() && site.appPassword?.trim()) {
+      logFeaturedImagePipeline("Prefetching WordPress inventory (content)", {
+        urlCount: urls.length,
+      });
+      await prefetchOverviewInventory(site, {
+        collections: overviewInventoryCollectionsFromSource(sitemapSource, site),
+        includeContent: true,
+        sitemapUrls: urls,
+        forceRefresh: true,
+      });
+    }
 
     const attachRowFiles = (
       url: string,
@@ -727,74 +757,114 @@ export function useOverviewTabResearchPipelines({
       });
     };
 
+    let completedRows = 0;
     try {
       for (let i = 0; i < scoped.length; i++) {
         const row = scoped[i]!.row;
+        let rowTitle = "";
+        try {
+        opt.setBulkOptimizationState((prev) => {
+          const current = prev[batchKey];
+          if (!current) return prev;
+          return {
+            ...prev,
+            [batchKey]: {
+              ...current,
+              currentIndex: i,
+              currentUrl: row.url,
+              currentStep: "Featured image",
+            },
+          };
+        });
         const inv = getInventoryMatchForUrl(site, row.url);
-        const postId = row.postId ?? inv?.row.id ?? null;
-        if (postId == null || postId <= 0) {
-          throw new Error(`Missing post id for featured image: ${row.url}`);
-        }
+        let postId = row.postId ?? inv?.row.id ?? null;
         const title = (row.title || inv?.row.fields?.title || "").trim();
+        rowTitle = title;
         if (!title) {
           throw new Error(`Missing title for featured image: ${row.url}`);
         }
-        const content =
-          postBodyHtmlFromInventoryRow(inv?.row, postId) ||
-          row.postContentOptimized?.trim() ||
-          row.postContent?.trim() ||
-          "";
-        if (!content) {
-          throw new Error(`Missing post HTML for featured image: ${row.url}`);
-        }
 
-        patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
-          currentRow: i,
-          statusMessage: "Google Image",
-        });
-        const entity = await resolveLocalImagePlaceEntity({
+        logFeaturedImagePipeline("Row started", {
+          index: i + 1,
+          total: scoped.length,
           url: row.url,
           title,
-          apiKey,
         });
-        const maps = await fetchGoogleMapsImageForEntity(entity);
-        const googleImage = maps.referenceImageBase64?.trim();
-        if (!googleImage) {
-          throw new Error(`Google Image screenshot missing for ${entity}`);
-        }
-        attachRowFiles(row.url, [
-          {
-            name: "google-image.png",
-            content: `data:image/png;base64,${googleImage}`,
-            mimeType: "image/png",
-          },
-        ]);
 
         patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
           currentRow: i,
-          statusMessage: "OpenRouter Image",
+          statusMessage: "Loading post HTML…",
         });
-        const mime = maps.mimeType || "image/jpeg";
-        const ext = mime.includes("png") ? "png" : "jpg";
-        attachRowFiles(row.url, [
-          {
-            name: `openrouter-image.${ext}`,
-            content: `data:${mime};base64,${maps.imageBase64}`,
-            mimeType: mime,
+        const { html: content } = await resolveAiseoHarnessSourceHtml({
+          row,
+          site,
+          sitemapSource,
+          getInventoryMatchForUrl,
+        });
+        if (!content.trim()) {
+          throw new Error(`Missing post HTML for featured image: ${row.url}`);
+        }
+        if (postId == null || postId <= 0) {
+          postId = inv?.row.id ?? null;
+        }
+        if (postId == null || postId <= 0) {
+          throw new Error(`Missing post id for featured image: ${row.url}`);
+        }
+
+        patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+          currentRow: i,
+          statusMessage: "Image requirements",
+        });
+        const keyword = (row.focusKeyword || row.keyword || inv?.row.fields?.focus_keyword || "").trim();
+        const featured = await runOverviewAiseoFeaturedImageRow({
+          apiKey,
+          siteId: site.id,
+          title,
+          contentHtml: content,
+          keyword: keyword || undefined,
+          onArtifacts: (files) => {
+            attachRowFiles(row.url, files);
+            logFeaturedImagePipeline("Pipeline artifact attached", {
+              url: row.url,
+              files: files.map((f) => f.name),
+            });
+            const names = new Set(files.map((f) => f.name));
+            if (names.has("image-requirements.json")) {
+              patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+                currentRow: i,
+                statusMessage: "Google Image",
+              });
+            }
+            if (names.has("google-image.png")) {
+              patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+                currentRow: i,
+                statusMessage: "OpenRouter Image",
+              });
+            }
+            if (names.has("openrouter-image.png")) {
+              patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+                currentRow: i,
+                statusMessage: "WordPress upload",
+              });
+            }
           },
-        ]);
+        });
 
         patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
           currentRow: i,
           statusMessage: "WordPress upload",
         });
+        logFeaturedImagePipeline("WordPress upload: starting", {
+          url: row.url,
+          fileName: featured.uploadFileName,
+        });
         const uploaded = await uploadWordPressMedia(
           site.siteUrl,
           site.username,
           site.appPassword,
-          maps.imageBase64,
-          sapMapsImageFileName(entity, ext),
-          sapMapsMediaTitleAlt(entity),
+          featured.uploadBase64,
+          featured.uploadFileName,
+          featured.mediaTitle,
         );
         const imageUrl = uploaded.url || uploaded.link;
         if (!uploaded.success || !uploaded.mediaId || !imageUrl) {
@@ -837,26 +907,61 @@ export function useOverviewTabResearchPipelines({
             mimeType: "application/json",
           },
         ]);
+        logFeaturedImagePipeline("WordPress upload: complete", {
+          url: row.url,
+          mediaId: uploaded.mediaId,
+          imageUrl,
+        });
+        completedRows = i + 1;
         patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
-          completed: i + 1,
+          completed: completedRows,
           currentRow: i,
           statusMessage: "Featured image",
         });
+        } catch (rowError) {
+          const rowMessage =
+            rowError instanceof Error ? rowError.message : String(rowError);
+          logFeaturedImagePipeline("Row failed (continuing batch)", {
+            url: row.url,
+            title: rowTitle || row.url,
+            error: rowMessage,
+          });
+          notify.error(`Featured image skipped (${rowTitle || row.url}): ${rowMessage}`, {
+            duration: 10000,
+          });
+        }
       }
-    } finally {
-      setBulkActionProgress((p) => {
-        const next = { ...p };
-        delete next.optimizeAll;
-        next.aiFeaturedImage = {
-          ...(next.aiFeaturedImage ?? initBulkSliceWithStatus("aiFeaturedImage", scoped.length, scoped.length)),
-          completed: scoped.length,
-          total: scoped.length,
-          statusMessage: "Featured image",
-        };
-        return next;
+      patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+        completed: completedRows,
+        total: scoped.length,
+        statusMessage: "Featured image",
       });
+      logFeaturedImagePipeline("Batch finished", {
+        completedRows,
+        totalRows: scoped.length,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logFeaturedImagePipeline("Batch failed", { error: message });
+      notify.error(message, { duration: 12000 });
+      patchActiveBulkSlice(setBulkActionProgress, "aiFeaturedImage", {
+        completed: completedRows,
+        statusMessage: message,
+      });
+      throw error;
+    } finally {
+      setOptimizingState(opt.setIsOptimizingContent, batchKey, false);
     }
-  }, [bulkScopeUrlKeysRef, rowsRef, site, opt, setBulkActionProgress, getInventoryMatchForUrl]);
+  }, [
+    bulkScopeUrlKeys,
+    rowsRef,
+    site,
+    opt,
+    setBulkActionProgress,
+    getInventoryMatchForUrl,
+    prefetchOverviewInventory,
+    sitemapSource,
+  ]);
 
   const handleBulkSeoExtraText = useCallback(async () => {
     if (!site) {

@@ -3,11 +3,18 @@ import {
   buildOpenRouterChatPostBodyJson,
   getCompetitorReportMaxOutputTokens,
 } from "@/lib/competitor-research/competitor-report-openrouter-limits";
-import { GSC_OUTLINE_OPENROUTER_OPTS } from "@/lib/gsc-reporting/gsc-reporting-outline-schema";
+import { ADS_OUTLINE_OPENROUTER_OPTS } from "@/lib/ads-reporting/ads-reporting-outline-schema";
 import { adPerformanceH2ForCompareKind } from "@/lib/ads-reporting/ads-reporting-document-title";
-import type { AdsReportingOutlineResult, AdsReportingSectionPlan } from "@/lib/ads-reporting/ads-reporting-types";
+import type {
+  AdsReportingCompareKind,
+  AdsReportingOutlineResult,
+  AdsReportingSectionPlan,
+} from "@/lib/ads-reporting/ads-reporting-types";
+import { REPORTING_ENGLISH_PROSE_RULES } from "@/lib/reporting/reporting-english-prose";
 
 const OUTLINE_SYSTEM = `You are a PPC analyst. The user provides Google Ads CSV exports.
+
+${REPORTING_ENGLISH_PROSE_RULES}
 
 Return JSON matching the response schema exactly.
 
@@ -17,7 +24,7 @@ Do not output next-steps lists. Do not wrap campaign names, keywords, or search 
 Use sentence case in executiveSummary and why. Write spend, clicks, impressions, and conversions in lowercase unless the word starts a sentence. The only all-caps words are acronyms (CPA, CPC, CTR). Do not write Cost Per Acquisition.`;
 
 export function defaultAdsSectionsFromPayload(
-  compareKind: "mom" | "yoy" | "custom" = "mom",
+  compareKind: AdsReportingCompareKind = "mom",
 ): AdsReportingSectionPlan[] {
   return [
     {
@@ -59,7 +66,7 @@ function isNonEmptyString(x: unknown): x is string {
 
 export function parseAdsReportingOutlineJson(
   raw: string,
-  compareKind: "mom" | "yoy" | "custom" = "mom",
+  compareKind: AdsReportingCompareKind = "mom",
 ): AdsReportingOutlineResult {
   let parsed: Record<string, unknown>;
   try {
@@ -101,7 +108,7 @@ export async function runAdsReportingOutline(args: {
   siteName: string;
   siteUrl: string;
   files: { name: string; content: string }[];
-  compareKind?: "mom" | "yoy" | "custom";
+  compareKind?: AdsReportingCompareKind;
   compareLabel?: string;
   signal?: AbortSignal;
 }): Promise<{
@@ -129,7 +136,7 @@ ${text}`;
     maxTokensRequested: maxTokens,
     system: OUTLINE_SYSTEM,
     userMessage,
-    ...GSC_OUTLINE_OPENROUTER_OPTS,
+    ...ADS_OUTLINE_OPENROUTER_OPTS,
   });
   const { content, finishReason } = await callAdsReportingOpenRouterChatCompletion({
     apiKey: args.apiKey,
@@ -138,7 +145,7 @@ ${text}`;
     user: userMessage,
     maxTokens,
     signal: args.signal,
-    ...GSC_OUTLINE_OPENROUTER_OPTS,
+    ...ADS_OUTLINE_OPENROUTER_OPTS,
   });
   if (finishReason === "length") {
     throw new Error("Ads outline model output was truncated.");

@@ -140,13 +140,22 @@ export function gscReportingArchiveFiles(input: {
   const out: TaskArchiveFileInput[] = [gscReportingFinalReportFile(input)];
   for (const file of input.files) {
     const base = file.name.split("/").pop() ?? file.name;
-    if (!base.endsWith(".csv")) continue;
     const safeName = base.replace(/[/\\?%*:|"<>]/g, "-");
-    out.push({
-      fileName: `${presetTag}-${safeName}`,
-      mime: "text/csv",
-      content: file.content,
-    });
+    if (base.endsWith(".csv")) {
+      out.push({
+        fileName: `${presetTag}-${safeName}`,
+        mime: "text/csv",
+        content: file.content,
+      });
+      continue;
+    }
+    if (base.startsWith("gsc-sparkline-") && base.endsWith(".svg")) {
+      out.push({
+        fileName: safeName,
+        mime: "image/svg+xml",
+        content: file.content,
+      });
+    }
   }
   return out;
 }

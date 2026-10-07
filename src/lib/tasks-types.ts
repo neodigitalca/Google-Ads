@@ -1,5 +1,6 @@
 import type { TaskScheduleMode, TaskTriggerConfig, TaskTriggerMeta } from "@/lib/task-trigger-types";
 import type { GscCompareRanges, GscReportingComparePresetId } from "@/lib/gsc-reporting/gsc-fetch-date-presets";
+import type { GscReportStructure } from "@/lib/gsc-reporting/gsc-reporting-monthly-totals";
 
 export type { TaskScheduleMode, TaskTriggerConfig, TaskTriggerMeta };
 
@@ -128,6 +129,11 @@ export type TaskExecutionPayload = {
   gscComparePresetId?: GscReportingComparePresetId;
   gscCompareRanges?: GscCompareRanges;
   gscTrailingMonthCount?: number;
+  gscReportStructure?: GscReportStructure;
+  /** Base64 Local Dominator CSV for GSC report Local Insights section. */
+  localDominatorCsvBase64?: string;
+  /** Screenshot attachments for GSC report Local Insights section. */
+  localInsightsImages?: Array<{ fileName: string; mime: string; contentBase64: string }>;
   /** Workflow client / connected property for this run (not the header active site). */
   siteId?: string;
   siteUrl?: string;

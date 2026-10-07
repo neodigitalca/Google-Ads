@@ -177,13 +177,12 @@ export function GeneratedBlogIdeasList({
 
   const listItems = useMemo((): ListItem[] => {
     if (slotMode && generatedRows.length > 0) {
-      const items = generatedRows.map((row, generatedIdx) => ({
+      return generatedRows.map((row, generatedIdx) => ({
         generatedIdx,
         row,
         slotIdx: generatedIdx,
         sortableId: String(generatedIdx),
       }));
-      return padListWithPlaceholders(items, placeholderCount);
     }
 
     if (!hasGeneratedChecklist && placeholderCount > 0) {

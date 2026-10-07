@@ -25,6 +25,7 @@ import {
   blogImportHeaderProgressFromBulk,
   buildBlogImportMicroSnapshot,
 } from "@/lib/bulk/blog-import-header-progress";
+import { BLOG_IMPORT_PIPELINE_TITLES } from "@/lib/bulk/blog-import-minimal";
 import { countBulkCsvRowsDone } from "@/lib/bulk/bulk-csv-row-run-status";
 import { PressReleaseTab } from "@/components/keyword-research/PressReleaseTab";
 import { PressReleaseWorkspaceBody } from "@/components/press-release/PressReleaseWorkspaceBody";
@@ -89,7 +90,7 @@ export function BulkBlogGenerationTab({
   const [importedFileName, setImportedFileName] = useState<string | null>(null);
   const [focusKeyword, setFocusKeyword] = useState("");
   const [titleOverride, setTitleOverride] = useState("");
-  const [featuredImageMode, setFeaturedImageMode] = useState<BlogImportFeaturedImage>("y");
+  const [featuredImageMode, setFeaturedImageMode] = useState<BlogImportFeaturedImage>("n");
   const [entity, setEntity] = useState("");
   const [isParsingImport, setIsParsingImport] = useState(false);
   const [bulkBindings, setBulkBindings] = useState<BulkGeneratorWorkspaceBindings | null>(null);
@@ -107,14 +108,14 @@ export function BulkBlogGenerationTab({
     setImportedFileName(null);
     setFocusKeyword("");
     setTitleOverride("");
-    setFeaturedImageMode("y");
+    setFeaturedImageMode("n");
     setEntity("");
   }, []);
 
   const handlePickImportFiles = useCallback(
     async (files: File[]) => {
       if (files.length === 0) return;
-      const dest: WordPressPostDestination = bulkBindings?.bulkPostDestination ?? "local";
+      const dest: WordPressPostDestination = bulkBindings?.bulkPostDestination ?? "direct";
       let apiKey = "";
       try {
         apiKey = (await resolveOpenRouterApiKeyForHarness()).trim();
@@ -190,6 +191,16 @@ export function BulkBlogGenerationTab({
         harnessPlannedSectionCount: pressReleaseBindings?.harnessPlannedSectionCount ?? null,
       });
     }
+    if (isPrompt && bulkBindings?.isGeneratingChecklist) {
+      const pct = bulkBindings.checklistProgressPct;
+      return {
+        phase: bulkBindings.checklistPhase?.trim() || "Generating blog ideas",
+        completed: typeof pct === "number" ? pct : 0,
+        total: 100,
+        progressPct: typeof pct === "number" ? pct : undefined,
+        harnessActive: false,
+      };
+    }
     return blogImportHeaderProgressFromBulk({
       status: bulkBindings?.status,
       isProcessing: bulkBindings?.isProcessing,
@@ -235,7 +246,7 @@ export function BulkBlogGenerationTab({
     ? BLOG_IMPORT_POST_DESTINATION_CHOICES
     : BULK_POST_DESTINATION_CHOICES;
 
-  const postDestination = bulkBindings?.bulkPostDestination ?? (isBlogImport ? "local" : "wordpress");
+  const postDestination = bulkBindings?.bulkPostDestination ?? (isBlogImport ? "direct" : "wordpress");
 
   const wpConfig = bulkBindings
     ? {
@@ -346,7 +357,7 @@ export function BulkBlogGenerationTab({
     (isPressRelease && !pressReleaseBindings?.resultMarkdown);
 
   const googleImagePipelineTitles =
-    bulkBindings?.featuredImageType === "google-maps"
+    !isBlogImport && bulkBindings?.featuredImageType === "google-maps"
       ? [...GOOGLE_IMAGE_ENTITY_SAP_PIPELINE_TITLES]
       : undefined;
 
@@ -365,7 +376,9 @@ export function BulkBlogGenerationTab({
     postDestination,
     wpConfig,
     runKind: "content" as const,
-    pipelineSectionTitles: googleImagePipelineTitles,
+    pipelineSectionTitles: isBlogImport
+      ? [...BLOG_IMPORT_PIPELINE_TITLES]
+      : googleImagePipelineTitles,
     entitySapRowDisplay: bulkBindings?.featuredImageType === "google-maps",
   };
 
@@ -715,7 +728,7 @@ export function BulkBlogGenerationTab({
             maxTokens={maxTokens}
             topP={topP}
             flowPurpose={flowPurpose}
-            initialBulkPostDestination={isBlogImport ? "local" : undefined}
+            initialBulkPostDestination={isBlogImport ? "direct" : undefined}
             postDestinationChoices={isBlogImport ? BLOG_IMPORT_POST_DESTINATION_CHOICES : undefined}
             bulkGeneratorWorkspace
             onBulkGeneratorWorkspaceBindings={onBulkGeneratorWorkspaceBindings}

@@ -28,6 +28,7 @@ import {
 import { normalizeEntityHintCommaLabel } from "@/lib/comma-place-label";
 import type { AIDrivenACFContext } from "../content-generation/ai-driven-acf-reader";
 import { TABLE_FORMAT, TABLE_FORMAT_MARKDOWN, CRITICAL_LINK_RULE, NO_FAKE_TESTIMONIALS_RULE, TABLE_NO_LINK_ONLY_COLUMN_RULE, AUTHENTICITY_WRITER_RULE, SYSTEM_PROMPT_CORE } from "./core";
+import { HARNESS_LABELED_LIST_HTML_RULE } from "@/lib/prompt-builders/harness-labeled-list-html-rule";
 import { formatSapPageWriterBlock } from "@/lib/prompt-builders/sap-page-template";
 import { MARKDOWN_QUOTE_OUTPUT_RULE } from "../feature-mapping";
 import {
@@ -191,6 +192,7 @@ CRITICAL: FAQ table = SAME HTML format as every other table. <table><thead><tr><
 NEVER use: ## headings, [text](url), | markdown tables |, - bullets, 1. numbered, **asterisk bold**, or *italic* (use HTML elements instead). Never put a keyword or <a> as the last words of a sentence.
 ${TABLE_FORMAT} No empty tables; at least one data row. No duplicate headings. No "Article Title:" label. No placeholder names; never use hollow "our team" filler. ${TABLE_NO_LINK_ONLY_COLUMN_RULE}
 Lists: Numbered steps = <ol><li>one sentence on the same line as the number</li></ol>. Bullet items = <ul><li>one sentence</li></ul>. NEVER use bullets for sequential steps. Every <li> MUST be inside <ul> or <ol>. NEVER output bare <li>. Wrong: <li>Item</li>. Correct: <ol><li>Prepare your data. Organize titles and SEO metadata into a CSV.</li></ol>. Forbidden inside <li>: <p>, <br>, a number on its own line, typing "1." in the item (the <ol> already numbers), a bold mini-heading then a paragraph, or **Label**: markdown.
+${HARNESS_LABELED_LIST_HTML_RULE}
 
 *** SEO HEADING HIERARCHY (THIS IS THE ONLY RULE - FOLLOW IT) ***
 DEPTH OF CONTENT: Each main substantive topic = H2. When SERP H2 OUTLINE is present, those titles are the body H2s. When SAP PAGE TEMPLATE is present, those mandatory titles are the body H2s. These are NOT H3s - they are H2s. One H2 per major concept. Forbidden as a main H2: "What is [X]?", "Your Guide to [X]", "Introduction".

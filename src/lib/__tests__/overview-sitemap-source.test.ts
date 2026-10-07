@@ -12,10 +12,10 @@ import {
 } from "@/lib/overview/overview-sitemap-source";
 import type { OverviewInventoryRow } from "@/lib/overview/overview-inventory-csv";
 
-function shutterspotSite(): WordPressSite {
+function shutterSpotSite(): WordPressSite {
   return {
     id: "shutterspot",
-    name: "Shutterspot",
+    name: "Shutter Spot",
     siteUrl: "https://shutterspot.com",
     username: "user",
     appPassword: "pass",
@@ -38,7 +38,7 @@ function shutterspotSite(): WordPressSite {
 
 describe("resolveOverviewSitemapUrls", () => {
   it("Pages merges page sitemap plus non-post, non-entity children", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(resolveOverviewSitemapUrls(site, "pages")).toEqual([
       "https://shutterspot.com/page-sitemap.xml",
       "https://shutterspot.com/hunter-douglas-sitemap.xml",
@@ -47,21 +47,21 @@ describe("resolveOverviewSitemapUrls", () => {
   });
 
   it("Posts resolves post sitemap only", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(resolveOverviewSitemapUrls(site, "posts")).toEqual([
       "https://shutterspot.com/post-sitemap.xml",
     ]);
   });
 
   it("SAP resolves configured entity sitemap only", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(resolveOverviewSitemapUrls(site, "sap")).toEqual([
       "https://shutterspot.com/location-sitemap.xml",
     ]);
   });
 
   it("Pages still loads appendable CPT sitemaps when page sitemap is missing", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.sitemaps!.childSitemaps = site.sitemaps!.childSitemaps!.filter(
       (u) => !u.includes("page-sitemap"),
     );
@@ -72,7 +72,7 @@ describe("resolveOverviewSitemapUrls", () => {
   });
 
   it("respects disabled child sitemaps from Integrations", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.sitemaps!.disabledChildSitemapUrls = [
       "https://shutterspot.com/promotion-sitemap.xml",
     ];
@@ -83,7 +83,7 @@ describe("resolveOverviewSitemapUrls", () => {
   });
 
   it("Posts returns empty when post sitemap is excluded in Integrations", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.sitemaps!.disabledChildSitemapUrls = ["https://shutterspot.com/post-sitemap.xml"];
     expect(resolveOverviewSitemapUrls(site, "posts")).toEqual([]);
     expect(isOverviewPostsSourceAvailable(site)).toBe(true);
@@ -93,7 +93,7 @@ describe("resolveOverviewSitemapUrls", () => {
 
 describe("overviewInventoryCollectionsFromSource", () => {
   it("Pages includes pages plus CPT endpoints from appended sitemaps", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(overviewInventoryCollectionsFromSource("pages", site)).toEqual([
       "pages",
       "hunter-douglas",
@@ -102,7 +102,7 @@ describe("overviewInventoryCollectionsFromSource", () => {
   });
 
   it("Pages skips local/geo sitemaps that are not wp/v2 collections", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.sitemaps!.childSitemaps = [
       ...(site.sitemaps!.childSitemaps ?? []),
       "https://shutterspot.com/local-sitemap.xml",
@@ -117,17 +117,17 @@ describe("overviewInventoryCollectionsFromSource", () => {
   });
 
   it("Posts returns posts collection", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(overviewInventoryCollectionsFromSource("posts", site)).toEqual(["posts"]);
   });
 
   it("SAP returns entity REST collection", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(overviewInventoryCollectionsFromSource("sap", site)).toEqual(["location"]);
   });
 
   it("SAP prefers manualEndpoint over sitemap filename", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.manualEndpoint = "service-areas";
     expect(overviewInventoryCollectionsFromSource("sap", site)).toEqual(["service-areas"]);
   });
@@ -135,7 +135,7 @@ describe("overviewInventoryCollectionsFromSource", () => {
 
 describe("overviewInventoryCollectionsForSite", () => {
   it("uses Pages-bucket collections when property has detected sitemaps", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     expect(overviewInventoryCollectionsForSite(site, "pages")).toEqual([
       "pages",
       "hunter-douglas",
@@ -160,24 +160,24 @@ describe("overviewUrlsFromInventoryRows", () => {
 
 describe("canLoadOverviewSitemapSource", () => {
   it("returns true when site has sitemaps and WordPress credentials", () => {
-    expect(canLoadOverviewSitemapSource(shutterspotSite(), "pages")).toBe(true);
+    expect(canLoadOverviewSitemapSource(shutterSpotSite(), "pages")).toBe(true);
   });
 
   it("returns true for SAP when credentials exist even without entity sitemap", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     delete site.entitySitemapUrl;
     expect(canLoadOverviewSitemapSource(site, "sap")).toBe(true);
   });
 
   it("returns true for pages even when all child sitemaps are excluded", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.sitemaps!.disabledChildSitemapUrls = [...(site.sitemaps!.childSitemaps ?? [])];
     expect(resolveOverviewSitemapUrls(site, "pages")).toEqual([]);
     expect(canLoadOverviewSitemapSource(site, "pages")).toBe(true);
   });
 
   it("overviewInventoryCollectionsForOverviewLoad includes CPT collections for pages bucket", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     const cols = overviewInventoryCollectionsForOverviewLoad(site, "pages");
     expect(cols).toContain("pages");
     expect(cols).toContain("hunter-douglas");
@@ -187,13 +187,13 @@ describe("canLoadOverviewSitemapSource", () => {
 
 describe("pageSitemapXmlUrlForPlay", () => {
   it("uses the listed page-sitemap.xml child when present", () => {
-    expect(pageSitemapXmlUrlForPlay(shutterspotSite())).toBe(
+    expect(pageSitemapXmlUrlForPlay(shutterSpotSite())).toBe(
       "https://shutterspot.com/page-sitemap.xml",
     );
   });
 
   it("defaults to /page-sitemap.xml when no page child is listed", () => {
-    const site = shutterspotSite();
+    const site = shutterSpotSite();
     site.sitemaps = undefined;
     expect(pageSitemapXmlUrlForPlay(site)).toBe("https://shutterspot.com/page-sitemap.xml");
   });

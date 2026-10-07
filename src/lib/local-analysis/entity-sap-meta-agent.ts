@@ -6,6 +6,7 @@ import {
   buildSapMasterRulesWorkflowPrefix,
   ensureMasterInstructionsInMemory,
 } from "@/lib/master-instructions-storage";
+import { getCompetitorReportMaxOutputTokens } from "@/lib/competitor-research/competitor-report-openrouter-limits";
 
 const META_FILL_CHUNK = 10;
 
@@ -32,11 +33,13 @@ Output **only** valid JSON: {"metas":["..."]} with **exactly one** meta descript
 Each input row has \`title\` and \`keyword\`. \`entity\` may be empty.
 
 **Meta rules (mandatory):**
-- 150-160 characters (count spaces; stay in range).
-- Include the keyword exactly once. Do not copy the title verbatim.
-- Educational or commercial blog framing. No city, state, or country names.
+- 145-160 characters (count spaces; stay in range).
+- Write one elegant, fluent SERP sentence. Hook with benefit, question, or clear value, not a label.
+- Include the focus keyword phrase exactly once, woven naturally inside the sentence (not as the opening words).
+- **Forbidden:** starting with the keyword, starting with the title, "Keyword. …" or "Title. …" patterns, copying the title verbatim, repeating the keyword twice.
+- Educational or commercial blog framing. No city, state, or country names unless the keyword requires it.
 - Never mention Bali or Bali blinds.
-- Forbidden: pipe suffixes, brand/site name, em dash.
+- Forbidden: pipe suffixes, site name, em dash.
 - Vary phrasing across rows.`;
 
 type MetaAgentResponse = {
@@ -86,7 +89,7 @@ async function fetchMetasBatch(
         { role: "user", content: JSON.stringify({ rows: payload }) },
       ],
       temperature: 0.35,
-      max_tokens: Math.min(8192, Math.max(1024, rows.length * 80)),
+      max_tokens: getCompetitorReportMaxOutputTokens(model),
       response_format: { type: "json_object" },
     }),
   });
@@ -120,6 +123,8 @@ export type FillSapRowMetaOptions = {
   model: string;
   siteId?: string;
   siteName: string;
+  /** When true, agent HTTP/parse failures throw (Prompt Ideas). */
+  strict?: boolean;
   onProgress?: (done: number, total: number) => void;
   onRowsUpdate?: (rows: CSVRow[]) => void;
 };
@@ -206,8 +211,10 @@ export async function fillBlogRowMetaFromOpenRouter(
       try {
         const metas = await fetchMetasBatch(apiKey, model, siteId, chunkRows, BLOG_META_AGENT_SYSTEM);
         applyMetasAtIndices(out, chunkIndices, metas);
-      } catch {
-        // Keep static rows; skip failed chunk
+      } catch (err) {
+        if (options.strict) {
+          throw err instanceof Error ? err : new Error(String(err));
+        }
       }
       options.onRowsUpdate?.(out.map((row) => ({ ...row })));
       options.onProgress?.(

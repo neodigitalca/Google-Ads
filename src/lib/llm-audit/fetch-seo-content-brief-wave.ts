@@ -18,12 +18,13 @@ import { resolveSiteLocationLabel } from "@/lib/llm-audit/resolve-site-location-
 
 /** DataForSEO location_name when site/entity label is missing (keyword geography hints). */
 export function resolveSerpLocationName(location: string, keyword: string): string {
+  const kw = keyword.toLowerCase();
+  if (/\b(canada|canadian)\b/.test(kw)) return "Canada";
   const loc = location.trim();
   if (loc) {
     if (loc.includes(",")) return loc.replace(/\s+/g, " ");
     return loc;
   }
-  const kw = keyword.toLowerCase();
   if (/\bsherwood\s+park\b/.test(kw)) return "Sherwood Park,Alberta,Canada";
   if (/\bstrathcona\b/.test(kw)) return "Sherwood Park,Alberta,Canada";
   if (/\bedmonton\b/.test(kw)) return "Edmonton,Alberta,Canada";
@@ -123,14 +124,19 @@ export type OptionalDataForSeoSerpResult = {
 };
 
 /** Optional DataForSEO SERP try for overview research step 0 (never throws). */
+function serpGeoKeywordText(keyword: string, geoHint?: string): string {
+  return [geoHint, keyword].map((s) => s?.trim()).filter(Boolean).join(" ");
+}
+
 export async function fetchOptionalDataForSeoSerp(input: {
   keyword: string;
   site?: WordPressSite | null;
   location?: string;
+  geoHint?: string;
 }): Promise<OptionalDataForSeoSerpResult> {
   const keyword = input.keyword.trim();
   const location = (input.location ?? resolveSiteLocationLabel(input.site, keyword)).trim();
-  const serpLocation = resolveSerpLocationName(location, keyword);
+  const serpLocation = resolveSerpLocationName(location, serpGeoKeywordText(keyword, input.geoHint));
   const { serpMcpJson, serpError } = await fetchDataForSeoSerpMcpSafe({
     keyword,
     location_name: serpLocation,
@@ -184,6 +190,7 @@ export async function runSerpAndLlmAuditParallel(input: {
   pageUrl: string;
   site?: WordPressSite | null;
   location?: string;
+  geoHint?: string;
   requireSerpDump?: boolean;
   callbacks?: SerpLlmWaveCallbacks;
 }): Promise<SerpLlmWaveResult> {
@@ -193,7 +200,7 @@ export async function runSerpAndLlmAuditParallel(input: {
   if (!pageUrl) throw new Error("fetchSerpAndLlmAuditWave: pageUrl is required");
 
   const location = (input.location ?? resolveSiteLocationLabel(input.site, keyword)).trim();
-  const serpLocation = resolveSerpLocationName(location, keyword);
+  const serpLocation = resolveSerpLocationName(location, serpGeoKeywordText(keyword, input.geoHint));
   const report = (message: string) => input.callbacks?.onProgress?.(message);
 
   const runSerp = () => fetchDataForSeoSerpMcpSafe({ keyword, location_name: serpLocation });
@@ -325,6 +332,8 @@ export type FetchSeoContentBriefWaveInput = {
   pageUrl: string;
   site?: WordPressSite | null;
   location?: string;
+  /** Title or other copy used only to infer SERP country (e.g. Canada in headline). */
+  geoHint?: string;
   gscQueries?: string[];
   gscPageUrl?: string;
   semrushOverviewJson?: unknown | null;
@@ -342,6 +351,7 @@ export async function fetchSeoContentBriefWave(
     pageUrl: input.pageUrl,
     site: input.site,
     location: input.location,
+    geoHint: input.geoHint,
     requireSerpDump: input.requireSerpDump,
     callbacks: input.callbacks,
   });

@@ -27,4 +27,11 @@ describe("ensureOverviewBulletBoldLabels", () => {
     const html = `<ul><li><strong>Cost</strong>: one.</li><li><strong>Key</strong>: two.</li><li><strong>Types</strong>: three.</li></ul>`;
     expect(ensureOverviewBulletBoldLabels(html)).toBe(html);
   });
+
+  it("converts markdown **Label**: prefix inside li", () => {
+    const html = `<ul><li>**Extreme Temperature Variations**: Honeycomb cells help insulate.</li></ul>`;
+    const out = ensureOverviewBulletBoldLabels(html);
+    expect(out).toContain("<strong>Extreme Temperature Variations</strong>: Honeycomb");
+    expect(out).not.toContain("**");
+  });
 });

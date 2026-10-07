@@ -57,10 +57,27 @@ function forceColonAfterBoldClose(s: string): string {
   return `${s.slice(0, closeAt + closeLen)}:${afterClose.slice(i) ? ` ${afterClose.slice(i)}` : ""}`;
 }
 
+/** Convert leading markdown bold **Label** to <strong>Label</strong> inside list item text. */
+function stripMarkdownBoldPrefix(inner: string): string {
+  const t = inner.trimStart();
+  const lead = inner.slice(0, inner.length - t.length);
+  const md = t.match(/^\*\*([^*]+)\*\*(.*)$/s);
+  if (!md) return inner;
+  const label = md[1]!.trim();
+  let rest = (md[2] ?? "").trimStart();
+  if (rest.startsWith(",")) rest = rest.slice(1).trimStart();
+  if (!rest.startsWith(":")) rest = rest ? `: ${rest}` : ":";
+  return `${lead}<strong>${label}</strong>${rest}`;
+}
+
 function boldLabelOneLiInner(inner: string): string {
   const trimmedStart = inner.trimStart();
   const leadingWs = inner.slice(0, inner.length - trimmedStart.length);
   if (!trimmedStart) return inner;
+
+  if (/^\*\*[^*]+\*\*/.test(trimmedStart)) {
+    return stripMarkdownBoldPrefix(inner);
+  }
 
   if (liInnerStartsWithBold(trimmedStart)) {
     return `${leadingWs}${forceColonAfterBoldClose(trimmedStart)}`;
@@ -80,6 +97,11 @@ function boldLabelOneLiInner(inner: string): string {
 /**
  * Walk every <li>…</li> and ensure each starts with <strong>Label</strong>: …
  */
+/** All document <li> labels: same repair as Overview bullets (alias for harness QC). */
+export function ensureHarnessListItemBoldLabels(html: string): string {
+  return ensureOverviewBulletBoldLabels(html);
+}
+
 export function ensureOverviewBulletBoldLabels(html: string): string {
   const src = html ?? "";
   if (!src.trim()) return src;

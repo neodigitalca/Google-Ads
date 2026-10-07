@@ -1,4 +1,10 @@
 import { AgentConfig } from "@/types/agent-config";
+import {
+  IMAGE_SCENE_PLAUSIBILITY_CHECKLIST_TITLE,
+  IMAGE_SCENE_PLAUSIBILITY_PROMPT,
+  hasPhysicalScenePlausibilityItem,
+} from "@/lib/image-scene-plausibility";
+import { windowTreatmentImagePromptSuffix } from "@/lib/image-window-treatment-prompt-rules";
 
 export type ImageType = 'infographic' | 'blog-image' | 'diagram' | 'illustration' | 'chart' | 'photo' | 'custom';
 
@@ -29,6 +35,31 @@ export interface ImageChecklistContext {
 export interface ImageChecklistItem {
   title: string;
   description: string;
+}
+
+export const IMAGE_REQUIREMENTS_ARTIFACT_FILENAME = "image-requirements.json";
+
+/** Overview featured-image pipeline: IMAGE REQUIREMENTS agent output. */
+export function formatImageRequirementsArtifact(
+  checklist: ImageChecklistItem[],
+  meta: { title: string; purpose?: string; keyword?: string },
+): string {
+  return JSON.stringify(
+    {
+      agent: "IMAGE REQUIREMENTS",
+      title: meta.title,
+      purpose: meta.purpose?.trim() || undefined,
+      keyword: meta.keyword?.trim() || undefined,
+      checklist: checklist.map((item, index) => ({
+        index: index + 1,
+        title: item.title,
+        description: item.description,
+      })),
+      generatedAt: new Date().toISOString(),
+    },
+    null,
+    2,
+  );
 }
 
 /**
@@ -224,9 +255,17 @@ IMPORTANT: Analyze the ENTIRE blueprint content to understand the main theme, ke
   const colorInstruction = selectedSection
     ? ""
     : "\n\nCRITICAL: NEVER include image generation settings (aspect ratio, style, color scheme, or specific color values) in the checklist items or in the generated image. These are technical parameters used only for generation, NOT visual elements to include. Focus ONLY on the actual content and visual elements from the provided content.";
-  
-  
-  return `You are an expert AI image generation strategist. Your role is to analyze content requirements and create a HIGHLY DETAILED, COMPREHENSIVE checklist for generating an image that accurately represents the content.${linkInstruction}${ctaInstruction}
+
+  const windowTreatmentRules = windowTreatmentImagePromptSuffix(
+    flowTitle,
+    finalOutput,
+    userPrompt,
+    selectedSection?.fullText,
+  );
+
+  return `You are an expert AI image generation strategist. Your role is to analyze content requirements and create a HIGHLY DETAILED, COMPREHENSIVE checklist for generating an image that accurately represents the content.
+
+${IMAGE_SCENE_PLAUSIBILITY_PROMPT}${windowTreatmentRules}${linkInstruction}${ctaInstruction}
 
 Flow Context:
 - Title: ${flowTitle || "Untitled"}
@@ -397,6 +436,15 @@ export const buildImageChecklistUserPrompt = (
     parts.push(`- Reference SPECIFIC content, data, or structures from the section with detailed visual descriptions`);
   } else {
     parts.push("\nGenerate a HIGHLY DETAILED checklist with at least 5-7 comprehensive, specific, actionable items that will guide the featured image generation for the website/blog:");
+    parts.push(`- REQUIRED: Include one checklist item titled exactly "${IMAGE_SCENE_PLAUSIBILITY_CHECKLIST_TITLE}" that lists the main physical objects and the context each must appear in (window frame for blinds, etc.)`);
+    const wtSuffix = windowTreatmentImagePromptSuffix(
+      context.flowTitle,
+      context.finalOutput,
+      context.userPrompt,
+    );
+    if (wtSuffix.trim()) {
+      parts.push(`- Apply these window-treatment-specific rules in the checklist:${wtSuffix}`);
+    }
     parts.push(`- Each item must be HIGHLY DETAILED with specific visual descriptions of how to represent the blueprint's main theme and content`);
     parts.push(`- Focus on how to visually communicate the core essence and key concepts from the blueprint content`);
     parts.push(`- Describe how to create an effective featured image that would work well for a website/blog - visually compelling and representative of the content`);
@@ -424,7 +472,11 @@ export const buildImageChecklistUserPrompt = (
 /**
  * Parses AI-generated image checklist response into structured ImageChecklistItem array
  */
-export function parseImageChecklist(aiResponse: string): ImageChecklistItem[] {
+export function parseImageChecklist(
+  aiResponse: string,
+  options?: { strictFeatured?: boolean },
+): ImageChecklistItem[] {
+  const strictFeatured = options?.strictFeatured === true;
   const lines = aiResponse.split('\n').map(line => line.trim());
   const parsedItems: ImageChecklistItem[] = [];
   let currentTitle: string | null = null;
@@ -515,13 +567,14 @@ export function parseImageChecklist(aiResponse: string): ImageChecklistItem[] {
   if (currentTitle) {
     parsedItems.push({
       title: currentTitle,
-      description: currentDescription.length > 0 
-        ? currentDescription.join(' ') 
-        : "Processing image requirements based on content and specifications."
+      description:
+        currentDescription.length > 0
+          ? currentDescription.join(" ")
+          : IMAGE_SCENE_PLAUSIBILITY_PROMPT,
     });
   }
 
-  // Fallback parsing if structured format not found
+  // Secondary parse pass when structured format not found on first pass
   if (parsedItems.length === 0) {
     // Try pattern: Title (non-empty, not starting with I'm) followed by description (starts with I'm)
     for (let i = 0; i < lines.length; i++) {
@@ -550,9 +603,18 @@ export function parseImageChecklist(aiResponse: string): ImageChecklistItem[] {
     }
   }
 
-  return parsedItems.length > 0 ? parsedItems : [{
-    title: "Image Generation Requirements",
-    description: "Generate a professional featured image based on the blog content without any text, suitable for WordPress."
-  }];
+  if (parsedItems.length === 0) {
+    parsedItems.push({
+      title: IMAGE_SCENE_PLAUSIBILITY_CHECKLIST_TITLE,
+      description: IMAGE_SCENE_PLAUSIBILITY_PROMPT,
+    });
+  }
+  if (strictFeatured && !hasPhysicalScenePlausibilityItem(parsedItems)) {
+    parsedItems.push({
+      title: IMAGE_SCENE_PLAUSIBILITY_CHECKLIST_TITLE,
+      description: IMAGE_SCENE_PLAUSIBILITY_PROMPT,
+    });
+  }
+  return parsedItems;
 }
 

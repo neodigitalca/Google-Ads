@@ -12,6 +12,12 @@ export type AiModelsSettingsContentProps = {
   setBlogModel: (model: string) => void;
   imageModel: string;
   setImageModel: (model: string) => void;
+  metaModel: string;
+  setMetaModel: (model: string) => void;
+  reportModel: string;
+  setReportModel: (model: string) => void;
+  adsModel: string;
+  setAdsModel: (model: string) => void;
   temperature: number;
   setTemperature: (value: number) => void;
   maxTokens: number;
@@ -36,6 +42,12 @@ export function AiModelsSettingsContent(props: AiModelsSettingsContentProps) {
           onBlogModelChange={props.setBlogModel}
           imageModel={props.imageModel}
           onImageModelChange={props.setImageModel}
+          metaModel={props.metaModel}
+          onMetaModelChange={props.setMetaModel}
+          reportModel={props.reportModel}
+          onReportModelChange={props.setReportModel}
+          adsModel={props.adsModel}
+          onAdsModelChange={props.setAdsModel}
           temperature={props.temperature}
           onTemperatureChange={props.setTemperature}
           maxTokens={props.maxTokens}

@@ -5,7 +5,7 @@ import type { SapEntityGrounding } from "@/lib/gsc-reporting/gsc-reporting-sap-e
 /** Section kinds for the full organic SEO GSC report template (outline + writers). */
 export type GscReportingSectionKind =
   | "executive_summary"
-  | "generative_ai_impressions"
+  | "website_traffic_acquisition"
   | "search_performance_period"
   | "key_performance_insights"
   | "seasonal_demand"
@@ -69,6 +69,10 @@ export type RunGscReportingPipelineArgs = {
   compareKind?: import("@/lib/gsc-reporting/gsc-reporting-compare-signals").GscCompareKind;
   /** Human-readable period A vs B label for compare signals derivation. */
   compareLabel?: string;
+  /** Month/year only string for the report H1. */
+  documentTitlePeriod?: string;
+  reportStructure?: import("@/lib/gsc-reporting/gsc-reporting-monthly-totals").GscReportStructure;
+  progressMonthCount?: number;
   /** Profile city + vertical + report-period month for local demand-season reading. */
   clientSeason?: GscClientSeasonContext | null;
   signal?: AbortSignal;

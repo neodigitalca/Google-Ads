@@ -129,10 +129,12 @@ import { resolveBlogImportRowViaOpenRouter } from '@/lib/bulk/blog-import-openro
 import {
   fileFromStoredImportRow,
   processDirectBlogImportRow,
+  rowHasDirectImportSource,
 } from '@/lib/bulk/blog-import-direct';
 import { resolveRowPostDestination } from '@/lib/bulk-post-destination-normalize';
 import { resolveOpenRouterApiKeyForHarness } from '@/lib/openrouter-api-key-resolve';
 import { loadDataForSEOApiKey } from '@/lib/api';
+import { setRuntimeDataForSeoApiKey } from '@/lib/integration-api-keys-runtime';
 
 export type BulkHarnessSectionUi = {
   sectionIndex: number;
@@ -323,6 +325,11 @@ export function useBulkAutoGenerate({
     connectedSite,
   });
 
+  useEffect(() => {
+    const key = apiKey?.trim() || loadDataForSEOApiKey()?.trim() || "";
+    setRuntimeDataForSeoApiKey(key);
+  }, [apiKey]);
+
   // Use refs to track current state values for polling loop
   const isAnalyzingRef = useRef(isAnalyzing);
   const isAnalyzingWithAIRef = useRef(isAnalyzingWithAI);
@@ -402,7 +409,7 @@ isAnalyzingRef.current = isAnalyzing;
         row,
         options.headerPostDestination ?? options.wordPressPosting?.headerPostDestination ?? options.wordPressPosting?.postDestination ?? "wordpress",
       );
-      if (dest === "direct") {
+      if (dest === "direct" || rowHasDirectImportSource(row)) {
         return processDirectBlogImportRow({
           rowIndex,
           row,
@@ -779,6 +786,7 @@ isAnalyzingRef.current = isAnalyzing;
     }
 
     const effectiveDataForSeoKey = apiKey?.trim() || loadDataForSEOApiKey()?.trim() || "";
+    setRuntimeDataForSeoApiKey(effectiveDataForSeoKey);
 
     const displayIndices =
       rowDisplayIndices ?? csvRows.map((_, idx) => idx);
@@ -858,22 +866,6 @@ isAnalyzingRef.current = isAnalyzing;
     clearGoogleMapsImageSessionCache();
     const sapMapsMediaBank = createSapMapsMediaBank();
     const sapMapsEntityRowCounts = countSapMapsRowsByEntity(csvRows);
-
-    // Peer featured image reuse: peers = stored sites minus every posting target
-    // and the connected site (never search the site being written to).
-    const peerExcludedIds = new Set<string>();
-    const peerExcludedUrls = new Set<string>();
-    for (const entry of postingForLoop?.sites ?? []) {
-      if (entry.site?.id) peerExcludedIds.add(entry.site.id);
-      if (entry.site?.siteUrl) peerExcludedUrls.add(normalizeSite(entry.site.siteUrl));
-    }
-    if (postingForLoop?.site?.id) peerExcludedIds.add(postingForLoop.site.id);
-    if (postingForLoop?.site?.siteUrl) peerExcludedUrls.add(normalizeSite(postingForLoop.site.siteUrl));
-    if (matchedWpSite?.id) peerExcludedIds.add(matchedWpSite.id);
-    if (connectedSite?.siteUrl) peerExcludedUrls.add(normalizeSite(connectedSite.siteUrl));
-    const peerSitesForRun = storedSitesForPortfolio.filter(
-      (s) => !peerExcludedIds.has(s.id) && !peerExcludedUrls.has(normalizeSite(s.siteUrl)),
-    );
 
     const peerFeaturedReport = createPeerFeaturedImageReportCollector();
     const peerFeaturedCsvByName = new Map<string, string>();
@@ -966,7 +958,6 @@ isAnalyzingRef.current = isAnalyzing;
           bulkScheduleSlotIndex: i,
           sapMapsMediaBank,
           sapMapsEntityRowCounts,
-          peerSites: peerSitesForRun.length > 0 ? peerSitesForRun : undefined,
           peerFeaturedReport,
           onPeerFeaturedCsv: mergePeerFeaturedCsv,
           // Inner pipeline passes the *storage* row index (displayRows index). Progress UI must stay batch-based (i).

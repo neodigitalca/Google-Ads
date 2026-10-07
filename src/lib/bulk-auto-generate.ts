@@ -65,11 +65,6 @@ import {
   rowUsesGoogleImageFeatured,
 } from './overview/overview-content-optimize-pipeline';
 import { wpUploadHarnessGeneratedFiles } from './overview/overview-wp-upload-harness-artifacts';
-import { shouldPeerSearchFeaturedImage } from './bulk/peer-featured-image-gate';
-import {
-  findPeerFeaturedImageForRow,
-  type PeerFeaturedImageForRow,
-} from './bulk/peer-featured-image-for-row';
 import {
   recordPeerFeaturedImageOutcome,
   type PeerFeaturedImageReportCollector,
@@ -135,7 +130,10 @@ import type { IntelligentKeywordResearchMergeResult } from './bulk/intelligent-k
 import { buildSemrushKeywordsRagJson } from './semrush-keywords-rag';
 import { buildSemrushClusterScatterPlan, buildSemrushScatterContextJson } from './semrush-cluster-scatter';
 import { resolveRecommendedAuthor } from './wordpress-api/author-resolver';
-import { fetchSeoContentBriefWave } from '@/lib/llm-audit/fetch-seo-content-brief-wave';
+import {
+  fetchSeoContentBriefWave,
+  resolveSerpLocationName,
+} from '@/lib/llm-audit/fetch-seo-content-brief-wave';
 import { mergeSeoBriefIntoBulkSkeleton } from '@/lib/llm-audit/fetch-merged-seo-content-brief';
 import { llmAuditGuidanceFromBrief } from '@/lib/llm-audit/llm-audit-dataforseo';
 import { resolveSiteLocationLabel } from '@/lib/llm-audit/resolve-site-location-label';
@@ -152,6 +150,25 @@ import {
 } from '@/lib/workflow/workflow-serp-research-cache';
 import { loadWorkflowDfsArticleAudit } from '@/lib/workflow/workflow-dfs-article-audit-cache';
 import { formatDfsArticleAuditHarnessPromptBlock } from '@/lib/dfs-article-audit/format-dfs-article-audit-harness';
+import { acfOriginAppliesForSitemapType } from '@/lib/acf-origin-applies';
+
+function bulkRowSerpGeoText(row: {
+  title?: string;
+  keyword?: string;
+  modifier?: string;
+  prompt_modifier?: string;
+}): string {
+  return [row.title, row.keyword, row.prompt_modifier, row.modifier].filter(Boolean).join(' ');
+}
+
+function bulkRowSerpLocationName(row: {
+  title?: string;
+  keyword?: string;
+  modifier?: string;
+  prompt_modifier?: string;
+}): string {
+  return resolveSerpLocationName('', bulkRowSerpGeoText(row));
+}
 import type { WorkflowStepOutput } from '@/lib/workflow/workflow-types';
 
 // Import from new feature-based modules
@@ -169,10 +186,13 @@ import {
   addEntityLinksToContent,
   type HarnessPromptEnv,
 } from './bulk/bulk-content-generator';
-import { 
-  generateImageChecklist, 
-  generateFeaturedImage 
-} from './bulk/bulk-image-generator';
+import { generateImageChecklist } from './bulk/bulk-image-generator';
+import { runFeaturedImage } from '@/lib/image-generator/run-featured-image';
+import { runImageChecklist } from '@/lib/image-generator/run-image-checklist';
+import type {
+  ImageGeneratorOptions,
+  ImageGeneratorRunContext,
+} from '@/lib/image-generator/image-generator-options';
 import { generateEntityTitleFromSitemap } from './bulk/bulk-entity-handler';
 import type { RunHistoryEntry } from '@/hooks/content-optimization/use-optimization-state';
 import { validateAndStripInvalidLinksFromContent, normalizeInternalUrl } from './wordpress-api/validate-internal-links';
@@ -372,10 +392,9 @@ export const BULK_POST_DESTINATION_CHOICES: WordPressPostDestination[] = [
   'local',
 ];
 
-/** Blog import tab: Direct (as-is), WordPress rewrite, or local files. */
+/** Blog import tab: upload as-is to WordPress (direct) or local content + meta JSON only. */
 export const BLOG_IMPORT_POST_DESTINATION_CHOICES: WordPressPostDestination[] = [
   'direct',
-  'wordpress',
   'local',
 ];
 
@@ -718,7 +737,7 @@ export async function generateRowOutputs(
     let research: KeywordAnalysisComplete | null = null;
     try {
       research = await analyzeKeywordFn(csvKeyword, {
-        location: 'United States',
+        location: bulkRowSerpLocationName(row),
         language: 'en',
         strict: false,
       });
@@ -845,8 +864,8 @@ function populateACFFieldsFromDFS(
     acfFields.prompt_modifier = row.modifier;
   }
   
-  // ACF origin: prefer hyperlocal phrase from title ("… in Place, City"), then entity
-  if (!row.origin?.trim()) {
+  // ACF origin: entity/SAP rows only (never standard blog posts)
+  if (row.sitemap_type === 'entity' && !row.origin?.trim()) {
     const fromTitle = extractOriginFromSapTitle(row.title);
     if (fromTitle) {
       acfFields.origin = fromTitle;
@@ -944,7 +963,9 @@ export async function generateBlueprintAndContent(
     date_modifier: row.date_modifier || acfFieldsFromDFS.date_modifier,
     prompt_modifier: row.prompt_modifier || acfFieldsFromDFS.prompt_modifier,
     service_area_fields: row.service_area_fields || acfFieldsFromDFS.service_area_fields,
-    origin: row.origin || acfFieldsFromDFS.origin,
+    ...(row.sitemap_type === 'entity' || acfFieldsFromDFS.origin
+      ? { origin: row.origin || acfFieldsFromDFS.origin }
+      : {}),
   };
 
   const sitesToPostForTemplate = buildSitesToPostFromPosting(options.wordPressPosting);
@@ -1218,6 +1239,7 @@ try {
         pageUrl: serpPageUrl,
         site: serpSite,
         location: serpLocation || undefined,
+        geoHint: enrichedRow.title?.trim() || row.title?.trim(),
         callbacks: {
           onProgress: (message) => options.onProgress?.(rowIndex, 0, message),
         },
@@ -1239,8 +1261,7 @@ try {
     }
     const pageExcerptFromImport = importedSections
       ?.map((s) => `${s.h2}\n${s.body}`)
-      .join("\n\n")
-      .slice(0, 1200);
+      .join("\n\n");
     serpLlmBrief = await runTopicResearchFanout({
       brief: serpLlmBrief,
       keyword: serpKeyword,
@@ -1249,7 +1270,7 @@ try {
       location: serpLocation || undefined,
       site: serpSite,
       swotText,
-      pageExcerpt: pageExcerptFromImport || enrichedRow.imported_preamble_html?.trim()?.slice(0, 1200),
+      pageExcerpt: pageExcerptFromImport || enrichedRow.imported_preamble_html?.trim(),
       onProgress: (message) => options.onProgress?.(rowIndex, 0, message),
       forceRefresh: options.forceFreshTopicFanout === true,
     });
@@ -1358,7 +1379,7 @@ try {
         connectedSite,
         postsForInternalLinks,
         runExternalResearch: rowExplicitExternalPairs.length > 0,
-        locationName: "United States",
+        locationName: bulkRowSerpLocationName(enrichedRow),
         languageCode: "en",
         importedDraftLinks: importedDraftLinks.length ? importedDraftLinks : undefined,
         modifierExternalLinks: modifierExternalLinks.length ? modifierExternalLinks : undefined,
@@ -1449,8 +1470,8 @@ try {
       options.onProgress?.(rowIndex, 0, "Planning internal link targets...");
       const linkOptFileManager = new OptimizationFileManager();
       const linkFileSlug =
-        generateSEOSlug(keywordData.keyword) ||
-        generateSEOSlug(enrichedRow.title) ||
+        sanitizeWordPressSlugSegment(enrichedRow.target_slug ?? "") ||
+        sanitizeWordPressSlugSegment(keywordData.keyword) ||
         "article";
       linkTargetsPlan = await runContentLinkTargetsHarness({
         apiKey: linkApiKey,
@@ -1693,7 +1714,9 @@ try {
           date_modifier: enrichedRow.date_modifier,
           prompt_modifier: enrichedRow.prompt_modifier,
           service_area_fields: enrichedRow.service_area_fields,
-          origin: enrichedRow.origin,
+          ...(acfOriginAppliesForSitemapType(enrichedRow.sitemap_type) && enrichedRow.origin
+            ? { origin: enrichedRow.origin }
+            : {}),
         },
       }),
       mimeType: 'application/json',
@@ -1874,57 +1897,14 @@ try {
       });
     };
 
-    // Peer-first featured image reuse (peer sites only, never the target site).
-    let peerFeaturedImage: PeerFeaturedImageForRow | null = null;
-    const peerTargetSite = options.wordPressPosting?.sites?.[0]?.site;
     const peerRowLabel = (enrichedRow.title || keywordData.keyword || '').trim();
     const peerMatchKey = useGoogleMaps
       ? entityForImage!
       : (keywordData.keyword || enrichedRow.keyword || '').trim();
-    const canPeerSearch = shouldPeerSearchFeaturedImage({
-      featuredImage: row.featuredImage,
-      useGoogleMaps,
-      useAiImagePath,
-      hasPeerSites: Boolean(options.peerSites?.length && peerTargetSite),
-    });
-
-    const recordPeerFeaturedImageFile = (peer: PeerFeaturedImageForRow) => {
-      const imageFileId = BulkFileManager.createFileId(rowIndex, 'image', timestamp);
-      const imageFile: BulkGeneratedFile = {
-        id: imageFileId,
-        rowIndex,
-        fileName: peer.fileName,
-        content: peer.dataUrl,
-        mimeType: peer.mimeType,
-        status: 'completed',
-        timestamp,
-        rowData: row,
-      };
-      fileManager.addFile(imageFile);
-      generatedFiles.push(imageFile);
-      options.onProgress?.(
-        rowIndex,
-        0,
-        `Featured image reused from ${peer.sourceSiteName} (${peer.sourcePageUrl})`,
-      );
-      if (options.peerFeaturedReport) {
-        recordPeerFeaturedImageOutcome(options.peerFeaturedReport, {
-          action: 'found',
-          rowIndex,
-          rowLabel: peerRowLabel,
-          matchKey: peerMatchKey,
-          mode: useGoogleMaps ? 'entity' : 'blog',
-          sourceSiteName: peer.sourceSiteName,
-          sourcePageUrl: peer.sourcePageUrl,
-          sourceImageUrl: peer.sourceImageUrl,
-          matchedKeyword: peer.matchedKeyword,
-          score: peer.score,
-        });
-      }
-    };
 
     const persistAiFeaturedImageResult = async (
-      imageResult: NonNullable<Awaited<ReturnType<typeof generateFeaturedImage>>>,
+      imageResult: { imageBase64: string },
+      imageChecklistUsed: ImageChecklistItem[],
     ) => {
       let imageBase64 = imageResult.imageBase64;
       const mimeType = 'image/png';
@@ -1979,7 +1959,7 @@ try {
             purpose: flowPurposeResolved,
             keyword: keywordData.keyword,
             entity: enrichedRow.entity,
-            imageChecklist: precomputedImageChecklist.map((item) => ({
+            imageChecklist: imageChecklistUsed.map((item) => ({
               title: item.title,
               description: item.description,
             })),
@@ -1988,6 +1968,7 @@ try {
                 {
                   flowTitle: flowTitleForBlueprint,
                   flowPurpose: flowPurposeResolved,
+                  agents: blueprintResult.agents,
                   finalOutput: outlineTextForImage,
                 },
                 {
@@ -2002,7 +1983,7 @@ try {
                 },
               ) +
               '\n\nImage Generation Checklist:\n' +
-              precomputedImageChecklist
+              imageChecklistUsed
                 .map((item, idx) => `${idx + 1}. ${item.title}\n   ${item.description}`)
                 .join('\n'),
             metadata: {
@@ -2043,38 +2024,40 @@ try {
     );
 
     const markdownPromise = runMarkdownPipeline();
-    const peerPromise = canPeerSearch
-      ? findPeerFeaturedImageForRow({
-          peerSites: options.peerSites!,
-          targetSite: peerTargetSite!,
-          mode: useGoogleMaps ? 'entity' : 'blog',
-          matchKey: peerMatchKey,
-          apiKey: options.openRouterApiKey,
-          model: pipelineResearchModel,
-          onPeerCsvReady: options.onPeerFeaturedCsv,
-          onProgress: (msg) => options.onProgress?.(rowIndex, 0, msg),
-        })
-      : Promise.resolve(null as PeerFeaturedImageForRow | null);
+
+    const bulkFeaturedImageOptions: ImageGeneratorOptions = {
+      userPrompt: (enrichedRow.prompt_modifier || enrichedRow.modifier || '').trim(),
+      imageSourceMode: 'featured',
+      selectedSection: null,
+      includeText: false,
+      includePeople: false,
+      includeAnimals: false,
+      includeCars: false,
+      isInfographic: false,
+      aspectRatio: '16:9',
+      style: 'professional',
+      colorScheme: 'vibrant',
+      colorForeground: '',
+      colorBackground: '',
+      imageModel: pipelineImageModel,
+    };
+    const bulkFeaturedImageContext: ImageGeneratorRunContext = {
+      apiKey: options.openRouterApiKey,
+      flowTitle: flowTitleForBlueprint,
+      flowPurpose: flowPurposeResolved,
+      agents: blueprintResult.agents,
+      finalOutput: outlineTextForImage,
+      selectedModel: pipelineResearchModel,
+      temperature: options.temperature ?? 1.0,
+      maxTokens: options.maxTokens ?? 4000,
+      topP: options.topP ?? 0.9,
+      availableSections: [],
+    };
 
     const imagePipelinePromise = useGoogleMaps
       ? Promise.resolve()
       : (async (): Promise<void> => {
       if (row.featuredImage === 'n') return;
-
-      let peer: PeerFeaturedImageForRow | null = null;
-      try {
-        peer = await peerPromise;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        options.onError?.(rowIndex, new Error(`Peer featured image failed: ${errorMessage}`));
-        throw new Error(`Peer featured image failed: ${errorMessage}`);
-      }
-
-      if (peer) {
-        peerFeaturedImage = peer;
-        recordPeerFeaturedImageFile(peer);
-        return;
-      }
 
       if (options.peerFeaturedReport) {
         recordPeerFeaturedImageOutcome(options.peerFeaturedReport, {
@@ -2088,31 +2071,36 @@ try {
       }
 
       if (useAiImagePath) {
-        const imageResult = await generateFeaturedImage(
-          flowTitleForBlueprint,
-          flowPurposeResolved,
-          outlineTextForImage,
-          precomputedImageChecklist,
-          {
-            apiKey: options.openRouterApiKey,
-            researchModel: pipelineResearchModel,
-            imageModel: pipelineImageModel,
-          },
-        ).catch((error: unknown) => {
-          console.error('Error generating featured image:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          options.onError?.(rowIndex, new Error(`Image generation failed: ${errorMessage}`));
-          return null;
-        });
-        if (imageResult) {
-          try {
-            await persistAiFeaturedImageResult(imageResult);
-          } catch (error) {
-            console.error('Error persisting featured image files:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            options.onError?.(rowIndex, new Error(`Featured image file write failed: ${errorMessage}`));
-          }
+        options.onProgress?.(rowIndex, 0, 'Image Generator: checklist + featured image...');
+        const imageChecklistForRun = await runImageChecklist(
+          bulkFeaturedImageOptions,
+          bulkFeaturedImageContext,
+        );
+        if (imageChecklistForRun.length === 0) {
+          throw new Error('Image Generator checklist was empty');
         }
+
+        const imageResult = await runFeaturedImage(
+          bulkFeaturedImageOptions,
+          bulkFeaturedImageContext,
+          imageChecklistForRun,
+        );
+        if (imageResult.error?.trim()) {
+          const err = new Error(`Image generation failed: ${imageResult.error.trim()}`);
+          options.onError?.(rowIndex, err);
+          throw err;
+        }
+        const imageBase64 =
+          imageResult.previewUrl?.trim() ||
+          imageResult.imageBase64?.trim() ||
+          imageResult.imageUrl?.trim();
+        if (!imageBase64) {
+          const err = new Error('Image generation returned no image data');
+          options.onError?.(rowIndex, err);
+          throw err;
+        }
+
+        await persistAiFeaturedImageResult({ imageBase64 }, imageChecklistForRun);
       }
     })();
 
@@ -2125,9 +2113,19 @@ try {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error generating markdown content:', error);
-      options.onError?.(rowIndex, new Error(`Markdown generation failed: ${errorMessage}`));
-      throw new Error(`Failed to generate markdown content: ${errorMessage}`);
+      const fromImagePipeline =
+        /image grounding|Image generation|Evidence plan|Google Images|featured image/i.test(errorMessage);
+      console.error(fromImagePipeline ? 'Error in featured image pipeline:' : 'Error generating markdown content:', error);
+      const label = fromImagePipeline ? 'Featured image pipeline failed' : 'Markdown generation failed';
+      options.onError?.(rowIndex, new Error(`${label}: ${errorMessage}`));
+      throw new Error(`${label}: ${errorMessage}`);
+    }
+
+    if (useAiImagePath) {
+      const hasFeaturedImageFile = generatedFiles.some((f) => /\.(png|jpe?g)$/i.test(f.fileName));
+      if (!hasFeaturedImageFile) {
+        throw new Error('Featured image was required but no image file was produced');
+      }
     }
 
     precomputedAcfSeoBundle = await scheduleFaqBundlePromise();
@@ -2223,6 +2221,7 @@ try {
         const slugEarly = buildSapSlugFromKeywordEntity(kw, ent);
         if (slugEarly) uploadPageUrl = `${uploadBaseUrl}/${slugEarly}`;
       }
+      options.onProgress?.(rowIndex, 0, 'Quality control: checking HTML...');
       options.onProgress?.(rowIndex, 0, 'Preparing harness content for upload...');
       let htmlContent = await prepareHarnessContentForUpload({
         markdownContent,
@@ -2301,6 +2300,9 @@ try {
             f.fileName.endsWith('.jpg') ||
             f.fileName.endsWith('.jpeg'),
         );
+        if (useAiImagePath && !aiImageFile?.content) {
+          throw new Error('Featured image was required but no image file was available for upload');
+        }
         if (aiImageFile?.content && sitesToPost[0]?.site) {
           imageFile = { fileName: aiImageFile.fileName, content: aiImageFile.content };
           try {
@@ -2438,22 +2440,9 @@ try {
             slug = buildSapSlugFromKeywordEntity(kw, ent);
             if (!slug || slug.length < 2) slug = undefined;
           } else {
-            try {
-              const keyword = (
-                bulkPrimaryKw ||
-                enrichedRow.title ||
-                blueprintResult.title ||
-                ''
-              ).trim();
-              const entitySlug =
-                enrichedRow.entity && enrichedRow.entity.trim() && enrichedRow.entity.trim() !== 'N/A'
-                  ? enrichedRow.entity.trim()
-                  : undefined;
-              slug = await generateSEOSlug(postTitle, keyword || postTitle, entitySlug, loadApiKey());
-              if (!slug || slug.length < 2) slug = undefined;
-            } catch {
-              slug = undefined;
-            }
+            throw new Error(
+              "Blog row is missing target_slug. Regenerate Ideas so the URL slug agent can set the permalink.",
+            );
           }
           }
 
@@ -2824,14 +2813,16 @@ try {
               if (enrichedRow.service_area_fields && enrichedRow.service_area_fields.trim()) {
                 acfMetaFields['service_area_fields'] = enrichedRow.service_area_fields.trim();
               }
-              const titleForAcfOrigin = (enrichedRow.title ?? postTitle ?? '').trim();
-              const originFromTitle = extractOriginFromSapTitle(titleForAcfOrigin);
-              if (enrichedRow.origin && enrichedRow.origin.trim() && enrichedRow.origin.trim() !== 'N/A') {
-                acfMetaFields[fieldNames.origin] = enrichedRow.origin.trim();
-              } else if (originFromTitle) {
-                acfMetaFields[fieldNames.origin] = originFromTitle;
-              } else if (entity) {
-                acfMetaFields[fieldNames.origin] = entity;
+              if (acfOriginAppliesForSitemapType(sitemapType)) {
+                const titleForAcfOrigin = (enrichedRow.title ?? postTitle ?? '').trim();
+                const originFromTitle = extractOriginFromSapTitle(titleForAcfOrigin);
+                if (enrichedRow.origin && enrichedRow.origin.trim() && enrichedRow.origin.trim() !== 'N/A') {
+                  acfMetaFields[fieldNames.origin] = enrichedRow.origin.trim();
+                } else if (originFromTitle) {
+                  acfMetaFields[fieldNames.origin] = originFromTitle;
+                } else if (entity) {
+                  acfMetaFields[fieldNames.origin] = entity;
+                }
               }
 
               const optimizedMetaForSync =

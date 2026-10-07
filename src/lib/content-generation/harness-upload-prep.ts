@@ -19,7 +19,11 @@ import {
   expandOverviewScrollLinkPlaceholders,
   expandOverviewScrollLinkPlaceholdersInMarkdown,
 } from "@/lib/prompt-builders/overview-link-rules";
-import { ensureOverviewBulletBoldLabels } from "@/lib/overview/overview-bullet-bold-labels";
+import {
+  ensureHarnessListItemBoldLabels,
+  ensureOverviewBulletBoldLabels,
+} from "@/lib/overview/overview-bullet-bold-labels";
+import { runHarnessHtmlQualityControl } from "@/lib/content-generation/harness-html-quality-control";
 import { isGeneratedContentHtml } from "@/lib/content-generation/content-format";
 import {
   resolveInternalLinkPlaceholdersInHtml,
@@ -172,5 +176,15 @@ export async function prepareHarnessContentForUpload(
     htmlContent = injectHarnessH2AnchorIdsForStitchedBlog(htmlContent, bodyAnchors);
   }
 
+  htmlContent = repairHarnessHtmlForUpload(htmlContent, linkLeakOpts);
+  if (isGeneratedContentHtml(htmlContent)) {
+    htmlContent = ensureHarnessListItemBoldLabels(htmlContent);
+    htmlContent = await runHarnessHtmlQualityControl({
+      html: htmlContent,
+      apiKey,
+      model,
+      signal,
+    });
+  }
   return repairHarnessHtmlForUpload(htmlContent, linkLeakOpts);
 }

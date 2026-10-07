@@ -22,7 +22,7 @@ import { VerticalBenchmarkShell } from "@/components/vertical-benchmark/Vertical
 const ApiDocsTabContent = lazy(() =>
   import("@/components/api-docs/ApiDocsTabContent").then((m) => ({ default: m.ApiDocsTabContent })),
 );
-import { saveDataForSEOApiKey } from "@/lib/api";
+import { saveDataForSEOApiKey, saveSemrushApiKey, loadSemrushApiKey } from "@/lib/api";
 import type { ManagerSettingsClusterId } from "@/components/manager/manager-settings-cluster";
 import type { GeneratorFreeFlowBindings } from "@/components/generator/generator-free-flow-bindings";
 import type { AssistNavigateTarget } from "@/lib/pulse-assist/types";
@@ -59,6 +59,12 @@ export interface ManagerWorkspaceProps {
   setAgentResearchModel: (model: string) => void;
   agentImageModel: string;
   setAgentImageModel: (model: string) => void;
+  agentMetaModel: string;
+  setAgentMetaModel: (model: string) => void;
+  agentReportModel: string;
+  setAgentReportModel: (model: string) => void;
+  agentAdsModel: string;
+  setAgentAdsModel: (model: string) => void;
   temperature: number;
   setTemperature: (value: number) => void;
   maxTokens: number;
@@ -103,6 +109,12 @@ export const ManagerWorkspace: React.FC<ManagerWorkspaceProps> = ({
   setAgentResearchModel,
   agentImageModel,
   setAgentImageModel,
+  agentMetaModel,
+  setAgentMetaModel,
+  agentReportModel,
+  setAgentReportModel,
+  agentAdsModel,
+  setAgentAdsModel,
   temperature,
   setTemperature,
   maxTokens,
@@ -121,6 +133,13 @@ export const ManagerWorkspace: React.FC<ManagerWorkspaceProps> = ({
   const [dataForSEOApiKey, setDataForSEOApiKey] = useState<string>(() => {
     try {
       return localStorage.getItem("dataforseo-api-key") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [semrushApiKey, setSemrushApiKey] = useState<string>(() => {
+    try {
+      return loadSemrushApiKey();
     } catch {
       return "";
     }
@@ -331,12 +350,21 @@ export const ManagerWorkspace: React.FC<ManagerWorkspaceProps> = ({
             dataForSEOApiKey={dataForSEOApiKey}
             setDataForSEOApiKey={setDataForSEOApiKey}
             saveDataForSEOApiKeyToStorage={saveDataForSEOApiKey}
+            semrushApiKey={semrushApiKey}
+            setSemrushApiKey={setSemrushApiKey}
+            saveSemrushApiKeyToStorage={saveSemrushApiKey}
             selectedModel={selectedModel}
             setSelectedModel={setSelectedModel}
             agentResearchModel={agentResearchModel}
             setAgentResearchModel={setAgentResearchModel}
             agentImageModel={agentImageModel}
             setAgentImageModel={setAgentImageModel}
+            agentMetaModel={agentMetaModel}
+            setAgentMetaModel={setAgentMetaModel}
+            agentReportModel={agentReportModel}
+            setAgentReportModel={setAgentReportModel}
+            agentAdsModel={agentAdsModel}
+            setAgentAdsModel={setAgentAdsModel}
             temperature={temperature}
             setTemperature={setTemperature}
             maxTokens={maxTokens}

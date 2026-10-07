@@ -1,4 +1,4 @@
-import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
+import { postOpenRouterAppChat } from "@/lib/openrouter-app-api";
 import { aiFilterAllowedBrandTexts } from "@/lib/content-brand-ai-gate";
 import { GLOBAL_BLOCKED_TOPIC_PROMPT_BLOCK } from "@/lib/content-topic-blocklist";
 import { getResearchModel } from "@/lib/optimization-settings-storage";
@@ -155,10 +155,16 @@ export async function selectPromptBulkLowHangingKeywords(args: {
   siteInventoryJson?: string;
   connectedSite?: PromptBulkKwConnectedSiteContext | null;
 }): Promise<string[]> {
+  const model = getResearchModel(args.siteId);
   const apiKey = args.apiKey.trim();
   const limit = Math.max(1, Math.min(50, Math.floor(args.numberOfBlogs) || 1));
   const jsonText = args.keywordsJsonText.trim();
-  if (!apiKey || !jsonText) return [];
+  if (!apiKey) {
+    throw new Error("OpenRouter API key is required for keyword research.");
+  }
+  if (!jsonText) {
+    throw new Error("Site keyword JSON is required for keyword research.");
+  }
 
   const inventoryJson = args.siteInventoryJson?.trim();
   const userPayload: Record<string, unknown> = {
@@ -175,17 +181,25 @@ export async function selectPromptBulkLowHangingKeywords(args: {
 
   const user = JSON.stringify(userPayload);
 
-  const { content } = await callOpenRouterChatCompletion({
+  const response = await postOpenRouterAppChat({
     apiKey,
-    model: getResearchModel(args.siteId),
+    model,
     system: SYSTEM,
     user,
-    maxTokens: Math.max(256, limit * 48),
+    maxTokens: Math.max(4096, limit * 256),
     temperature: 0.25,
     responseFormat: buildLowHangingKeywordsResponseFormat(limit),
   });
 
-  const parsed = parseKeywords(content, limit);
+  const rawText =
+    response.content.trim() ||
+    (response.parsed ? JSON.stringify(response.parsed) : "");
+  if (!rawText) {
+    const finish = response.finishReason ?? response.nativeFinishReason ?? "unknown";
+    throw new Error(`Keyword research agent returned no JSON (finish_reason=${finish}).`);
+  }
+
+  const parsed = parseKeywords(rawText, limit);
   const companyName = args.connectedSite?.name?.trim() || "";
   if (!companyName) return parsed;
   const allowed = await aiFilterAllowedBrandTexts({

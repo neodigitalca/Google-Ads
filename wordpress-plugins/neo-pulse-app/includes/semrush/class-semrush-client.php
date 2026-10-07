@@ -13,12 +13,54 @@ class Neo_Pulse_App_Semrush_Client {
 
 	const DISPLAY_LIMIT = 50;
 
+	/** @var string */
+	private static $request_api_key = '';
+
+	/**
+	 * @param array<string,mixed> $body
+	 */
+	public static function bind_api_key_for_request( array $body ): void {
+		self::$request_api_key = Neo_Pulse_App_Secrets::semrush_api_key_for_request( $body );
+	}
+
+	public static function clear_request_api_key(): void {
+		self::$request_api_key = '';
+	}
+
 	public static function has_api_key(): bool {
-		return Neo_Pulse_App_Secrets::semrush_api_key() !== '';
+		return self::api_key() !== '';
 	}
 
 	public static function api_key(): string {
+		if ( self::$request_api_key !== '' ) {
+			return self::$request_api_key;
+		}
 		return Neo_Pulse_App_Secrets::semrush_api_key();
+	}
+
+	/**
+	 * v4 / MCP-style keys use Authorization: Apikey. Classic v3 keys use ?key= query param.
+	 *
+	 * @param array<string,string|int> $params
+	 * @return array{params:array<string,string|int>,headers:array<string,string>}
+	 */
+	public static function auth_for_get( string $key, array $params ): array {
+		$headers = array(
+			'Accept' => 'text/plain, */*',
+		);
+		if ( self::key_uses_apikey_header( $key ) ) {
+			$headers['Authorization'] = 'Apikey ' . $key;
+		} else {
+			$params['key'] = $key;
+		}
+		return array(
+			'params'  => $params,
+			'headers' => $headers,
+		);
+	}
+
+	public static function key_uses_apikey_header( string $key ): bool {
+		return str_starts_with( $key, 'semrtkn-' );
 	}
 
 	/**
@@ -31,17 +73,16 @@ class Neo_Pulse_App_Semrush_Client {
 			return new WP_Error( 'neo-pulse_semrush_missing', 'SEMRUSH_API_KEY is not set' );
 		}
 
-		$params['key'] = $key;
-		$url           = add_query_arg( $params, self::API_BASE );
+		$auth = self::auth_for_get( $key, $params );
+		$url  = add_query_arg( $auth['params'], self::API_BASE );
 
-		$response = wp_remote_get(
+		$response = Neo_Pulse_App_Http_Transient_Retry::remote_get(
 			$url,
 			array(
 				'timeout' => 60,
-				'headers' => array(
-					'Accept' => 'text/plain, */*',
-				),
-			)
+				'headers' => $auth['headers'],
+			),
+			3
 		);
 
 		if ( is_wp_error( $response ) ) {

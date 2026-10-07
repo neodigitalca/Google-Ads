@@ -4,24 +4,15 @@ import type { BulkProcessingOptions } from "@/lib/bulk-auto-generate";
 import { buildSitesToPostFromPosting } from "@/lib/bulk-auto-generate";
 import { BulkFileManager, type BulkGeneratedFile } from "@/lib/bulk-file-manager";
 import type { BlogImportFormState } from "@/lib/bulk/blog-import-parse";
-import {
-  isBlogImportFileAccepted,
-  importedDraftToCsvRow,
-  parseBlogImportFile,
-} from "@/lib/bulk/blog-import-parser";
+import { isBlogImportFileAccepted } from "@/lib/bulk/blog-import-parser";
 import { extractDirectImportMetaViaOpenRouter } from "@/lib/bulk/blog-import-openrouter-run";
-import { formatDirectImportHtmlWithAgent } from "@/lib/bulk/blog-import-format-agent";
 import { reformatExistingMarkdownHeadings } from "@/lib/bulk/blog-import-format-blocks";
 import {
-  appendDirectFaqAndSchema,
-  directImportBodyFingerprint,
   directPageUrl,
   generateDirectFeaturedImagePayload,
-  prependDirectAnswerAndOverview,
   resolveDirectFeaturedImageMode,
-  runDirectKeywordResearch,
   uploadDirectFeaturedMedia,
-  writeDirectSeoAcfAndRankMath,
+  writeDirectImportMetaOnly,
   type DirectAnalyzeKeywordFn,
 } from "@/lib/bulk/blog-import-direct-extras";
 import { serializeModifierLinksJson } from "@/lib/bulk/bulk-csv-parser";
@@ -134,42 +125,18 @@ export async function buildImportCsvRowFromFile(
   const markdown = source.markdown;
   const linkFields = importRowLinkFields(html, markdown);
 
-  if (destination === "direct") {
-    return {
-      keyword: meta.keyword,
-      keyword_focus: meta.keyword,
-      title: meta.title,
-      meta_description: meta.meta_description,
-      featuredImage: form.featuredImageMode,
-      imported_html: html,
-      imported_markdown: markdown,
-      import_file_name: file.name,
-      post_destination: "direct",
-      target_slug: meta.slug,
-      ...(form.entity.trim() ? { entity: form.entity.trim() } : {}),
-      ...linkFields,
-    };
-  }
-
-  const draft = await parseBlogImportFile(file, {
-    titleOverride: form.titleOverride || meta.title,
-    requireMinSections: false,
-  });
-  const row = importedDraftToCsvRow(draft, meta.keyword, {
-    featuredImage: form.featuredImageMode,
-    entity: form.featuredImageMode === "google-maps" ? form.entity : undefined,
-  });
   return {
-    ...row,
-    title: meta.title,
     keyword: meta.keyword,
     keyword_focus: meta.keyword,
+    title: meta.title,
     meta_description: meta.meta_description,
+    featuredImage: form.featuredImageMode,
     imported_html: html,
     imported_markdown: markdown,
     import_file_name: file.name,
     post_destination: destination,
     target_slug: meta.slug,
+    ...(form.entity.trim() ? { entity: form.entity.trim() } : {}),
     ...linkFields,
   };
 }
@@ -214,78 +181,22 @@ export async function processDirectBlogImportRow(args: {
     featuredImage: featuredImageMode,
   };
 
-  options.onProgress?.(rowIndex, 0, "Format headings...");
-  const formattedHtml = await formatDirectImportHtmlWithAgent({
-    html: formatDirectImportHtml(publishRow),
-    postTitle: publishRow.title,
-    apiKey,
-    model: options.selectedModel,
-  });
-  const bodyFingerprint = directImportBodyFingerprint(formattedHtml);
+  options.onProgress?.(rowIndex, 0, "Preparing body...");
+  const formattedHtml = formatDirectImportHtml(publishRow);
   const excerpt = excerptFromDirectSource(publishRow, formattedHtml);
   const title = publishRow.title.trim();
   const slug = publishRow.target_slug!.trim();
   const keyword = (publishRow.keyword_focus || publishRow.keyword).trim();
 
   const posting = options.wordPressPosting;
-  if (!posting?.enabled) {
-    throw new Error("Select a WordPress site before Direct publish");
-  }
-  const sitesToPost = buildSitesToPostFromPosting(posting);
-  if (sitesToPost.length === 0) {
-    throw new Error("Select a WordPress site before Direct publish");
-  }
-  const firstSite = sitesToPost[0]!.site;
-  const pageUrl = directPageUrl(firstSite, slug);
+  const sitesToPost = posting?.enabled ? buildSitesToPostFromPosting(posting) : [];
 
-  const research = await runDirectKeywordResearch({
-    rowIndex,
-    row: publishRow,
-    options,
-    fileManager,
-    analyzeKeyword: args.analyzeKeyword,
-    pageUrl,
-  });
-  const generatedFiles: BulkGeneratedFile[] = [...research.files];
-
-  options.onProgress?.(rowIndex, 0, "Answer and Overview...");
-  let html = await prependDirectAnswerAndOverview({
-    bodyHtml: formattedHtml,
-    articleTitle: title,
-    focusKeyword: keyword,
-    pageUrl,
-    site: firstSite,
-    entity: publishRow.entity,
-    seoResearchBrief: research.seoResearchBrief,
-    apiKey,
-    model: options.selectedModel,
-  });
-  if (directImportBodyFingerprint(html) !== bodyFingerprint) {
-    throw new Error("Direct Answer or Overview changed imported body wording");
-  }
-
-  options.onProgress?.(rowIndex, 0, "FAQ schema...");
-  const faq = await appendDirectFaqAndSchema({
-    html,
-    row: publishRow,
-    keywordData: research.keywordData,
-    excerpt,
-    site: firstSite,
-    postTitle: title,
-    primaryKw: keyword,
-    placeholderPostUrl: pageUrl,
-    seoResearchBrief: research.seoResearchBrief,
-    apiKey,
-    model: options.selectedModel,
-    onProgress: (message) => options.onProgress?.(rowIndex, 0, message),
-  });
-  html = faq.html;
-  if (directImportBodyFingerprint(html) !== bodyFingerprint) {
-    throw new Error("Direct FAQ changed imported body wording");
-  }
+  const generatedFiles: BulkGeneratedFile[] = [];
+  const html = formattedHtml;
+  const acfFields = buildDirectAcfFields(publishRow, excerpt);
 
   let featuredImage: { imageBase64: string; filename: string } | undefined;
-  if (featuredImageMode !== "n") {
+  if (featuredImageMode !== "n" && sitesToPost.length > 0) {
     options.onProgress?.(rowIndex, 0, "Featured image...");
     featuredImage = await generateDirectFeaturedImagePayload({
       mode: featuredImageMode,
@@ -311,29 +222,62 @@ export async function processDirectBlogImportRow(args: {
   fileManager.addFile(contentFile);
   generatedFiles.push(contentFile);
 
+  if (sitesToPost.length === 0) {
+    options.onProgress?.(rowIndex, 0, "Meta JSON...");
+    const timestampLocal = timestamp;
+    const metaFile: BulkGeneratedFile = {
+      id: BulkFileManager.createFileId(rowIndex, "blog-import-meta", timestampLocal),
+      rowIndex,
+      fileName: `blog-import-meta-${title.replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase()}-${timestampLocal}.json`,
+      content: JSON.stringify(
+        {
+          title,
+          slug,
+          keyword,
+          excerpt,
+          meta_description: publishRow.meta_description,
+          acfFields,
+          html,
+        },
+        null,
+        2,
+      ),
+      mimeType: "application/json",
+      status: "completed",
+      timestamp: timestampLocal,
+      rowData: publishRow,
+    };
+    fileManager.addFile(metaFile);
+    generatedFiles.push(metaFile);
+    return generatedFiles;
+  }
+
+  const firstSite = sitesToPost[0]!.site;
+  const pageUrl = directPageUrl(firstSite, slug);
+
+  const wpPosting = posting!;
   const scheduleOpts = {
-    frequency: posting.frequency,
-    customInterval: posting.customInterval,
-    customStaggerOptimized: posting.customStaggerOptimized,
-    dayOfWeek: posting.dayOfWeek,
-    startDate: posting.startDate,
-    startTime: posting.startTime,
-    totalRows: posting.totalRows,
-    useGapScheduling: posting.useGapScheduling,
-    scheduleOccupancy: posting.scheduleOccupancy,
-    publishDays: posting.publishDays,
+    frequency: wpPosting.frequency,
+    customInterval: wpPosting.customInterval,
+    customStaggerOptimized: wpPosting.customStaggerOptimized,
+    dayOfWeek: wpPosting.dayOfWeek,
+    startDate: wpPosting.startDate,
+    startTime: wpPosting.startTime,
+    totalRows: wpPosting.totalRows,
+    useGapScheduling: wpPosting.useGapScheduling,
+    scheduleOccupancy: wpPosting.scheduleOccupancy,
+    publishDays: wpPosting.publishDays,
   };
   const scheduleSlotIndex = options.bulkScheduleSlotIndex ?? rowIndex;
   const { date: scheduledDate } = resolveBulkWordPressPublishDate({
     rowPublishDateGmt: row.publish_date_gmt,
     rowIndex: scheduleSlotIndex,
     schedule: scheduleOpts,
-    useCsvPublishDates: posting.useCsvPublishDates !== false,
+    useCsvPublishDates: wpPosting.useCsvPublishDates !== false,
   });
-  const wpPostStatus = posting.draftOnly
+  const wpPostStatus = wpPosting.draftOnly
     ? ("draft" as const)
     : resolveWordPressPostStatusForSchedule(scheduledDate);
-  const acfFields = buildDirectAcfFields(publishRow, excerpt);
 
   for (let siteIndex = 0; siteIndex < sitesToPost.length; siteIndex++) {
     const { site, sitemapType } = sitesToPost[siteIndex]!;
@@ -362,7 +306,7 @@ export async function processDirectBlogImportRow(args: {
       html,
       excerpt,
       wpPostStatus,
-      posting.draftOnly ? undefined : formatWordPressDate(scheduledDate),
+      wpPosting.draftOnly ? undefined : formatWordPressDate(scheduledDate),
       featuredImageId,
       undefined,
       undefined,
@@ -376,7 +320,7 @@ export async function processDirectBlogImportRow(args: {
     const postLink =
       (typeof postResult.link === "string" && postResult.link.trim()) ||
       `${directPageUrl(site, slug)}`;
-    const writtenAcf = await writeDirectSeoAcfAndRankMath({
+    const writtenAcf = await writeDirectImportMetaOnly({
       site,
       postId: postResult.postId,
       postTypeForAcf,
@@ -385,8 +329,6 @@ export async function processDirectBlogImportRow(args: {
       postTitle: title,
       excerpt,
       primaryKw: keyword,
-      keywordData: research.keywordData,
-      bundle: faq.bundle,
       baseAcf: acfFields,
       apiKey,
     });

@@ -28,6 +28,9 @@ import {
   type ImageReferenceResearchResult,
 } from "@/lib/image-reference-research";
 import { getResearchModel } from "@/lib/optimization-settings-storage";
+import { IMAGE_SCENE_PLAUSIBILITY_PROMPT } from "@/lib/image-scene-plausibility";
+import { windowTreatmentImagePromptSuffix } from "@/lib/image-window-treatment-prompt-rules";
+import { logFeaturedImagePipeline } from "@/lib/image-generator/featured-image-pipeline-log";
 
 function normalizeImageUrl(raw: unknown): string {
   if (typeof raw === "string") return raw;
@@ -134,7 +137,7 @@ async function resolveReferenceResearch(
   options: ImageGeneratorOptions,
   context: ImageGeneratorRunContext,
   researchContext: Parameters<typeof researchGoogleImageReferences>[0]["context"],
-  enablePlaceQueryFanOut = false,
+  opts: { enablePlaceQueryFanOut?: boolean; featured?: boolean } = {},
 ): Promise<ImageReferenceResearchResult> {
   const manualRefs = stripManualReferenceIds(options.manualReferences ?? []);
   if (manualRefs.length) {
@@ -149,7 +152,8 @@ async function resolveReferenceResearch(
     apiKey: context.apiKey,
     model: getResearchModel(),
     context: researchContext,
-    enablePlaceQueryFanOut,
+    enablePlaceQueryFanOut: opts.enablePlaceQueryFanOut,
+    groundingProfile: opts.featured ? "featured" : "default",
   });
 }
 
@@ -188,7 +192,7 @@ export async function runFeaturedImage(
         userPrompt: keyword,
         body: keyword,
       },
-      true,
+      { enablePlaceQueryFanOut: true },
     );
 
     const hasRefs = research.references.length > 0;
@@ -242,22 +246,49 @@ export async function runFeaturedImage(
     },
   );
 
-  const research = await resolveReferenceResearch(options, context, {
-    title: context.flowTitle,
-    purpose: context.flowPurpose,
-    sectionHeader: selectedSectionObj?.header,
-    sectionContent: selectedSectionObj?.content,
-    userPrompt: options.userPrompt,
-    body: effectiveMode === "featured" ? context.finalOutput : selectedSectionObj?.fullText,
-  });
+  if (effectiveMode === "featured") {
+    logFeaturedImagePipeline("Google Image: planning DataForSEO queries (featured profile)");
+  }
+  const research = await resolveReferenceResearch(
+    options,
+    context,
+    {
+      title: context.flowTitle,
+      purpose: context.flowPurpose,
+      sectionHeader: selectedSectionObj?.header,
+      sectionContent: selectedSectionObj?.content,
+      userPrompt: options.userPrompt,
+      body: effectiveMode === "featured" ? context.finalOutput : selectedSectionObj?.fullText,
+    },
+    { featured: effectiveMode === "featured" },
+  );
+  if (effectiveMode === "featured") {
+    logFeaturedImagePipeline("Google Image: research complete", {
+      mode: research.mode,
+      targetQueries: research.targets?.map((t) => t.query) ?? [],
+      referenceCount: research.references.length,
+    });
+  }
 
   const matureOverride = matureRequested ? MATURE_CHECKLIST_OVERRIDE : "";
+  const featuredScene =
+    effectiveMode === "featured" ? `\n\n${IMAGE_SCENE_PLAUSIBILITY_PROMPT}` : "";
+  const windowTreatmentRules =
+    effectiveMode === "featured"
+      ? windowTreatmentImagePromptSuffix(
+          context.flowTitle,
+          context.finalOutput,
+          options.userPrompt,
+        )
+      : "";
   const prompt =
     basePrompt +
     formatChecklistText(checklist) +
     "\n\nFollow the checklist above EXACTLY. Ensure all requirements are met, especially regarding what should and should NOT be included." +
+    featuredScene +
+    windowTreatmentRules +
     matureOverride +
-    buildGroundedImagePromptSuffix(research.references);
+    buildGroundedImagePromptSuffix(research.references, research.spatialLayout);
 
   const result = await generateImage({
     apiKey: context.apiKey,

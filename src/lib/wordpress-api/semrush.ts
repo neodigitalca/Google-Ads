@@ -1,4 +1,14 @@
 import { backendApiUrl } from './connection';
+import { loadSemrushApiKeyForAppRequests } from '@/lib/api';
+
+function semrushRequestHeaders(): HeadersInit {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const key = loadSemrushApiKeyForAppRequests();
+  if (key) {
+    headers['X-Semrush-Api-Key'] = key;
+  }
+  return headers;
+}
 
 /** Raw MCP payloads: phrase_this (volume/CPC/competition) + phrase_kdi (difficulty). */
 export type SemrushKeywordOverviewPayload = {
@@ -221,6 +231,59 @@ export async function fetchSemrushAuditAiContext(params: {
       ok: false,
       error: e instanceof Error ? e.message : String(e),
       status: 0,
+    };
+  }
+}
+
+export type SemrushPositionTrackingCompareRow = {
+  keyword: string;
+  primaryPosition: number | null;
+  comparePosition: number | null;
+  change: number | null;
+};
+
+export type SemrushPositionTrackingCompareResult = {
+  skipped?: boolean;
+  reason?: string;
+  message?: string;
+  rows?: SemrushPositionTrackingCompareRow[];
+};
+
+export async function fetchSemrushPositionTrackingCompare(params: {
+  projectId?: string;
+  campaignId: string;
+  primaryStart: string;
+  primaryEnd: string;
+  compareStart: string;
+  compareEnd: string;
+  trackedUrl: string;
+  /** Last-N-months progress reports: primary positions only, no prior period fetch. */
+  periodOnly?: boolean;
+}): Promise<SemrushPositionTrackingCompareResult> {
+  const url = backendApiUrl("/semrush/position-tracking-compare");
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: semrushRequestHeaders(),
+      body: JSON.stringify(params),
+    });
+    const data = (await response.json()) as SemrushPositionTrackingCompareResult & { error?: string };
+    if (!response.ok) {
+      return {
+        skipped: true,
+        reason: "http_error",
+        message: data?.error || `HTTP ${response.status}`,
+        rows: [],
+      };
+    }
+    return data;
+  } catch (e) {
+    return {
+      skipped: true,
+      reason: "network",
+      message: e instanceof Error ? e.message : String(e),
+      rows: [],
     };
   }
 }

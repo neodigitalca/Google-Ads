@@ -24,9 +24,12 @@ interface SiteDialogProps {
   formGoogleAdsCustomerId: string;
   formGbpLocationId: string;
   formSemrushSiteAuditProjectId: string;
+  formSemrushPositionTrackingProjectId: string;
+  formSemrushPositionTrackingCampaignId: string;
   formEditorialCountsPeriodStartYmd: string;
   formOptimizationPackage: string;
   formBenchmarkCustomTag: string;
+  formProfileTags: string[];
   formServiceCity: string;
   formServiceState: string;
   formServiceCountry: string;
@@ -39,9 +42,12 @@ interface SiteDialogProps {
   onFormGoogleAdsCustomerIdChange: (value: string) => void;
   onFormGbpLocationIdChange: (value: string) => void;
   onFormSemrushSiteAuditProjectIdChange: (value: string) => void;
+  onFormSemrushPositionTrackingProjectIdChange: (value: string) => void;
+  onFormSemrushPositionTrackingCampaignIdChange: (value: string) => void;
   onFormEditorialCountsPeriodStartYmdChange: (value: string) => void;
   onFormOptimizationPackageChange: (value: string) => void;
   onFormBenchmarkCustomTagChange: (value: string) => void;
+  onFormProfileTagsChange: (tags: string[]) => void;
   onFormServiceCityChange: (value: string) => void;
   onFormServiceStateChange: (value: string) => void;
   onFormServiceCountryChange: (value: string) => void;
@@ -62,9 +68,12 @@ export const SiteDialog: React.FC<SiteDialogProps> = ({
   formGoogleAdsCustomerId,
   formGbpLocationId,
   formSemrushSiteAuditProjectId,
+  formSemrushPositionTrackingProjectId,
+  formSemrushPositionTrackingCampaignId,
   formEditorialCountsPeriodStartYmd,
   formOptimizationPackage,
   formBenchmarkCustomTag,
+  formProfileTags,
   formServiceCity,
   formServiceState,
   formServiceCountry,
@@ -77,9 +86,12 @@ export const SiteDialog: React.FC<SiteDialogProps> = ({
   onFormGoogleAdsCustomerIdChange,
   onFormGbpLocationIdChange,
   onFormSemrushSiteAuditProjectIdChange,
+  onFormSemrushPositionTrackingProjectIdChange,
+  onFormSemrushPositionTrackingCampaignIdChange,
   onFormEditorialCountsPeriodStartYmdChange,
   onFormOptimizationPackageChange,
   onFormBenchmarkCustomTagChange,
+  onFormProfileTagsChange,
   onFormServiceCityChange,
   onFormServiceStateChange,
   onFormServiceCountryChange,
@@ -108,9 +120,12 @@ export const SiteDialog: React.FC<SiteDialogProps> = ({
           formGoogleAdsCustomerId={formGoogleAdsCustomerId}
           formGbpLocationId={formGbpLocationId}
           formSemrushSiteAuditProjectId={formSemrushSiteAuditProjectId}
+          formSemrushPositionTrackingProjectId={formSemrushPositionTrackingProjectId}
+          formSemrushPositionTrackingCampaignId={formSemrushPositionTrackingCampaignId}
           formEditorialCountsPeriodStartYmd={formEditorialCountsPeriodStartYmd}
           formOptimizationPackage={formOptimizationPackage}
           formBenchmarkCustomTag={formBenchmarkCustomTag}
+          formProfileTags={formProfileTags}
           formServiceCity={formServiceCity}
           formServiceState={formServiceState}
           formServiceCountry={formServiceCountry}
@@ -123,9 +138,12 @@ export const SiteDialog: React.FC<SiteDialogProps> = ({
           onFormGoogleAdsCustomerIdChange={onFormGoogleAdsCustomerIdChange}
           onFormGbpLocationIdChange={onFormGbpLocationIdChange}
           onFormSemrushSiteAuditProjectIdChange={onFormSemrushSiteAuditProjectIdChange}
+          onFormSemrushPositionTrackingProjectIdChange={onFormSemrushPositionTrackingProjectIdChange}
+          onFormSemrushPositionTrackingCampaignIdChange={onFormSemrushPositionTrackingCampaignIdChange}
           onFormEditorialCountsPeriodStartYmdChange={onFormEditorialCountsPeriodStartYmdChange}
           onFormOptimizationPackageChange={onFormOptimizationPackageChange}
           onFormBenchmarkCustomTagChange={onFormBenchmarkCustomTagChange}
+          onFormProfileTagsChange={onFormProfileTagsChange}
           onFormServiceCityChange={onFormServiceCityChange}
           onFormServiceStateChange={onFormServiceStateChange}
           onFormServiceCountryChange={onFormServiceCountryChange}

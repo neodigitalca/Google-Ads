@@ -1,5 +1,5 @@
 import { REPORT_TEMPERATURE } from "@/lib/competitor-research/competitor-report-openrouter-limits";
-import { postOpenRouterAppChat } from "@/lib/openrouter-app-api";
+import { postOpenRouterAppChat, type OpenRouterAppResponseFormat } from "@/lib/openrouter-app-api";
 
 export async function callOpenRouterChatCompletion(args: {
   apiKey: string;
@@ -11,19 +11,11 @@ export async function callOpenRouterChatCompletion(args: {
   /** Defaults to REPORT_TEMPERATURE. Use a lower value for structured JSON outputs. */
   temperature?: number;
   /** When set, requests JSON-only output on models that support OpenAI-style response_format. */
-  responseFormat?:
-    | { type: "json_object" }
-    | {
-        type: "json_schema";
-        json_schema: {
-          name: string;
-          strict: boolean;
-          schema: Record<string, unknown>;
-        };
-      };
+  responseFormat?: OpenRouterAppResponseFormat;
 }): Promise<{
   raw: unknown;
   content: string;
+  parsed?: Record<string, unknown>;
   finishReason?: string;
   nativeFinishReason?: string;
 }> {

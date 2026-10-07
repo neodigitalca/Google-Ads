@@ -61,21 +61,17 @@ export async function runAdsReportingClientHarness(
   ctx: AgentRunHarnessContext,
   batchKey: string,
 ): Promise<AgentRunResult> {
-  const { comparePreset, compareRanges } = resolveAdsReportingRunConfig(executionPayloadFromSource(contract));
+  const { comparePreset, compareRanges, adsReportStructure } = resolveAdsReportingRunConfig(
+    executionPayloadFromSource(contract),
+  );
   const saveToDisk = effectiveSaveToDisk("ads_reporting", contract);
   const saveLocalArchive = effectiveSaveLocalArchive("ads_reporting", contract);
-
-  await ctx.onStep?.("Preflight", "running", undefined, AGENT_RUN_STEP_KEYS.preflight);
-  await patchTaskExecutionProgress(run.teamId, executionId, {
-    stepId: "preflight",
-    message: "Starting PPC report…",
-    progress: 0.02,
-  });
 
   const result = await runAdsReportingAgentHarness({
     site,
     comparePreset,
     compareRanges,
+    adsReportStructure,
     isCancelled: ctx.isCancelled,
     resumePoint: ctx.resumePoint,
     onProgress: async (p, resumePayload) => {
@@ -156,7 +152,7 @@ export async function runAdsReportingDirectHarness(
   const site = resolveGscReportingSite(run, ctx.sites ?? []);
   const plan = (run.plan ?? {}) as Record<string, unknown>;
   const planPayload = (plan.executionPayload ?? plan.clientRunContract ?? plan) as TaskExecutionPayload;
-  const { comparePreset, compareRanges } = resolveAdsReportingRunConfig(planPayload);
+  const { comparePreset, compareRanges, adsReportStructure } = resolveAdsReportingRunConfig(planPayload);
   const saveToDisk = effectiveSaveToDisk("ads_reporting", planPayload);
   const saveLocalArchive = effectiveSaveLocalArchive("ads_reporting", planPayload);
 
@@ -166,6 +162,7 @@ export async function runAdsReportingDirectHarness(
     site,
     comparePreset,
     compareRanges,
+    adsReportStructure,
     isCancelled: ctx.isCancelled,
     resumePoint: ctx.resumePoint,
     onProgress: async (p, resumePayload) => {

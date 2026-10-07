@@ -1,12 +1,12 @@
 import {
   capPipeTableDataRows,
-  GSC_REPORT_MAX_TABLE_DATA_ROWS,
+  REPORTING_MAX_TABLE_DATA_ROWS,
   stripEmptyPipeTables,
+  stripInlineMarkdownFromPipeTables,
   stripMarkdownHeadingsH3ThroughH6,
-} from "@/lib/gsc-reporting/gsc-reporting-markdown-post";
+} from "@/lib/reporting/reporting-markdown-post";
 import type { AdsReportingSectionKind } from "@/lib/ads-reporting/ads-reporting-types";
 
-/** Pipeline already prepends the section H2. Drop leftover H2 lines from the model body. */
 export function stripMarkdownSectionH2(md: string): string {
   return md
     .split("\n")
@@ -20,6 +20,7 @@ export function applyAdsReportingMarkdownPost(md: string, kind: AdsReportingSect
     s = stripMarkdownHeadingsH3ThroughH6(s);
   }
   s = stripEmptyPipeTables(s);
-  s = capPipeTableDataRows(s, GSC_REPORT_MAX_TABLE_DATA_ROWS);
+  s = capPipeTableDataRows(s, REPORTING_MAX_TABLE_DATA_ROWS);
+  s = stripInlineMarkdownFromPipeTables(s);
   return s.replace(/\n{3,}/g, "\n\n").trim();
 }

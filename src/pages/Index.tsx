@@ -55,11 +55,17 @@ import {
 import { DEFAULT_SETTINGS } from "@/components/integrations/wordpress/OptimizationSettingsPanel";
 import { DEFAULT_IMAGE_MODEL } from "@/lib/image-model-defaults";
 import {
+  readGlobalAdsAgentModel,
   readGlobalBlogAgentModel,
   readGlobalImageAgentModel,
+  readGlobalMetaAgentModel,
+  readGlobalReportAgentModel,
   readGlobalResearchAgentModel,
+  writeGlobalAdsAgentModel,
   writeGlobalBlogAgentModel,
   writeGlobalImageAgentModel,
+  writeGlobalMetaAgentModel,
+  writeGlobalReportAgentModel,
   writeGlobalResearchAgentModel,
 } from "@/lib/global-agent-models";
 import { NEO_PULSE_OPEN_MASTER_RULES_EVENT } from "@/lib/open-master-rules-settings";
@@ -315,6 +321,9 @@ const Index = () => {
   const [flowSectionBodies, setFlowSectionBodies] = useState<Record<string, string>>({});
   const [agentResearchModel, setAgentResearchModel] = useState(() => readGlobalResearchAgentModel());
   const [agentImageModel, setAgentImageModel] = useState(() => readGlobalImageAgentModel());
+  const [agentMetaModel, setAgentMetaModel] = useState(() => readGlobalMetaAgentModel());
+  const [agentReportModel, setAgentReportModel] = useState(() => readGlobalReportAgentModel());
+  const [agentAdsModel, setAgentAdsModel] = useState(() => readGlobalAdsAgentModel());
   const [selectedModel, setSelectedModel] = useState(() => readGlobalBlogAgentModel());
   const [temperature, setTemperature] = useState(() =>
     readStoredLlmNumberForIndex(NEO_PULSE_LLM_TEMPERATURE_KEY, DEFAULT_TEMPERATURE),
@@ -371,9 +380,15 @@ const Index = () => {
     // Reset LLM parameters to default
     setAgentResearchModel(DEFAULT_SETTINGS.researchModel);
     setAgentImageModel(DEFAULT_IMAGE_MODEL);
+    setAgentMetaModel(DEFAULT_SETTINGS.metaModel);
+    setAgentReportModel(DEFAULT_SETTINGS.reportModel);
+    setAgentAdsModel(DEFAULT_SETTINGS.adsModel);
     setSelectedModel(DEFAULT_BLOG_MODEL);
     writeGlobalResearchAgentModel(DEFAULT_SETTINGS.researchModel);
     writeGlobalImageAgentModel(DEFAULT_IMAGE_MODEL);
+    writeGlobalMetaAgentModel(DEFAULT_SETTINGS.metaModel);
+    writeGlobalReportAgentModel(DEFAULT_SETTINGS.reportModel);
+    writeGlobalAdsAgentModel(DEFAULT_SETTINGS.adsModel);
     writeGlobalBlogAgentModel(DEFAULT_BLOG_MODEL);
     setTemperature(DEFAULT_TEMPERATURE);
     setMaxTokens(DEFAULT_MAX_TOKENS);
@@ -417,13 +432,26 @@ const Index = () => {
       writeGlobalResearchAgentModel(agentResearchModel);
       writeGlobalBlogAgentModel(selectedModel);
       writeGlobalImageAgentModel(agentImageModel);
+      writeGlobalMetaAgentModel(agentMetaModel);
+      writeGlobalReportAgentModel(agentReportModel);
+      writeGlobalAdsAgentModel(agentAdsModel);
       localStorage.setItem(NEO_PULSE_LLM_TEMPERATURE_KEY, String(temperature));
       localStorage.setItem(NEO_PULSE_LLM_MAX_TOKENS_KEY, String(maxTokens));
       localStorage.setItem(NEO_PULSE_LLM_TOP_P_KEY, String(topP));
     } catch {
       /* ignore */
     }
-  }, [agentResearchModel, selectedModel, agentImageModel, temperature, maxTokens, topP]);
+  }, [
+    agentResearchModel,
+    selectedModel,
+    agentImageModel,
+    agentMetaModel,
+    agentReportModel,
+    agentAdsModel,
+    temperature,
+    maxTokens,
+    topP,
+  ]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -658,6 +686,12 @@ try {
         setAgentResearchModel={setAgentResearchModel}
         agentImageModel={agentImageModel}
         setAgentImageModel={setAgentImageModel}
+        agentMetaModel={agentMetaModel}
+        setAgentMetaModel={setAgentMetaModel}
+        agentReportModel={agentReportModel}
+        setAgentReportModel={setAgentReportModel}
+        agentAdsModel={agentAdsModel}
+        setAgentAdsModel={setAgentAdsModel}
         temperature={temperature}
         setTemperature={setTemperature}
         maxTokens={maxTokens}

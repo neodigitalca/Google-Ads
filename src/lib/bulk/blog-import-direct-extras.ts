@@ -319,6 +319,97 @@ export async function uploadDirectFeaturedMedia(args: {
   return { mediaId: media.mediaId, url };
 }
 
+/** Direct import: post body unchanged; write keyword, SEO title, meta description, and Rank Math only. */
+export async function writeDirectImportMetaOnly(args: {
+  site: WordPressSite;
+  postId: number;
+  postTypeForAcf: string;
+  entityEndpoint: string;
+  postLink: string;
+  postTitle: string;
+  excerpt: string;
+  primaryKw: string;
+  baseAcf: Record<string, string>;
+  apiKey: string;
+}): Promise<Record<string, string>> {
+  const rankMeta = {
+    seoTitle: args.postTitle,
+    metaDescription: args.baseAcf.meta_description || args.excerpt,
+    focusKeyword: args.primaryKw,
+  };
+  const optimizedMeta = buildOptimizedMetaFromKeywordResearch(
+    rankMeta,
+    args.postTitle,
+    args.excerpt,
+    args.primaryKw,
+    args.postLink,
+    args.site.siteUrl,
+  );
+
+  const acfResult = await getACFFieldsForPost(
+    args.site,
+    args.postId,
+    args.postTypeForAcf,
+    args.entityEndpoint,
+  );
+  const existingAcfFields =
+    acfResult.success && acfResult.fields ? (acfResult.fields as Record<string, unknown>) : {};
+  const fieldsForMapping = await resolveAcfFieldsForMapping(args.site, existingAcfFields);
+  const fieldMapping = {
+    ...fallbackFieldMapping(fieldsForMapping),
+    ...(await discoverACFFieldMapping(
+      fieldsForMapping,
+      args.postTypeForAcf,
+      args.apiKey,
+      args.site.siteUrl,
+    )),
+  };
+
+  const acfWrite: Record<string, string> = { ...args.baseAcf };
+  acfWrite[fieldMapping.keywordFocus || "keyword_focus"] = args.primaryKw.slice(0, 500);
+  const mappedMeta = buildAcfPayload(
+    fieldMapping,
+    optimizedMeta,
+    args.primaryKw,
+    existingAcfFields,
+    "",
+    { includeSeoResearchInPayload: false },
+  );
+  Object.assign(acfWrite, mappedMeta);
+
+  const acfUpdate = await updateACFFields(
+    args.site.siteUrl,
+    args.site.username,
+    args.site.appPassword,
+    args.postId,
+    acfWrite,
+    args.postTypeForAcf,
+    args.entityEndpoint,
+  );
+  if (!acfUpdate.success) {
+    throw new Error(acfUpdate.error || "Direct ACF write failed");
+  }
+
+  const rankMath = await updateWordPressPostMeta(
+    args.site.siteUrl,
+    args.site.username,
+    args.site.appPassword,
+    args.postId,
+    args.postTypeForAcf,
+    args.entityEndpoint,
+    {
+      rank_math_title: optimizedMeta.rank_math_title,
+      rank_math_description: optimizedMeta.rank_math_description,
+      rank_math_focus_keyword: optimizedMeta.rank_math_focus_keyword,
+    },
+  );
+  if (!rankMath.success) {
+    throw new Error(rankMath.error || "Direct Rank Math meta write failed");
+  }
+
+  return acfWrite;
+}
+
 export async function writeDirectSeoAcfAndRankMath(args: {
   site: WordPressSite;
   postId: number;

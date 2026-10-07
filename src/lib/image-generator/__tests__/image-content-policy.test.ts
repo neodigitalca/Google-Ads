@@ -6,7 +6,7 @@ vi.mock("@/lib/competitor-research/competitor-report-openrouter", () => ({
 }));
 
 vi.mock("@/lib/optimization-settings-storage", () => ({
-  getResearchModel: () => "google/gemini-2.5-flash-lite",
+  getMetaModel: () => "google/gemini-2.5-flash-lite",
 }));
 
 describe("detectMatureImageRequest", () => {

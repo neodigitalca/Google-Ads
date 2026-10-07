@@ -25,11 +25,12 @@ class Neo_Pulse_App_Semrush_Route_Handlers {
 			'/semrush/competitor-research'              => array( __CLASS__, 'handle_competitor_research' ),
 			'/semrush/competitor-research/manual-domain' => array( __CLASS__, 'handle_competitor_manual_domain' ),
 			'/semrush/site-audit-url'                   => array( __CLASS__, 'handle_site_audit_url' ),
+			'/semrush/position-tracking-compare'        => array( __CLASS__, 'handle_position_tracking_compare' ),
 		);
 
 		foreach ( $routes as $path => $callback ) {
 			$methods = WP_REST_Server::READABLE;
-			if ( in_array( $path, array( '/semrush/bulk-enrichment', '/semrush/audit-ai-context', '/semrush/match-project-for-site', '/semrush/competitor-research', '/semrush/competitor-research/manual-domain', '/semrush/site-audit-url' ), true ) ) {
+			if ( in_array( $path, array( '/semrush/bulk-enrichment', '/semrush/audit-ai-context', '/semrush/match-project-for-site', '/semrush/competitor-research', '/semrush/competitor-research/manual-domain', '/semrush/site-audit-url', '/semrush/position-tracking-compare' ), true ) ) {
 				$methods = WP_REST_Server::CREATABLE;
 			}
 
@@ -112,6 +113,18 @@ class Neo_Pulse_App_Semrush_Route_Handlers {
 			$body = array();
 		}
 		return new WP_REST_Response( self::run_bulk_enrichment( $body ), 200 );
+	}
+
+	/**
+	 * @param WP_REST_Request $request
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function handle_position_tracking_compare( WP_REST_Request $request ) {
+		$body = $request->get_json_params();
+		if ( ! is_array( $body ) ) {
+			$body = array();
+		}
+		return new WP_REST_Response( Neo_Pulse_App_Semrush_Position_Tracking_Compare::run( $body ), 200 );
 	}
 
 	/**
@@ -532,6 +545,10 @@ class Neo_Pulse_App_Semrush_Route_Handlers {
 		}
 		if ( $subpath === 'site-audit-url' && $method === 'POST' ) {
 			Neo_Pulse_App_Api_Dispatcher::send_json( self::run_site_audit_url( $body ), 200 );
+			return;
+		}
+		if ( $subpath === 'position-tracking-compare' && $method === 'POST' ) {
+			Neo_Pulse_App_Api_Dispatcher::send_json( Neo_Pulse_App_Semrush_Position_Tracking_Compare::run( $body ), 200 );
 			return;
 		}
 

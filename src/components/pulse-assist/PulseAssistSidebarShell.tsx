@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactElement, typ
 import { createPortal } from "react-dom";
 import { ChevronRight, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 import { cn } from "@/lib/utils";
 import { usePulseAssistSidebarResize } from "@/hooks/use-pulse-assist-sidebar-resize";
 import { NEO_PULSE_ASSIST_LABEL } from "./PulseAssistBrandTitle";

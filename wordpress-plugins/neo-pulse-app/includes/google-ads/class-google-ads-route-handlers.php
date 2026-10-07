@@ -58,6 +58,27 @@ class Neo_Pulse_App_Google_Ads_Route_Handlers {
 			return;
 		}
 
+		if ( $subpath === 'list-mcc-clients' && $method === 'POST' ) {
+			$result = Neo_Pulse_App_Google_Ads_Api::list_mcc_client_accounts();
+			if ( empty( $result['ok'] ) ) {
+				Neo_Pulse_App_Api_Dispatcher::send_json(
+					array(
+						'success' => false,
+						'error'   => (string) ( $result['error'] ?? 'Could not list MCC clients.' ),
+					),
+					(int) ( $result['statusCode'] ?? 502 )
+				);
+				return;
+			}
+			Neo_Pulse_App_Api_Dispatcher::send_json(
+				array(
+					'success' => true,
+					'clients' => isset( $result['clients'] ) && is_array( $result['clients'] ) ? $result['clients'] : array(),
+				)
+			);
+			return;
+		}
+
 		if ( $subpath === 'fetch-reporting-bundle' && $method === 'POST' ) {
 			$result = Neo_Pulse_App_Google_Ads_Reporting_Bundle::fetch_reporting_bundle( $body );
 			$status = ! empty( $result['success'] ) ? 200 : (int) ( $result['statusCode'] ?? 502 );

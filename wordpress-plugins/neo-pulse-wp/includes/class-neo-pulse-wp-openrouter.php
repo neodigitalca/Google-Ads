@@ -179,7 +179,7 @@ class Neo_Pulse_Wp_OpenRouter {
 	 * @param float  $temperature
 	 * @return string|WP_Error
 	 */
-	public static function complete( string $system_prompt, string $user_prompt, int $max_tokens = 4096, float $temperature = 0.7 ) {
+	public static function complete( string $system_prompt, string $user_prompt, int $max_tokens = 4096, float $temperature = 0.7, ?string $model = null ) {
 		$key = self::get_api_key();
 		if ( $key === '' ) {
 			return new WP_Error(
@@ -190,6 +190,8 @@ class Neo_Pulse_Wp_OpenRouter {
 
 		self::maybe_extend_time_limit();
 
+		$model_id = $model !== null && trim( $model ) !== '' ? trim( $model ) : self::get_model();
+
 		$response = wp_remote_post(
 			self::API_URL,
 			array(
@@ -197,7 +199,7 @@ class Neo_Pulse_Wp_OpenRouter {
 				'headers' => self::request_headers( $key ),
 				'body'    => wp_json_encode(
 					array(
-						'model'       => self::get_model(),
+						'model'       => $model_id,
 						'messages'    => array(
 							array(
 								'role'    => 'system',

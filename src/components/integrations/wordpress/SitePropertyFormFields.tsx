@@ -21,6 +21,8 @@ import type { WordPressSite } from "../types";
 import { matchSemrushProjectForSite } from "@/lib/wordpress-api/semrush";
 import { isOptimizationPackageTier } from "@/lib/wordpress-optimization-package";
 import { persistGbpLocationIdInput } from "@/lib/gbp-post/normalize-gbp-location-id";
+import { PropertyProfileTagPills } from "./PropertyProfileTagPills";
+import { normalizeProfileTags } from "@/lib/wordpress-property-profile-tags";
 import {
   WP_PANEL_INSET_BAND,
   WP_PANEL_LIST_GAP,
@@ -29,6 +31,7 @@ import {
 } from "./wordpress-panel-chrome";
 import {
   TASK_FORM_FLAT_CONTROL_CLASS,
+  TaskFormFlatField,
   TaskFormFlatGrid,
   TaskFormPlaceholderCell,
   TaskFormSideSection,
@@ -186,14 +189,13 @@ export interface SitePropertyFormFieldsProps {
   formGoogleAdsCustomerId: string;
   formGbpLocationId: string;
   formSemrushSiteAuditProjectId: string;
-  /** Saved on site row / server mirror when form state is still empty. */
-  persistedGbpLocationId?: string;
-  persistedGa4PropertyId?: string;
-  persistedGoogleAdsCustomerId?: string;
+  formSemrushPositionTrackingProjectId: string;
+  formSemrushPositionTrackingCampaignId: string;
   formEditorialCountsPeriodStartYmd: string;
   /** Empty string = no package (unlimited). */
   formOptimizationPackage: string;
   formBenchmarkCustomTag: string;
+  formProfileTags: string[];
   formServiceCity: string;
   formServiceState: string;
   formServiceCountry: string;
@@ -206,9 +208,12 @@ export interface SitePropertyFormFieldsProps {
   onFormGoogleAdsCustomerIdChange: (value: string) => void;
   onFormGbpLocationIdChange: (value: string) => void;
   onFormSemrushSiteAuditProjectIdChange: (value: string) => void;
+  onFormSemrushPositionTrackingProjectIdChange: (value: string) => void;
+  onFormSemrushPositionTrackingCampaignIdChange: (value: string) => void;
   onFormEditorialCountsPeriodStartYmdChange: (value: string) => void;
   onFormOptimizationPackageChange: (value: string) => void;
   onFormBenchmarkCustomTagChange: (value: string) => void;
+  onFormProfileTagsChange: (tags: string[]) => void;
   onFormServiceCityChange: (value: string) => void;
   onFormServiceStateChange: (value: string) => void;
   onFormServiceCountryChange: (value: string) => void;
@@ -238,13 +243,13 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
   formGa4PropertyId,
   formGoogleAdsCustomerId,
   formGbpLocationId,
-  persistedGbpLocationId = "",
-  persistedGa4PropertyId = "",
-  persistedGoogleAdsCustomerId = "",
   formSemrushSiteAuditProjectId,
+  formSemrushPositionTrackingProjectId,
+  formSemrushPositionTrackingCampaignId,
   formEditorialCountsPeriodStartYmd,
   formOptimizationPackage,
   formBenchmarkCustomTag,
+  formProfileTags,
   formServiceCity,
   formServiceState,
   formServiceCountry,
@@ -257,9 +262,12 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
   onFormGoogleAdsCustomerIdChange,
   onFormGbpLocationIdChange,
   onFormSemrushSiteAuditProjectIdChange,
+  onFormSemrushPositionTrackingProjectIdChange,
+  onFormSemrushPositionTrackingCampaignIdChange,
   onFormEditorialCountsPeriodStartYmdChange,
   onFormOptimizationPackageChange,
   onFormBenchmarkCustomTagChange,
+  onFormProfileTagsChange,
   onFormServiceCityChange,
   onFormServiceStateChange,
   onFormServiceCountryChange,
@@ -273,9 +281,6 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
 }) => {
   const hc = helpClass(chrome);
   const sh = strongHelpClass(chrome);
-  const gbpFieldValue = formGbpLocationId.trim() || persistedGbpLocationId.trim();
-  const ga4FieldValue = formGa4PropertyId.trim() || persistedGa4PropertyId.trim();
-  const adsFieldValue = formGoogleAdsCustomerId.trim() || persistedGoogleAdsCustomerId.trim();
   const [semrushMatching, setSemrushMatching] = useState(false);
 
   const semrushBtnClass =
@@ -406,6 +411,20 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
             />
           </TaskFormPlaceholderCell>
         </TaskFormFlatGrid>
+        <div className="mt-2">
+          <PropertyProfileTagPills
+            value={formProfileTags}
+            onChange={onFormProfileTagsChange}
+            onCommit={(tags) => {
+              if (onPatchSite && patchSiteId) {
+                const normalized = normalizeProfileTags(tags);
+                onPatchSite(patchSiteId, {
+                  profileTags: normalized.length ? normalized : undefined,
+                });
+              }
+            }}
+          />
+        </div>
         <TaskFormFlatGrid className="grid-cols-2">
           <TaskFormPlaceholderCell>
             <Input
@@ -500,65 +519,68 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
     const integrationsSection = (
       <TaskFormSideSection title="Integrations">
         <TaskFormFlatGrid className="grid-cols-2">
-          <TaskFormPlaceholderCell>
+          <TaskFormFlatField label="GA4 Property ID">
             <Input
-              value={ga4FieldValue}
+              value={formGa4PropertyId}
               onChange={(e) => onFormGa4PropertyIdChange(e.target.value)}
-              onFocus={() => {
-                if (!formGa4PropertyId.trim() && persistedGa4PropertyId.trim()) {
-                  onFormGa4PropertyIdChange(persistedGa4PropertyId.trim());
-                }
-              }}
-              placeholder="GA4 Property ID"
               aria-label="GA4 Property ID"
+              autoComplete="off"
               className={flatInputClass}
             />
-          </TaskFormPlaceholderCell>
-          <TaskFormPlaceholderCell>
+          </TaskFormFlatField>
+          <TaskFormFlatField label="Google Ads customer ID">
             <Input
-              value={adsFieldValue}
+              value={formGoogleAdsCustomerId}
               onChange={(e) => onFormGoogleAdsCustomerIdChange(e.target.value)}
-              onFocus={() => {
-                if (!formGoogleAdsCustomerId.trim() && persistedGoogleAdsCustomerId.trim()) {
-                  onFormGoogleAdsCustomerIdChange(persistedGoogleAdsCustomerId.trim());
-                }
-              }}
-              placeholder="Google Ads customer ID"
               aria-label="Google Ads customer ID"
+              autoComplete="off"
               className={flatInputClass}
             />
-          </TaskFormPlaceholderCell>
-          <TaskFormPlaceholderCell>
+          </TaskFormFlatField>
+          <TaskFormFlatField label="GBP Location ID" className="sm:col-span-2">
             <Input
-              value={gbpFieldValue}
+              value={formGbpLocationId}
               onChange={(e) => onFormGbpLocationIdChange(e.target.value)}
-              onFocus={() => {
-                if (!formGbpLocationId.trim() && persistedGbpLocationId.trim()) {
-                  onFormGbpLocationIdChange(persistedGbpLocationId.trim());
-                }
-              }}
               onBlur={() => {
-                const persisted = persistGbpLocationIdInput(
-                  formGbpLocationId || persistedGbpLocationId,
-                );
-                if (persisted && persisted !== formGbpLocationId) {
-                  onFormGbpLocationIdChange(persisted);
+                const normalized = persistGbpLocationIdInput(formGbpLocationId);
+                if (normalized && normalized !== formGbpLocationId) {
+                  onFormGbpLocationIdChange(normalized);
                 }
               }}
-              placeholder="GBP Location ID"
               aria-label="GBP Location ID"
+              autoComplete="off"
               className={flatInputClass}
             />
-          </TaskFormPlaceholderCell>
-          <TaskFormPlaceholderCell className="sm:col-span-2">
+          </TaskFormFlatField>
+          <TaskFormFlatField label="Semrush Site Audit Project ID" className="sm:col-span-2">
             <Input
               value={formSemrushSiteAuditProjectId}
               onChange={(e) => onFormSemrushSiteAuditProjectIdChange(e.target.value)}
-              placeholder="Semrush Site Audit Project ID"
               aria-label="Semrush Site Audit Project ID"
+              autoComplete="off"
               className={flatInputClass}
             />
-          </TaskFormPlaceholderCell>
+          </TaskFormFlatField>
+          <TaskFormFlatField label="Position Tracking project ID">
+            <Input
+              value={formSemrushPositionTrackingProjectId}
+              onChange={(e) => onFormSemrushPositionTrackingProjectIdChange(e.target.value)}
+              placeholder="Position Tracking project ID"
+              aria-label="Position Tracking project ID"
+              autoComplete="off"
+              className={flatInputClass}
+            />
+          </TaskFormFlatField>
+          <TaskFormFlatField label="Position Tracking campaign ID">
+            <Input
+              value={formSemrushPositionTrackingCampaignId}
+              onChange={(e) => onFormSemrushPositionTrackingCampaignIdChange(e.target.value)}
+              placeholder="Position Tracking campaign ID"
+              aria-label="Position Tracking campaign ID"
+              autoComplete="off"
+              className={flatInputClass}
+            />
+          </TaskFormFlatField>
         </TaskFormFlatGrid>
         <div className="mt-1 flex flex-wrap items-center gap-2 px-1">
           <Button
@@ -749,6 +771,21 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
         }
       />
 
+      <div className="py-2">
+        <PropertyProfileTagPills
+          value={formProfileTags}
+          onChange={onFormProfileTagsChange}
+          onCommit={(tags) => {
+            if (onPatchSite && patchSiteId) {
+              const normalized = normalizeProfileTags(tags);
+              onPatchSite(patchSiteId, {
+                profileTags: normalized.length ? normalized : undefined,
+              });
+            }
+          }}
+        />
+      </div>
+
       <FieldBlock
         chrome={chrome}
         label="Service city"
@@ -925,14 +962,9 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
                   chrome={chrome}
                   id="ga4PropertyId"
                   type="text"
-                  value={ga4FieldValue}
+                  value={formGa4PropertyId}
                   onChange={(e) => onFormGa4PropertyIdChange(e.target.value)}
-                  onFocus={() => {
-                    if (!formGa4PropertyId.trim() && persistedGa4PropertyId.trim()) {
-                      onFormGa4PropertyIdChange(persistedGa4PropertyId.trim());
-                    }
-                  }}
-                  placeholder="e.g. 123456789"
+                  aria-label="GA4 Property ID"
                 />
               }
               help={
@@ -952,14 +984,9 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
                   chrome={chrome}
                   id="googleAdsCustomerId"
                   type="text"
-                  value={adsFieldValue}
+                  value={formGoogleAdsCustomerId}
                   onChange={(e) => onFormGoogleAdsCustomerIdChange(e.target.value)}
-                  onFocus={() => {
-                    if (!formGoogleAdsCustomerId.trim() && persistedGoogleAdsCustomerId.trim()) {
-                      onFormGoogleAdsCustomerIdChange(persistedGoogleAdsCustomerId.trim());
-                    }
-                  }}
-                  placeholder="123-456-7890"
+                  aria-label="Google Ads customer ID"
                 />
               }
             />
@@ -974,22 +1001,15 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
                   chrome={chrome}
                   id="gbpLocationId"
                   type="text"
-                  value={gbpFieldValue}
+                  value={formGbpLocationId}
                   onChange={(e) => onFormGbpLocationIdChange(e.target.value)}
-                  onFocus={() => {
-                    if (!formGbpLocationId.trim() && persistedGbpLocationId.trim()) {
-                      onFormGbpLocationIdChange(persistedGbpLocationId.trim());
-                    }
-                  }}
                   onBlur={() => {
-                    const persisted = persistGbpLocationIdInput(
-                      formGbpLocationId || persistedGbpLocationId,
-                    );
-                    if (persisted && persisted !== formGbpLocationId) {
-                      onFormGbpLocationIdChange(persisted);
+                    const normalized = persistGbpLocationIdInput(formGbpLocationId);
+                    if (normalized && normalized !== formGbpLocationId) {
+                      onFormGbpLocationIdChange(normalized);
                     }
                   }}
-                  placeholder="Paste full business.google.com profile URL or Advanced settings → Copy ID"
+                  aria-label="Google Business Profile Location ID"
                 />
               }
               help={
@@ -1032,6 +1052,38 @@ export const SitePropertyFormFields: React.FC<SitePropertyFormFieldsProps> = ({
                   <strong className={sh}>Match project from Semrush</strong> below (uses Site URL). Used by the Meta
                   Optimizer AUDIT action for page-level Site Audit data.
                 </p>
+              }
+            />
+
+            <FieldBlock
+              chrome={chrome}
+              label="Position Tracking project ID (Optional)"
+              htmlFor="semrushPositionTrackingProjectId"
+              field={
+                <SitePropertyInput
+                  chrome={chrome}
+                  id="semrushPositionTrackingProjectId"
+                  type="text"
+                  value={formSemrushPositionTrackingProjectId}
+                  onChange={(e) => onFormSemrushPositionTrackingProjectIdChange(e.target.value)}
+                  placeholder="Position Tracking project ID"
+                />
+              }
+            />
+
+            <FieldBlock
+              chrome={chrome}
+              label="Position Tracking campaign ID (Optional)"
+              htmlFor="semrushPositionTrackingCampaignId"
+              field={
+                <SitePropertyInput
+                  chrome={chrome}
+                  id="semrushPositionTrackingCampaignId"
+                  type="text"
+                  value={formSemrushPositionTrackingCampaignId}
+                  onChange={(e) => onFormSemrushPositionTrackingCampaignIdChange(e.target.value)}
+                  placeholder="Position Tracking campaign ID (URL fid=)"
+                />
               }
             />
 

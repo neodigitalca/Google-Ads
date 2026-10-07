@@ -4,10 +4,14 @@
  */
 
 import type { WordPressSite } from "@/components/integrations/types";
-import { streamChatCompletion } from "@/lib/api";
+import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
 import { appendUniversalContentRulesToSystemPrompt } from "@/lib/content-word-blocklist";
-import { getResearchModel } from "@/lib/optimization-settings-storage";
-import { parseFaqEntries, type FaqEntry } from "@/lib/faq-entries";
+import {
+  bulkFaqPairsResponseFormat,
+  type BulkFaqPairsPayload,
+} from "@/lib/content-generation/bulk-faq-in-context-schema";
+import { getMetaModel } from "@/lib/optimization-settings-storage";
+import type { FaqEntry } from "@/lib/faq-entries";
 import { FAQ_CONVERSATIONAL_RULE } from "@/lib/content-generation/faq-heading-policy";
 
 const BODY_MAX = 12000;
@@ -103,63 +107,59 @@ Existing FAQ content (if any)
 (none)
 `;
 
-  const prompt = `You are acting as a senior SEO strategist creating FAQ schema for a specific page.
+  const prompt = `Create exactly ${pairCount} FAQ pairs for this page.
 
-Output exactly ${pairCount} question-and-answer pairs (no more, no fewer).
-
-Output format (strict - the app parses lines starting with Q: and A:)
-- Repeat this block exactly ${pairCount} times:
-  Q: <single-line question>
-  A: <answer: 2-4 concise sentences. You may continue the answer on following lines until the next "Q:" line - do not start continuation lines with "Q:" or "A:" unless they are a new pair.>
-- Each question must be meaningfully different (no duplicate angles).
-- Do NOT start more than one question with the same first 3 words.
-- Vary question openings (what, how, why, can, do I need, etc.).
-- Prefer leftover decisions from this article (this vs that, which option for which job, when not) over definitional "What is X" restatements.
+Rules for each pair:
+- question: one line, conversational, varied openings (what, how, why, can, should, which).
+- answer: 2-4 concise sentences of reader-facing copy only. No bullet lists inside answers.
+- Each question must be a different angle. Do not start more than one question with the same first 3 words.
 - ${FAQ_CONVERSATIONAL_RULE}
-- Answers must be helpful and grounded in later article sections (mitigation, measurement, local response, process); do not paraphrase the Answer H2.
-- Use NAP/service area only to localize; do NOT broaden geography beyond the business area.
-- Do NOT mention brand or site name in answers unless the article or brief already does.
-- Avoid generic "contact our team" filler unless the article discusses contact or support.
-${hasBrief ? `- Use the JSON SEO content brief as the primary signal for intent. Do NOT paste JSON into your output.\n` : ""}
-${sharedContext}
+- Ground answers in the article body and brief; do not paraphrase the main Answer H2.
+- Use NAP/service area only to localize; do not broaden geography beyond the business area.
+- Do not mention brand or site name in answers unless the article or brief already does.
+${hasBrief ? "- Use the JSON SEO content brief as the primary intent signal. Do not paste JSON into answers.\n" : ""}
 
-Return only Q:/A: blocks as specified - no numbering, no markdown headings, no JSON.`;
+Forbidden in question and answer fields:
+- Self-review, validation notes, or checklists (for example banned-word checks or "Good." / "Fine.")
+- Meta commentary to an editor, instructions, or formatting notes
+- Anything that is not the actual FAQ text a visitor should read
+
+${sharedContext}`;
 
   const systemPrompt = hasBrief
-    ? "You are an SEO specialist who writes FAQ question-and-answer pairs for schema. Follow the Q:/A: format exactly. Use the JSON SEO content brief as the main signal; localize to the NAP service area without broadening geography. Ask leftover decisions from this article, not the same four stems and not promotions unless the topic is offers. Do not ask a question the Answer H2 already answered. Ground answers in supplied sources. Do not invent specs."
-    : "You are an SEO specialist who writes FAQ question-and-answer pairs for schema. Follow the Q:/A: format exactly. Ground answers in the article body; match searcher intent and the site's local service area. Ask leftover decisions from this article, not the same four stems and not promotions unless the topic is offers. Do not ask a question the Answer H2 already answered. Do not invent specs.";
+    ? "You write FAQ question-and-answer pairs for published HTML tables. Return JSON matching the schema only. Each answer is final copy for site visitors, not draft notes. Use the SEO content brief as the main signal. Do not invent specs."
+    : "You write FAQ question-and-answer pairs for published HTML tables. Return JSON matching the schema only. Each answer is final copy for site visitors, not draft notes. Ground answers in the article body. Do not invent specs.";
 
-  let aiResponse = "";
   try {
-    const result = await streamChatCompletion({
+    const { parsed, content } = await callOpenRouterChatCompletion({
       apiKey: params.apiKey,
-      model: getResearchModel(params.siteId ?? null),
-      messages: [
-        { role: "system", content: appendUniversalContentRulesToSystemPrompt(systemPrompt) },
-        { role: "user", content: prompt },
-      ],
-      contentHarness: true,
-      temperature: 0.55,
-      maxTokens: 4500,
-      topP: 0.9,
-      onContentChunk: (chunk) => {
-        aiResponse += chunk;
-      },
+      model: getMetaModel(params.siteId ?? null),
+      system: appendUniversalContentRulesToSystemPrompt(systemPrompt),
+      user: prompt,
+      temperature: 0.35,
+      maxTokens: 2800,
+      responseFormat: bulkFaqPairsResponseFormat(pairCount),
     });
-    if (result.content) aiResponse = result.content;
+
+    let payload: BulkFaqPairsPayload | null = null;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      payload = parsed as BulkFaqPairsPayload;
+    } else if (content.trim()) {
+      payload = JSON.parse(content) as BulkFaqPairsPayload;
+    }
+
+    const pairs = Array.isArray(payload?.pairs) ? payload!.pairs! : [];
+    const cleaned: FaqEntry[] = pairs
+      .map((p) => ({
+        question: typeof p?.question === "string" ? p.question.trim() : "",
+        answer: typeof p?.answer === "string" ? p.answer.trim() : "",
+      }))
+      .filter((e) => e.question.length > 0 && e.answer.length > 0)
+      .slice(0, pairCount);
+
+    return cleaned;
   } catch (e) {
     console.warn("[Bulk FAQ in-context] OpenRouter failed:", e);
     return [];
   }
-
-  const entries = parseFaqEntries(aiResponse);
-  const cleaned = entries
-    .filter((e) => e.question.trim())
-    .map((e) => ({
-      question: e.question.trim(),
-      answer: e.answer.trim(),
-    }))
-    .slice(0, pairCount);
-
-  return cleaned;
 }

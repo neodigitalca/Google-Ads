@@ -84,6 +84,12 @@ export const mapFeatureToInstruction = (
     return "[TRADEOFF]: State a real limitation or skip-this-when case. Do not invent drawbacks that contradict supplied sources.";
   }
 
+  if (normalizedFeature.startsWith("[list]")) {
+    return useMarkdown
+      ? "[LIST - MANDATORY]: Unordered facts use - Label: sentence on one line, or 1. 2. 3. for steps. Markdown only."
+      : "[LIST - MANDATORY]: HTML only. Labeled bullets: <ul><li><strong>Label</strong>: one sentence.</li></ul>. Numbered steps: <ol><li><strong>Step</strong>: one sentence.</li></ol>. Forbidden: **Label**:, - bullets, or 1. markdown in HTML.";
+  }
+
   // 2. Check for FAQ feature — body FAQ is appended later as flo-faq Question/Answer table (Content Opt parity).
   if (normalizedFeature.includes('[faq]') || normalizedFeature.includes('faq')) {
     return useMarkdown

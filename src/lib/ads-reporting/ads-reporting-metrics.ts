@@ -1,5 +1,27 @@
+import type { WordPressSite } from "@/components/integrations/types";
+import { fetchWordPressSitesMirror } from "@/components/integrations/storage";
+import { IN_THE_SHADE_GOOGLE_ADS_CUSTOMER_ID } from "@/lib/neo-digital-google-ads-customer-ids";
+
+export { IN_THE_SHADE_GOOGLE_ADS_CUSTOMER_ID };
+
 export function normalizeGoogleAdsCustomerId(raw: string): string {
   return raw.replace(/\D+/g, "");
+}
+
+/** Google Ads customer ID from the property only (browser copy). */
+export function resolveGoogleAdsCustomerIdForReporting(site: WordPressSite): string {
+  return normalizeGoogleAdsCustomerId(site.googleAdsCustomerId?.trim() ?? "");
+}
+
+/** Same site id on server property mirror (sites.json) when the browser copy is empty. */
+export async function resolveGoogleAdsCustomerIdForReportingAsync(site: WordPressSite): Promise<string> {
+  const direct = resolveGoogleAdsCustomerIdForReporting(site);
+  if (direct.length === 10) return direct;
+  const siteId = site.id?.trim();
+  if (!siteId) return "";
+  const serverSites = await fetchWordPressSitesMirror();
+  const row = serverSites.find((s) => s.id === siteId);
+  return normalizeGoogleAdsCustomerId(row?.googleAdsCustomerId?.trim() ?? "");
 }
 
 export function formatGoogleAdsCustomerId(raw: string): string {

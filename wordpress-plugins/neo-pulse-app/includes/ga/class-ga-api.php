@@ -47,8 +47,30 @@ class Neo_Pulse_App_Ga_Api {
 		}
 
 		$credentials = $resolved['credentials'];
-		$prop_id     = preg_replace( '/^properties\/?/i', '', $property_id );
-		$result      = array( 'success' => true, 'propertyId' => $prop_id );
+		$prop_id     = self::normalize_property_id( $property_id );
+		if ( is_wp_error( $prop_id ) ) {
+			return array(
+				'statusCode' => 400,
+				'body'       => array( 'success' => false, 'error' => $prop_id->get_error_message() ),
+			);
+		}
+
+		$probe = self::run_report(
+			$credentials,
+			$prop_id,
+			array(
+				'dateRanges' => array( array( 'startDate' => 'yesterday', 'endDate' => 'yesterday' ) ),
+				'metrics'    => array( array( 'name' => 'activeUsers' ) ),
+			)
+		);
+		if ( is_wp_error( $probe ) ) {
+			return array(
+				'statusCode' => self::map_error_status( $probe ),
+				'body'       => self::error_body_for_report( $probe, $credentials, $prop_id ),
+			);
+		}
+
+		$result = array( 'success' => true, 'propertyId' => $prop_id );
 		$filter      = array(
 			'filter' => array(
 				'fieldName'    => 'sessionDefaultChannelGroup',
@@ -68,7 +90,473 @@ class Neo_Pulse_App_Ga_Api {
 		self::merge_period_metric( $result, 'conversions', $credentials, $prop_id, $base, $current, $compare, 'conversions' );
 		self::merge_period_metric( $result, 'organicTraffic', $credentials, $prop_id, $base, $current, $compare, 'sessions', true );
 
+		$oa_current  = self::fetch_organic_acquisition_period( $credentials, $prop_id, $base, $current );
+		$oa_previous = self::fetch_organic_acquisition_period( $credentials, $prop_id, $base, $compare );
+		if ( is_wp_error( $oa_current ) ) {
+			return array(
+				'statusCode' => self::map_error_status( $oa_current ),
+				'body'       => self::error_body_for_report( $oa_current, $credentials, $prop_id ),
+			);
+		}
+		if ( is_wp_error( $oa_previous ) ) {
+			return array(
+				'statusCode' => self::map_error_status( $oa_previous ),
+				'body'       => self::error_body_for_report( $oa_previous, $credentials, $prop_id ),
+			);
+		}
+		if ( is_array( $oa_current ) && is_array( $oa_previous ) ) {
+			$organic_acquisition = array(
+				'current'  => $oa_current,
+				'previous' => $oa_previous,
+			);
+			$result['organicAcquisition']         = $organic_acquisition;
+			$result['organicTrafficAcquisition'] = $organic_acquisition;
+		} else {
+			return array(
+				'statusCode' => 502,
+				'body'       => array(
+					'success'      => false,
+					'error'        => 'GA4 organic acquisition metrics missing for this property and date range.',
+					'propertyId'   => $prop_id,
+					'client_email' => $credentials['client_email'] ?? '',
+				),
+			);
+		}
+
+		$include_acquisition_monthly = ! empty( $body['includeOrganicTrafficAcquisitionMonthly'] )
+			|| ! empty( $body['includeOrganicUsersMonthly'] );
+		if ( $include_acquisition_monthly ) {
+			$monthly = self::fetch_organic_search_traffic_acquisition_monthly(
+				$credentials,
+				$prop_id,
+				$base,
+				$current
+			);
+			if ( is_wp_error( $monthly ) ) {
+				return array(
+					'statusCode' => self::map_error_status( $monthly ),
+					'body'       => self::error_body_for_report( $monthly, $credentials, $prop_id ),
+				);
+			}
+			if ( is_array( $monthly ) ) {
+				$result['organicTrafficAcquisitionMonthly'] = $monthly;
+			}
+		}
+
 		return array( 'statusCode' => 200, 'body' => $result );
+	}
+
+	/**
+	 * GA4 User acquisition style block: first user medium = organic, by calendar month.
+	 *
+	 * @param array<string,string> $credentials
+	 * @param array<string,string> $date_range startDate/endDate (YYYY-MM-DD)
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private static function fetch_organic_first_user_medium_users_monthly(
+		array $credentials,
+		string $prop_id,
+		array $date_range
+	) {
+		$filter = array(
+			'filter' => array(
+				'fieldName'    => 'firstUserMedium',
+				'stringFilter' => array(
+					'matchType' => 'EXACT',
+					'value'     => 'organic',
+				),
+			),
+		);
+		$metrics = array(
+			array( 'name' => 'totalUsers' ),
+			array( 'name' => 'newUsers' ),
+			array( 'name' => 'userKeyEventRate' ),
+			array( 'name' => 'keyEvents' ),
+		);
+
+		$monthly_report = self::run_report(
+			$credentials,
+			$prop_id,
+			array(
+				'dateRanges'      => array( $date_range ),
+				'dimensions'      => array( array( 'name' => 'yearMonth' ) ),
+				'dimensionFilter' => $filter,
+				'metrics'         => $metrics,
+				'orderBys'        => array(
+					array(
+						'dimension' => array( 'dimensionName' => 'yearMonth' ),
+					),
+				),
+			)
+		);
+		if ( is_wp_error( $monthly_report ) ) {
+			return $monthly_report;
+		}
+
+		$totals_report = self::run_report(
+			$credentials,
+			$prop_id,
+			array(
+				'dateRanges'      => array( $date_range ),
+				'dimensionFilter' => $filter,
+				'metrics'         => $metrics,
+			)
+		);
+		if ( is_wp_error( $totals_report ) ) {
+			return $totals_report;
+		}
+
+		$months_raw = self::parse_ga_dimension_metric_rows( $monthly_report, 'yearMonth' );
+		$totals_raw = self::parse_ga_dimension_metric_rows( $totals_report, null );
+		$months     = array();
+		foreach ( $months_raw as $row ) {
+			$months[] = array_merge(
+				array(
+					'yearMonth' => $row['key'],
+					'label'     => $row['label'],
+				),
+				$row['metrics']
+			);
+		}
+		$totals = ! empty( $totals_raw ) ? $totals_raw[0]['metrics'] : array();
+
+		return array(
+			'medium'      => 'organic',
+			'dimension'   => 'firstUserMedium',
+			'periodStart' => (string) $date_range['startDate'],
+			'periodEnd'   => (string) $date_range['endDate'],
+			'totals'      => $totals,
+			'months'      => $months,
+		);
+	}
+
+	/**
+	 * GA4 Traffic acquisition: sessionDefaultChannelGroup = Organic Search, by calendar month.
+	 *
+	 * @param array<string,string> $credentials
+	 * @param array<string,mixed>  $base dimensions + dimensionFilter (Organic Search channel)
+	 * @param array<string,string> $date_range
+	 * @return array<string,mixed>|WP_Error
+	 */
+	private static function fetch_organic_search_traffic_acquisition_monthly(
+		array $credentials,
+		string $prop_id,
+		array $base,
+		array $date_range
+	) {
+		$metrics = array(
+			array( 'name' => 'sessions' ),
+			array( 'name' => 'engagedSessions' ),
+			array( 'name' => 'engagementRate' ),
+			array( 'name' => 'averageSessionDuration' ),
+			array( 'name' => 'eventsPerSession' ),
+			array( 'name' => 'eventCount' ),
+			array( 'name' => 'keyEvents' ),
+		);
+
+		$monthly_report = self::run_report(
+			$credentials,
+			$prop_id,
+			array_merge(
+				$base,
+				array(
+					'dateRanges' => array( $date_range ),
+					'dimensions' => array( array( 'name' => 'yearMonth' ) ),
+					'metrics'    => $metrics,
+					'orderBys'   => array(
+						array(
+							'dimension' => array( 'dimensionName' => 'yearMonth' ),
+						),
+					),
+				)
+			)
+		);
+		if ( is_wp_error( $monthly_report ) ) {
+			return $monthly_report;
+		}
+
+		$totals_report = self::run_report(
+			$credentials,
+			$prop_id,
+			array_merge(
+				$base,
+				array(
+					'dateRanges' => array( $date_range ),
+					'metrics'    => $metrics,
+				)
+			)
+		);
+		if ( is_wp_error( $totals_report ) ) {
+			return $totals_report;
+		}
+
+		$months_raw = self::parse_ga_dimension_metric_rows( $monthly_report, 'yearMonth' );
+		$totals_raw = self::parse_ga_dimension_metric_rows( $totals_report, null );
+		$months     = array();
+		foreach ( $months_raw as $row ) {
+			$months[] = array_merge(
+				array(
+					'yearMonth' => $row['key'],
+					'label'     => $row['label'],
+				),
+				self::normalize_organic_acquisition_metrics_row( $row['metrics'] )
+			);
+		}
+		$totals = ! empty( $totals_raw )
+			? self::normalize_organic_acquisition_metrics_row( $totals_raw[0]['metrics'] )
+			: array();
+
+		return array(
+			'channel'     => 'Organic Search',
+			'dimension'   => 'sessionDefaultChannelGroup',
+			'periodStart' => (string) $date_range['startDate'],
+			'periodEnd'   => (string) $date_range['endDate'],
+			'totals'      => $totals,
+			'months'      => $months,
+		);
+	}
+
+	/**
+	 * @param array<string,float|int> $metrics Raw GA metric names from parse_ga_dimension_metric_rows.
+	 * @return array<string,float|int>
+	 */
+	private static function normalize_organic_acquisition_metrics_row( array $metrics ): array {
+		$sessions = isset( $metrics['sessions'] ) ? (int) round( (float) $metrics['sessions'] ) : 0;
+		$engaged  = isset( $metrics['engagedSessions'] ) ? (int) round( (float) $metrics['engagedSessions'] ) : 0;
+		$rate     = isset( $metrics['engagementRate'] ) ? (float) $metrics['engagementRate'] : 0.0;
+		$avg_sec  = isset( $metrics['averageSessionDuration'] )
+			? (int) round( (float) $metrics['averageSessionDuration'] )
+			: 0;
+		$ev_sess  = isset( $metrics['eventsPerSession'] ) ? round( (float) $metrics['eventsPerSession'], 2 ) : 0.0;
+		$events   = isset( $metrics['eventCount'] ) ? (int) round( (float) $metrics['eventCount'] ) : 0;
+		$keys     = isset( $metrics['keyEvents'] ) ? (int) round( (float) $metrics['keyEvents'] ) : 0;
+		return array(
+			'sessions'                  => $sessions,
+			'engagedSessions'           => $engaged,
+			'engagementRate'            => $rate,
+			'averageSessionDurationSec' => $avg_sec,
+			'eventsPerSession'          => $ev_sess,
+			'eventCount'                => $events,
+			'keyEvents'                 => $keys,
+		);
+	}
+
+	/**
+	 * @param array<string,mixed> $response GA runReport body.
+	 * @return array<int,array{key:string,label:string,metrics:array<string,float|int>}>
+	 */
+	private static function parse_ga_dimension_metric_rows( array $response, ?string $dimension_name ): array {
+		$rows = isset( $response['rows'] ) && is_array( $response['rows'] ) ? $response['rows'] : array();
+		if ( empty( $rows ) ) {
+			return array();
+		}
+		$metric_headers = isset( $response['metricHeaders'] ) && is_array( $response['metricHeaders'] )
+			? $response['metricHeaders']
+			: array();
+		$metric_names   = array();
+		foreach ( $metric_headers as $header ) {
+			if ( is_array( $header ) && ! empty( $header['name'] ) ) {
+				$metric_names[] = (string) $header['name'];
+			}
+		}
+		$out = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$key = '';
+			if ( $dimension_name !== null ) {
+				$dim_values = isset( $row['dimensionValues'] ) && is_array( $row['dimensionValues'] )
+					? $row['dimensionValues']
+					: array();
+				$key = isset( $dim_values[0]['value'] ) ? (string) $dim_values[0]['value'] : '';
+			}
+			$metric_values = isset( $row['metricValues'] ) && is_array( $row['metricValues'] )
+				? $row['metricValues']
+				: array();
+			$metrics       = array();
+			foreach ( $metric_names as $i => $name ) {
+				if ( ! isset( $metric_values[ $i ]['value'] ) ) {
+					continue;
+				}
+				$val = (float) $metric_values[ $i ]['value'];
+				if ( in_array( $name, array( 'totalUsers', 'newUsers', 'keyEvents' ), true ) ) {
+					$metrics[ $name ] = (int) round( $val );
+				} else {
+					$metrics[ $name ] = $val;
+				}
+			}
+			$label = $key !== '' ? self::format_ga_year_month_label( $key ) : 'Period total';
+			$out[] = array(
+				'key'     => $key,
+				'label'   => $label,
+				'metrics' => $metrics,
+			);
+		}
+		return $out;
+	}
+
+	private static function format_ga_year_month_label( string $year_month ): string {
+		if ( ! preg_match( '/^(\d{4})(\d{2})$/', $year_month, $m ) ) {
+			return $year_month;
+		}
+		$month = (int) $m[2];
+		$year  = (int) $m[1];
+		if ( $month < 1 || $month > 12 ) {
+		 return $year_month;
+		}
+		$ts = gmmktime( 0, 0, 0, $month, 1, $year );
+		return gmdate( 'F Y', $ts );
+	}
+
+	/**
+	 * @return string|WP_Error Numeric GA4 property id.
+	 */
+	public static function normalize_property_id( string $raw ) {
+		$id = trim( $raw );
+		$id = preg_replace( '/^properties\/?/i', '', $id );
+		if ( preg_match( '/^G-/i', $id ) ) {
+			return new WP_Error(
+				'neo-pulse_ga_property',
+				'Use the numeric GA4 Property ID from Admin → Property settings, not the Measurement ID (G-…).'
+			);
+		}
+		if ( ! preg_match( '/^\d+$/', $id ) ) {
+			return new WP_Error( 'neo-pulse_ga_property', 'GA4 Property ID must be numeric digits only.' );
+		}
+		return $id;
+	}
+
+	/**
+	 * @param array<string,string> $credentials
+	 * @return array<string,mixed>
+	 */
+	private static function error_body_for_report( WP_Error $error, array $credentials, string $prop_id ): array {
+		return array(
+			'success'      => false,
+			'error'        => self::format_api_error_for_user( $error, $credentials['client_email'] ?? '', $prop_id ),
+			'propertyId'   => $prop_id,
+			'client_email' => $credentials['client_email'] ?? '',
+		);
+	}
+
+	public static function format_api_error_for_user_public( WP_Error $error, string $client_email, string $prop_id ): string {
+		return self::format_api_error_for_user( $error, $client_email, $prop_id );
+	}
+
+	private static function format_api_error_for_user( WP_Error $error, string $client_email, string $prop_id ): string {
+		$msg = $error->get_error_message();
+		if ( $client_email === '' ) {
+			return $msg;
+		}
+		if (
+			stripos( $msg, 'sufficient permissions' ) !== false
+			|| stripos( $msg, 'PERMISSION_DENIED' ) !== false
+			|| stripos( $msg, 'permission' ) !== false
+		) {
+			return sprintf(
+				'%s (Property ID %s). Neo Pulse calls GA4 with the service account %s, not your personal Google login. In GA4: Admin → Property access management → Add user → paste that email → role Viewer.',
+				$msg,
+				$prop_id,
+				$client_email
+			);
+		}
+		return $msg;
+	}
+
+	/**
+	 * Organic Search metrics for one date range (single channel row expected).
+	 *
+	 * @param array<string,string> $credentials
+	 * @param array<string,mixed>  $base
+	 * @param array<string,string> $date_range
+	 * @return array<string,float|int>|null
+	 */
+	/**
+	 * @return array<string,float|int>|WP_Error|null
+	 */
+	private static function fetch_organic_acquisition_period(
+		array $credentials,
+		string $prop_id,
+		array $base,
+		array $date_range
+	) {
+		$metrics = array(
+			array( 'name' => 'sessions' ),
+			array( 'name' => 'engagedSessions' ),
+			array( 'name' => 'engagementRate' ),
+			array( 'name' => 'averageSessionDuration' ),
+			array( 'name' => 'eventsPerSession' ),
+			array( 'name' => 'eventCount' ),
+			array( 'name' => 'keyEvents' ),
+		);
+		$report = self::run_report(
+			$credentials,
+			$prop_id,
+			array_merge(
+				$base,
+				array(
+					'dateRanges' => array( $date_range ),
+					'metrics'    => $metrics,
+				)
+			)
+		);
+		if ( is_wp_error( $report ) ) {
+			return $report;
+		}
+		$parsed = self::parse_organic_acquisition_row( $report );
+		if ( is_array( $parsed ) ) {
+			return $parsed;
+		}
+		return array(
+			'sessions'                  => 0,
+			'engagedSessions'           => 0,
+			'engagementRate'            => 0.0,
+			'averageSessionDurationSec' => 0,
+			'keyEvents'                 => 0,
+			'eventCount'                => 0,
+			'eventsPerSession'          => 0.0,
+		);
+	}
+
+	/**
+	 * @param array<string,mixed> $response
+	 * @return array<string,float|int>|null
+	 */
+	private static function parse_organic_acquisition_row( array $response ): ?array {
+		$rows = isset( $response['rows'] ) && is_array( $response['rows'] ) ? $response['rows'] : array();
+		if ( empty( $rows ) || ! is_array( $rows[0] ) ) {
+			return null;
+		}
+		$headers = isset( $response['metricHeaders'] ) && is_array( $response['metricHeaders'] )
+			? $response['metricHeaders']
+			: array();
+		$values  = isset( $rows[0]['metricValues'] ) && is_array( $rows[0]['metricValues'] )
+			? $rows[0]['metricValues']
+			: array();
+		$by_name = array();
+		foreach ( $headers as $i => $header ) {
+			if ( ! is_array( $header ) ) {
+				continue;
+			}
+			$name = isset( $header['name'] ) ? (string) $header['name'] : '';
+			if ( $name === '' || ! isset( $values[ $i ]['value'] ) ) {
+				continue;
+			}
+			$by_name[ $name ] = (float) $values[ $i ]['value'];
+		}
+		$read = static function ( string $metric ) use ( $by_name ): float {
+			return isset( $by_name[ $metric ] ) ? (float) $by_name[ $metric ] : 0.0;
+		};
+		return array(
+			'sessions'                  => (int) round( $read( 'sessions' ) ),
+			'engagedSessions'           => (int) round( $read( 'engagedSessions' ) ),
+			'engagementRate'            => $read( 'engagementRate' ),
+			'averageSessionDurationSec' => (int) round( $read( 'averageSessionDuration' ) ),
+			'eventsPerSession'          => round( $read( 'eventsPerSession' ), 2 ),
+			'eventCount'                => (int) round( $read( 'eventCount' ) ),
+			'keyEvents'                 => (int) round( $read( 'keyEvents' ) ),
+		);
 	}
 
 	/**

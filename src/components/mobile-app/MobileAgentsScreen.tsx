@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AgentRunsPanel } from "@/components/agent-runs/AgentRunsPanel";
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 
 export function MobileAgentsScreen({
   pushRunId = null,

@@ -1,6 +1,7 @@
 import { Key } from "lucide-react";
 import { ApiKeyContent } from "@/components/ApiKeyContent";
 import { DataForSEOApiKeyContent } from "@/components/DataForSEOApiKeyContent";
+import { SemrushApiKeyContent } from "@/components/SemrushApiKeyContent";
 import { AgentMailApiKeyContent } from "@/components/AgentMailApiKeyContent";
 import { ResidentialProxySettingsContent } from "@/components/manager/ResidentialProxySettingsContent";
 import { ManagerCloudSettingsCard } from "@/components/manager/ManagerCloudSettingsCard";
@@ -16,6 +17,9 @@ export type ApiKeysSettingsContentProps = {
   dataForSEOApiKey: string;
   setDataForSEOApiKey: (key: string) => void;
   saveDataForSEOApiKey: (key: string) => void;
+  semrushApiKey: string;
+  setSemrushApiKey: (key: string) => void;
+  saveSemrushApiKey: (key: string) => void;
   selectedModel: string;
   temperature: number;
   maxTokens: number;
@@ -29,6 +33,9 @@ export function ApiKeysSettingsContent({
   dataForSEOApiKey,
   setDataForSEOApiKey,
   saveDataForSEOApiKey,
+  semrushApiKey,
+  setSemrushApiKey,
+  saveSemrushApiKey,
   selectedModel,
   temperature,
   maxTokens,
@@ -44,6 +51,7 @@ export function ApiKeysSettingsContent({
       <ManagerCloudSettingsCard
         apiKey={apiKey}
         dataForSEOApiKey={dataForSEOApiKey}
+        semrushApiKey={semrushApiKey}
         selectedModel={selectedModel}
         temperature={temperature}
         maxTokens={maxTokens}
@@ -58,6 +66,11 @@ export function ApiKeysSettingsContent({
             apiKey={dataForSEOApiKey}
             setApiKey={setDataForSEOApiKey}
             saveApiKey={saveDataForSEOApiKey}
+          />
+          <SemrushApiKeyContent
+            apiKey={semrushApiKey}
+            setApiKey={setSemrushApiKey}
+            saveApiKey={saveSemrushApiKey}
           />
           <AgentMailApiKeyContent />
           <ResidentialProxySettingsContent />

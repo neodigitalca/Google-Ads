@@ -8,6 +8,8 @@ export {
   buildBulkHarnessSectionUserPrompt,
 } from "./system-user";
 
+export { HARNESS_LABELED_LIST_HTML_RULE } from "./harness-labeled-list-html-rule";
+
 export {
   BULK_WORDPRESS_POST_TITLE_RULE,
   META_DESCRIPTION_ANTI_CLICKBAIT_RULE,

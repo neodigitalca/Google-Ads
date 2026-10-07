@@ -17,7 +17,7 @@ function neoDigitalUntaggedSite(): WordPressSite {
 function taggedPagesSite(): WordPressSite {
   return {
     id: "shutterspot",
-    name: "Shutterspot",
+    name: "Shutter Spot",
     siteUrl: "https://shutterspot.com",
     username: "user",
     appPassword: "pass",

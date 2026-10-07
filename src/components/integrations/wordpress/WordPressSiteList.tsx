@@ -28,6 +28,9 @@ import {
   propertiesRowOuterClass,
 } from "./wordpress-properties-surfaces";
 import { isEntitySitemapDisabled } from "@/lib/entity-endpoint-extractor";
+import { useActiveWordPressSite } from "@/contexts/active-wordpress-site-context";
+import { requestManagerGeneratorNavigation } from "@/contexts/agent-run-optimizer-scope-context";
+import { PropertyReportingShortcutPill } from "./PropertyReportingShortcutPill";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getPropertyListRowBlackMetricFrameClass } from "./cyberpunk-theme";
 
@@ -163,6 +166,7 @@ function QuarterEditorialCountsStrip({
   selectedMonthKey,
   monthOptions,
   onMonthChange,
+  onOpenReporting,
 }: {
   site: WordPressSite;
   stats: QuarterEditorialTileStats | undefined;
@@ -170,6 +174,7 @@ function QuarterEditorialCountsStrip({
   selectedMonthKey?: string;
   monthOptions?: Array<{ key: string; label: string }>;
   onMonthChange?: (monthKey: string) => void;
+  onOpenReporting?: (site: WordPressSite) => void;
 }) {
   if (!siteHasWpCredentials(site) || !stats) return null;
 
@@ -305,6 +310,13 @@ function QuarterEditorialCountsStrip({
 
   return (
     <>
+      {onOpenReporting ? (
+        <PropertyReportingShortcutPill
+          site={site}
+          rowDisplay={rowDisplay}
+          onOpenReporting={onOpenReporting}
+        />
+      ) : null}
       <div
         className={cn(metricCell, mw.q, "text-green-400", showMonthSelect && "!p-0")}
         title={stripSummaryTitle}
@@ -413,6 +425,7 @@ interface WordPressSiteListProps {
   isLoadingCalendar: Record<string, boolean>;
   onTest: (site: WordPressSite) => void;
   onToggleEnabled: (site: WordPressSite) => void;
+  onConnectSite: (site: WordPressSite) => void;
   onDetect: (site: WordPressSite) => void;
   onEdit: (site: WordPressSite) => void;
   onDelete: (siteId: string) => void;
@@ -455,6 +468,7 @@ export const WordPressSiteList: React.FC<WordPressSiteListProps> = ({
   isLoadingCalendar,
   onTest,
   onToggleEnabled,
+  onConnectSite,
   onDetect,
   onEdit,
   onDelete,
@@ -479,6 +493,14 @@ export const WordPressSiteList: React.FC<WordPressSiteListProps> = ({
   onEditorialMonthChange,
   propertyRowDisplay = "compact",
 }) => {
+  const { setActiveWordPressSiteId } = useActiveWordPressSite();
+
+  const openGscReportingForSite = (site: WordPressSite) => {
+    onConnectSite(site);
+    setActiveWordPressSiteId(site.id);
+    requestManagerGeneratorNavigation("report");
+  };
+
   const renderPropertyRowTrailingControls = (site: WordPressSite) => {
     const compact = propertyRowDisplay === "compact";
     const mw = propertyMetricCellWidths(propertyRowDisplay);
@@ -511,6 +533,7 @@ export const WordPressSiteList: React.FC<WordPressSiteListProps> = ({
           selectedMonthKey={editorialSelectedMonthKey}
           monthOptions={editorialMonthOptions}
           onMonthChange={onEditorialMonthChange}
+          onOpenReporting={openGscReportingForSite}
         />
       </div>
     </div>

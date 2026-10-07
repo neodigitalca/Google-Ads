@@ -14,38 +14,15 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RotateCcw, Save } from "lucide-react";
 import { type WordPressSite } from "../types";
-import { DEFAULT_IMAGE_MODEL, IMAGE_MODEL_PRESETS } from "@/lib/image-model-defaults";
+import { IMAGE_MODEL_PRESETS } from "@/lib/image-model-defaults";
+import {
+  DEFAULT_SETTINGS,
+  type OptimizationSettings,
+} from "@/lib/optimization-settings-defaults";
+import { TEXT_AGENT_MODEL_PRESETS } from "@/lib/global-agent-models";
 
-const TEXT_MODEL_PRESETS: { value: string; label: string }[] = [
-  { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite" },
-  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
-  { value: "openai/gpt-5", label: "GPT-5" },
-];
-
-export interface OptimizationSettings {
-  /** Blog agent: harness sections, title, meta description */
-  model: string;
-  /** Research agent: checklist, blueprint, briefs, image planning */
-  researchModel: string;
-  /** Image agent: OpenRouter image generation */
-  imageModel: string;
-  customModels: string[]; // User-added OpenRouter model ids (shown in all model dropdowns)
-  temperature: number;
-  maxTokens: number;
-  topP: number;
-}
-
-export const DEFAULT_SETTINGS: OptimizationSettings = {
-  model: "google/gemini-2.5-flash",
-  researchModel: "google/gemini-2.5-flash-lite",
-  imageModel: DEFAULT_IMAGE_MODEL,
-  customModels: [],
-  temperature: 1.0,
-  maxTokens: 4000,
-  topP: 0.9,
-};
+export type { OptimizationSettings } from "@/lib/optimization-settings-defaults";
+export { DEFAULT_SETTINGS } from "@/lib/optimization-settings-defaults";
 
 function buildModelOptions(
   presets: { value: string; label: string }[],
@@ -67,7 +44,13 @@ function buildModelOptions(
   return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
 }
 
-type ModelFieldKey = "model" | "researchModel" | "imageModel";
+type ModelFieldKey =
+  | "model"
+  | "researchModel"
+  | "imageModel"
+  | "metaModel"
+  | "reportModel"
+  | "adsModel";
 
 interface OptimizationModelSelectProps {
   label: string;
@@ -229,6 +212,9 @@ export const OptimizationSettingsPanel: React.FC<OptimizationSettingsPanelProps>
     settings.model === DEFAULT_SETTINGS.model &&
     settings.researchModel === DEFAULT_SETTINGS.researchModel &&
     settings.imageModel === DEFAULT_SETTINGS.imageModel &&
+    settings.metaModel === DEFAULT_SETTINGS.metaModel &&
+    settings.reportModel === DEFAULT_SETTINGS.reportModel &&
+    settings.adsModel === DEFAULT_SETTINGS.adsModel &&
     customModels.length === 0 &&
     settings.temperature === DEFAULT_SETTINGS.temperature &&
     settings.maxTokens === DEFAULT_SETTINGS.maxTokens &&
@@ -249,7 +235,7 @@ export const OptimizationSettingsPanel: React.FC<OptimizationSettingsPanelProps>
           label="Research agent"
           description="Checklist, blueprint, briefs, and featured-image planning."
           value={settings.researchModel}
-          presets={TEXT_MODEL_PRESETS}
+          presets={TEXT_AGENT_MODEL_PRESETS}
           customModels={customModels}
           onSelect={(v) => onSettingsChange({ ...settings, researchModel: v })}
           onSaveCustom={(id) => saveCustomModelForField("researchModel", id)}
@@ -260,7 +246,7 @@ export const OptimizationSettingsPanel: React.FC<OptimizationSettingsPanelProps>
           label="Blog agent"
           description="Harness sections, WordPress title, and meta description."
           value={settings.model}
-          presets={TEXT_MODEL_PRESETS}
+          presets={TEXT_AGENT_MODEL_PRESETS}
           customModels={customModels}
           onSelect={(v) => onSettingsChange({ ...settings, model: v })}
           onSaveCustom={(id) => saveCustomModelForField("model", id)}
@@ -275,6 +261,39 @@ export const OptimizationSettingsPanel: React.FC<OptimizationSettingsPanelProps>
           customModels={customModels}
           onSelect={(v) => onSettingsChange({ ...settings, imageModel: v })}
           onSaveCustom={(id) => saveCustomModelForField("imageModel", id)}
+          disabled={disabled}
+        />
+
+        <OptimizationModelSelect
+          label="Meta agent"
+          description="Overview SAP meta descriptions, titles, and FAQ copy."
+          value={settings.metaModel}
+          presets={TEXT_AGENT_MODEL_PRESETS}
+          customModels={customModels}
+          onSelect={(v) => onSettingsChange({ ...settings, metaModel: v })}
+          onSaveCustom={(id) => saveCustomModelForField("metaModel", id)}
+          disabled={disabled}
+        />
+
+        <OptimizationModelSelect
+          label="Report agent"
+          description="GSC reporting outline and section writers."
+          value={settings.reportModel}
+          presets={TEXT_AGENT_MODEL_PRESETS}
+          customModels={customModels}
+          onSelect={(v) => onSettingsChange({ ...settings, reportModel: v })}
+          onSaveCustom={(id) => saveCustomModelForField("reportModel", id)}
+          disabled={disabled}
+        />
+
+        <OptimizationModelSelect
+          label="Ads agent"
+          description="Google Ads and PPC reporting LLM steps."
+          value={settings.adsModel}
+          presets={TEXT_AGENT_MODEL_PRESETS}
+          customModels={customModels}
+          onSelect={(v) => onSettingsChange({ ...settings, adsModel: v })}
+          onSaveCustom={(id) => saveCustomModelForField("adsModel", id)}
           disabled={disabled}
         />
 

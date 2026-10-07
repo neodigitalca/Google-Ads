@@ -1,7 +1,12 @@
 import { DEFAULT_IMAGE_MODEL } from "@/lib/image-model-defaults";
+import { extractImageFromOpenRouterAssistantMessage } from "@/lib/image-openrouter-response-extract";
 import { openRouterWebAppHeaders } from "@/lib/openrouter-attribution";
 import { readOpenRouterResponseJson } from "@/lib/openrouter-response-body";
 import { postOpenRouterAppChatFetch } from "@/lib/openrouter-app-api";
+import { logFeaturedImagePipeline } from "@/lib/image-generator/featured-image-pipeline-log";
+
+/** Gemini image + multiple SERP refs often fail; cap attachment count. */
+const MAX_REFERENCE_IMAGES = 2;
 
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4' | '21:9' | '9:19';
 
@@ -15,6 +20,8 @@ export interface ImageGenerationRequest {
   referenceImageDataUrl?: string;
   /** Multiple SERP reference data URLs (place + product, etc.). */
   referenceImageDataUrls?: string[];
+  /** @internal One retry without refs when multimodal output is empty. */
+  _retryWithoutRefs?: boolean;
 }
 
 // Map aspect ratios to dimensions
@@ -46,6 +53,7 @@ export const generateImage = async ({
   size,
   referenceImageDataUrl,
   referenceImageDataUrls,
+  _retryWithoutRefs = false,
 }: ImageGenerationRequest): Promise<ImageGenerationResponse> => {
   // Calculate size from aspect ratio if not provided
   const imageSize = size || ASPECT_RATIO_SIZES[aspectRatio];
@@ -62,9 +70,10 @@ export const generateImage = async ({
   if (single.startsWith('data:image/') && !refs.includes(single)) {
     refs.push(single);
   }
-  for (const ref of refs) {
+  for (const ref of refs.slice(0, MAX_REFERENCE_IMAGES)) {
     contentParts.push({ type: 'image_url', image_url: { url: ref } });
   }
+  const hadReferenceAttachments = refs.length > 0;
   try {
     const response = await postOpenRouterAppChatFetch( {
       method: 'POST',
@@ -79,6 +88,7 @@ export const generateImage = async ({
           },
         ],
         size: imageSize,
+        max_tokens: 8192,
       }),
     });
 
@@ -89,6 +99,18 @@ export const generateImage = async ({
     }
 
     const data = (await readOpenRouterResponseJson(response)) as Record<string, unknown>;
+
+    const assistantMessage =
+      data.choices &&
+      Array.isArray(data.choices) &&
+      data.choices[0] &&
+      typeof data.choices[0] === "object"
+        ? (data.choices[0] as { message?: unknown }).message
+        : undefined;
+    const fromAssistant = extractImageFromOpenRouterAssistantMessage(assistantMessage);
+    if (fromAssistant?.imageUrl || fromAssistant?.imageBase64) {
+      return fromAssistant;
+    }
 
     // Check for error in response
     if (data.error) {
@@ -575,6 +597,22 @@ return { imageUrl: part.url };
       parsedAsJson: typeof failContent === 'string' ? (() => { try { const p = JSON.parse(failContent); return Array.isArray(p) ? { type: 'array', len: p.length, firstKeys: p[0] && typeof p[0] === 'object' ? Object.keys(p[0]) : null } : { type: 'object', keys: Object.keys(p) }; } catch { return null; } })() : null
     };
     console.error('Response structure:', failPayload);
+
+    if (hadReferenceAttachments && !_retryWithoutRefs) {
+      logFeaturedImagePipeline(
+        "OpenRouter Image: empty multimodal reply, retrying without reference attachments",
+      );
+      return generateImage({
+        apiKey,
+        prompt,
+        model,
+        aspectRatio,
+        size,
+        referenceImageDataUrl: undefined,
+        referenceImageDataUrls: undefined,
+        _retryWithoutRefs: true,
+      });
+    }
     
     throw new Error(
       `Unexpected response format from image generation API. ` +

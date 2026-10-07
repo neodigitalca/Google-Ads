@@ -1,5 +1,5 @@
-import { streamChatCompletion } from "./api";
-import { getResearchModel } from "./optimization-settings-storage";
+import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
+import { getMetaModel } from "./optimization-settings-storage";
 
 /**
  * Sanitizes a string to be used as a filename
@@ -21,60 +21,59 @@ export function sanitizeImageFilename(name: string): string {
  * @param imageType - "featured" or "section"
  * @returns Promise resolving to a sanitized, SEO-friendly filename with .png extension
  */
+function filenameFromTitleFallback(
+  sourceText: string,
+  imageType: "featured" | "section",
+): string {
+  let filename = sanitizeImageFilename(sourceText);
+  if (imageType === "featured") {
+    filename = `${filename}-featured`;
+  }
+  return `${filename.substring(0, 50)}.png`;
+}
+
+function looksLikeFilenamePromptLeak(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return (
+    lower.includes("answer-only") ||
+    lower.includes("30-50") ||
+    lower.includes("need-answer") ||
+    lower.includes("filename-eed") ||
+    lower.includes("chars-exclud") ||
+    lower.includes("no-extension")
+  );
+}
+
 export async function generateSEOImageFilename(
   sourceText: string,
   apiKey: string,
-  model: string = getResearchModel(),
+  _model?: string,
   imageType: "featured" | "section" = "featured"
 ): Promise<string> {
   if (!sourceText || !sourceText.trim()) {
-    // Fallback to timestamp-based name
     return `image-${Date.now()}.png`;
   }
 
   try {
-    const systemPrompt = `You are an SEO expert. Generate a minimal, SEO-friendly filename for an image.
-
-Requirements:
-- The filename should be 30-50 characters (excluding extension)
-- Use lowercase letters and hyphens only (no spaces, underscores, or special characters)
-- Include relevant keywords from the source text
-- For featured images: include "featured" or a key keyword from the title
-- For section images: use keywords from the section name
-- Make it descriptive but concise
-- Do NOT include the file extension (.png)
-- Do NOT include any explanation, just return the filename
-
-Examples:
-- "Complete Guide to Window Treatments" → "window-treatments-featured"
-- "Hunter Douglas Blinds Guide" → "hunter-douglas-blinds-guide"
-- "Introduction to SEO" → "seo-introduction-guide"`;
+    const systemPrompt = `Return one SEO filename slug only.
+Rules: lowercase, hyphens, 3-8 words from the title, no file extension, no quotes, no instructions echoed back.
+Featured images should end with -featured when it fits.`;
 
     const userPrompt = imageType === "featured"
-      ? `Generate an SEO-friendly filename for a featured blog image based on this title: "${sourceText}"`
-      : `Generate an SEO-friendly filename for a section image based on this section name: "${sourceText}"`;
+      ? `Title: ${sourceText.trim()}\nReply with the slug only.`
+      : `Section: ${sourceText.trim()}\nReply with the slug only.`;
 
-    let fullResponse = "";
-
-    const result = await streamChatCompletion({
+    const { content } = await callOpenRouterChatCompletion({
       apiKey,
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.7,
-      maxTokens: 100,
-      topP: 0.9,
-      onContentChunk: (chunk: string) => {
-        fullResponse += chunk;
-      },
+      model: getMetaModel(),
+      system: systemPrompt,
+      user: userPrompt,
+      temperature: 0.2,
+      maxTokens: 64,
     });
 
-    // Use the returned content, or fallback to accumulated response
-    const responseText = result.content || fullResponse;
+    const responseText = content.trim();
 
-    // Clean up the response - remove markdown, quotes, etc.
     let filename = responseText
       .trim()
       .replace(/^["']|["']$/g, '') // Remove surrounding quotes
@@ -86,25 +85,16 @@ Examples:
       .replace(/-+/g, '-') // Replace multiple hyphens with single
       .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens
       .toLowerCase()
-      .substring(0, 50); // Limit length
+      .substring(0, 50);
 
-    // If the AI response is too short or invalid, fall back to sanitized source
-    if (filename.length < 3) {
-      filename = sanitizeImageFilename(sourceText);
-      if (imageType === "featured") {
-        filename = filename + "-featured";
-      }
+    if (filename.length < 3 || looksLikeFilenamePromptLeak(filename)) {
+      return filenameFromTitleFallback(sourceText, imageType);
     }
 
     return `${filename}.png`;
   } catch (error) {
     console.error("Error generating SEO filename:", error);
-    // Fallback to sanitized source text
-    let fallback = sanitizeImageFilename(sourceText);
-    if (imageType === "featured") {
-      fallback = fallback + "-featured";
-    }
-    return `${fallback}.png`;
+    return filenameFromTitleFallback(sourceText, imageType);
   }
 }
 

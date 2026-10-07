@@ -1,8 +1,15 @@
 import { backendApiUrl } from "@/lib/wordpress-api/connection";
-import type { GscCompareRanges } from "@/lib/gsc-reporting/gsc-fetch-date-presets";
-import { csvNumberCell, formatCanadianNumber } from "@/lib/gsc-reporting/gsc-number-format";
-import { gscCompactPeriodLabelFromIsoRange } from "@/lib/gsc-reporting/gsc-reporting-fetch";
-import { deriveAdsCompareSignals, adsCompareSignalsFileContent } from "@/lib/ads-reporting/ads-reporting-compare-signals";
+import type { WordPressSite } from "@/components/integrations/types";
+import type { AdsReportingDateRanges } from "@/lib/ads-reporting/ads-reporting-types";
+import { resolveGoogleAdsCustomerIdForReportingAsync } from "@/lib/ads-reporting/ads-reporting-metrics";
+import { csvNumberCell, formatCanadianNumber } from "@/lib/reporting/reporting-number-format";
+import { compactPeriodLabelFromIsoRange } from "@/lib/reporting/reporting-period-labels";
+import {
+  deriveAdsCompareSignals,
+  deriveAdsPeriodSignals,
+  adsCompareSignalsFileContent,
+} from "@/lib/ads-reporting/ads-reporting-compare-signals";
+import type { AdsReportingCompareKind } from "@/lib/ads-reporting/ads-reporting-types";
 import { adsCpa, adsPctDelta, microsToSpend, normalizeGoogleAdsCustomerId } from "@/lib/ads-reporting/ads-reporting-metrics";
 import type {
   AdsCampaignRow,
@@ -16,6 +23,10 @@ export const ADS_SITE_TOTALS_FILENAME = "Ads-site-totals-MoM.csv";
 export const ADS_CAMPAIGNS_FILENAME = "Ads-campaigns-MoM.csv";
 export const ADS_KEYWORDS_FILENAME = "Ads-keywords-MoM.csv";
 export const ADS_SEARCH_TERMS_FILENAME = "Ads-search-terms-MoM.csv";
+export const ADS_SITE_TOTALS_PERIOD_FILENAME = "Ads-site-totals-Period.csv";
+export const ADS_CAMPAIGNS_PERIOD_FILENAME = "Ads-campaigns-Period.csv";
+export const ADS_KEYWORDS_PERIOD_FILENAME = "Ads-keywords-Period.csv";
+export const ADS_SEARCH_TERMS_PERIOD_FILENAME = "Ads-search-terms-Period.csv";
 export const ADS_COMPARE_SIGNALS_FILENAME = "Ads-compare-signals.txt";
 
 export { adsCpa, adsPctDelta, microsToSpend, normalizeGoogleAdsCustomerId } from "@/lib/ads-reporting/ads-reporting-metrics";
@@ -45,8 +56,8 @@ export function buildAdsSiteTotalsCsv(
   primaryRange: { start: string; end: string },
   compareRange: { start: string; end: string },
 ): string {
-  const la = gscCompactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
-  const lb = gscCompactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const lb = compactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
   const pSpend = microsToSpend(primary.costMicros);
   const cSpend = microsToSpend(compare.costMicros);
   const pCpa = adsCpa(primary.costMicros, primary.conversions);
@@ -67,6 +78,85 @@ export function buildAdsSiteTotalsCsv(
     ["CPA", pCpa == null ? " - " : csvNumberCell(pCpa), cCpa == null ? " - " : csvNumberCell(cCpa), pCpa != null && cCpa != null ? formatDeltaCell(pCpa, cCpa) : " - "],
   ];
   return [header, ...rows.map((r) => r.join(","))].join("\n");
+}
+
+export function buildAdsSiteTotalsPeriodCsv(
+  primary: AdsMetrics,
+  primaryRange: { start: string; end: string },
+): string {
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const pSpend = microsToSpend(primary.costMicros);
+  const pCpa = adsCpa(primary.costMicros, primary.conversions);
+  const header = ["Metric", la].join(",");
+  const rows: Array<[string, string]> = [
+    ["Spend", csvNumberCell(pSpend)],
+    ["Clk", csvNumberCell(primary.clicks)],
+    ["Imp", csvNumberCell(primary.impressions)],
+    ["CTR", formatPct(primary.ctr)],
+    ["CPC", formatMoney(primary.averageCpc)],
+    ["Conv", csvNumberCell(primary.conversions)],
+    ["CPA", pCpa == null ? " - " : csvNumberCell(pCpa)],
+  ];
+  return [
+    "# Account totals for the full report period. No prior-period or Δ% columns.",
+    "#",
+    header,
+    ...rows.map((r) => r.join(",")),
+  ].join("\n");
+}
+
+export function buildAdsCampaignsPeriodCsv(
+  primary: AdsCampaignRow[],
+  primaryRange: { start: string; end: string },
+): string {
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const header = ["Campaign", `Spend (${la})`, `Clk (${la})`, `Conv (${la})`].join(",");
+  const sorted = [...primary].sort((a, b) => b.costMicros - a.costMicros);
+  const rows = sorted.slice(0, 250).map((row) =>
+    [
+      escapeCsvCell(row.name),
+      formatMoney(row.costMicros),
+      csvNumberCell(row.clicks),
+      csvNumberCell(row.conversions),
+    ].join(","),
+  );
+  return [header, ...rows].join("\n");
+}
+
+export function buildAdsKeywordsPeriodCsv(
+  primary: AdsKeywordRow[],
+  primaryRange: { start: string; end: string },
+): string {
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const header = ["Keyword", "Campaign", `Spend (${la})`, `Clk (${la})`].join(",");
+  const sorted = [...primary].sort((a, b) => b.costMicros - a.costMicros);
+  const rows = sorted.slice(0, 250).map((row) =>
+    [
+      escapeCsvCell(row.text),
+      escapeCsvCell(row.campaignName),
+      formatMoney(row.costMicros),
+      csvNumberCell(row.clicks),
+    ].join(","),
+  );
+  return [header, ...rows].join("\n");
+}
+
+export function buildAdsSearchTermsPeriodCsv(
+  primary: AdsSearchTermRow[],
+  primaryRange: { start: string; end: string },
+): string {
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const header = ["Search term", "Campaign", `Spend (${la})`, `Clk (${la})`].join(",");
+  const sorted = [...primary].sort((a, b) => b.costMicros - a.costMicros);
+  const rows = sorted.slice(0, 250).map((row) =>
+    [
+      escapeCsvCell(row.searchTerm),
+      escapeCsvCell(row.campaignName),
+      formatMoney(row.costMicros),
+      csvNumberCell(row.clicks),
+    ].join(","),
+  );
+  return [header, ...rows].join("\n");
 }
 
 function joinByName<T extends { name?: string; text?: string; searchTerm?: string }>(
@@ -94,8 +184,8 @@ export function buildAdsCampaignsMomCsv(
   primaryRange: { start: string; end: string },
   compareRange: { start: string; end: string },
 ): string {
-  const la = gscCompactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
-  const lb = gscCompactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const lb = compactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
   const header = [
     "Campaign",
     `Spend (${la})`,
@@ -135,8 +225,8 @@ export function buildAdsKeywordsMomCsv(
   primaryRange: { start: string; end: string },
   compareRange: { start: string; end: string },
 ): string {
-  const la = gscCompactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
-  const lb = gscCompactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const lb = compactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
   const header = [
     "Keyword",
     "Campaign",
@@ -172,8 +262,8 @@ export function buildAdsSearchTermsMomCsv(
   primaryRange: { start: string; end: string },
   compareRange: { start: string; end: string },
 ): string {
-  const la = gscCompactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
-  const lb = gscCompactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
+  const la = compactPeriodLabelFromIsoRange(primaryRange.start, primaryRange.end);
+  const lb = compactPeriodLabelFromIsoRange(compareRange.start, compareRange.end);
   const header = [
     "Search term",
     "Campaign",
@@ -210,11 +300,34 @@ export function adsBundleHasActivity(bundle: AdsReportingBundle): boolean {
 
 export function filesFromAdsReportingBundle(
   bundle: AdsReportingBundle,
-  compareKind: "mom" | "yoy" | "custom",
+  compareKind: AdsReportingCompareKind,
   compareLabel: string,
 ): { name: string; content: string }[] {
   const primaryRange = { start: bundle.startDate, end: bundle.endDate };
   const compareRange = { start: bundle.compareStartDate, end: bundle.compareEndDate };
+  if (compareKind === "period_progress") {
+    const files = [
+      {
+        name: ADS_SITE_TOTALS_PERIOD_FILENAME,
+        content: buildAdsSiteTotalsPeriodCsv(bundle.account, primaryRange),
+      },
+      {
+        name: ADS_CAMPAIGNS_PERIOD_FILENAME,
+        content: buildAdsCampaignsPeriodCsv(bundle.campaigns, primaryRange),
+      },
+      {
+        name: ADS_KEYWORDS_PERIOD_FILENAME,
+        content: buildAdsKeywordsPeriodCsv(bundle.keywords, primaryRange),
+      },
+      {
+        name: ADS_SEARCH_TERMS_PERIOD_FILENAME,
+        content: buildAdsSearchTermsPeriodCsv(bundle.searchTerms, primaryRange),
+      },
+    ];
+    const signals = deriveAdsPeriodSignals({ compareLabel, primary: bundle.account });
+    files.push({ name: ADS_COMPARE_SIGNALS_FILENAME, content: adsCompareSignalsFileContent(signals) });
+    return files;
+  }
   const files = [
     {
       name: ADS_SITE_TOTALS_FILENAME,
@@ -245,8 +358,14 @@ export function filesFromAdsReportingBundle(
 
 export async function fetchAdsReportingBundle(
   customerId: string,
-  ranges: GscCompareRanges,
-  options?: { compareKind?: "mom" | "yoy" | "custom"; compareLabel?: string },
+  ranges: AdsReportingDateRanges,
+  options?: {
+    site?: WordPressSite;
+    siteId?: string;
+    compareKind?: AdsReportingCompareKind;
+    compareLabel?: string;
+    reportStructure?: "compare" | "period_progress";
+  },
 ): Promise<{
   files: { name: string; content: string }[];
   startDate: string;
@@ -254,34 +373,41 @@ export async function fetchAdsReportingBundle(
   compareStartDate: string;
   compareEndDate: string;
 }> {
-  const id = normalizeGoogleAdsCustomerId(customerId);
-  if (id.length !== 10) {
-    throw new Error("Set a 10-digit Google Ads customer ID on this property.");
+  let id = normalizeGoogleAdsCustomerId(customerId);
+  if (id.length !== 10 && options?.site) {
+    id = await resolveGoogleAdsCustomerIdForReportingAsync(options.site);
+  }
+  const periodProgress = options?.reportStructure === "period_progress";
+  const body: Record<string, string> = {
+    customerId: id,
+    startDate: ranges.primary.startDate,
+    endDate: ranges.primary.endDate,
+  };
+  const siteId = (options?.siteId ?? options?.site?.id ?? "").trim();
+  if (siteId) {
+    body.siteId = siteId;
+  }
+  if (periodProgress) {
+    body.reportStructure = "period_progress";
+  } else {
+    body.compareStartDate = ranges.compare.startDate;
+    body.compareEndDate = ranges.compare.endDate;
   }
   const res = await fetch(backendApiUrl("/google-ads/fetch-reporting-bundle"), {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      customerId: id,
-      startDate: ranges.primary.startDate,
-      endDate: ranges.primary.endDate,
-      compareStartDate: ranges.compare.startDate,
-      compareEndDate: ranges.compare.endDate,
-    }),
+    body: JSON.stringify(body),
   });
   const data = (await res.json().catch(() => ({}))) as AdsReportingBundle | { success?: false; error?: string };
-  if (!res.ok || !("success" in data) || data.success !== true) {
+  if (!("success" in data) || data.success !== true) {
     const err = "error" in data && typeof data.error === "string" ? data.error : "Ads reporting bundle failed.";
     throw new Error(err);
-  }
-  if (!adsBundleHasActivity(data)) {
-    throw new Error("Google Ads returned no rows for this customer and date range.");
   }
   const compareKind = options?.compareKind ?? "mom";
   const compareLabel =
     options?.compareLabel ??
-    `${gscCompactPeriodLabelFromIsoRange(data.startDate, data.endDate)} vs ${gscCompactPeriodLabelFromIsoRange(data.compareStartDate, data.compareEndDate)}`;
+    `${compactPeriodLabelFromIsoRange(data.startDate, data.endDate)} vs ${compactPeriodLabelFromIsoRange(data.compareStartDate, data.compareEndDate)}`;
   return {
     files: filesFromAdsReportingBundle(data, compareKind, compareLabel),
     startDate: data.startDate,

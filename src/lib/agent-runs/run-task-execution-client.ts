@@ -353,6 +353,7 @@ export async function runTaskExecutionClientHarness(
       comparePreset: gscConfig.comparePreset,
       gscComparePresetId: gscConfig.presetId,
       gscCompareRanges: gscConfig.compareRanges,
+      gscReportStructure: gscConfig.gscReportStructure,
     };
     return runGscReportingClientHarness(
       run,

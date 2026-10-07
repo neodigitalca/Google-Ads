@@ -669,7 +669,7 @@ class Neo_Pulse_Wp_Search_Logs {
 		$system = 'You filter on-site customer search queries for a WordPress search widget. Respond with ONLY valid JSON (no markdown): {"terms":[{"query":"...","count":123}]}. Rules: return up to ' . $limit . ' items copied from the input list only, in the same popularity order. Include a query only when every word is a real, correctly spelled word (English or proper nouns). Exclude typos, gibberish, partial words, and random characters. Do not invent new phrases or SEO keywords. Count must match the input entry.';
 		$user   = "Customer search queries:\n" . implode( "\n", $lines );
 
-		$result = Neo_Pulse_Wp_OpenRouter::complete( $system, $user, 400, 0.1 );
+		$result = Neo_Pulse_Wp_OpenRouter::complete( $system, $user, 400, 0.1, Neo_Pulse_Wp_Search::get_openrouter_model() );
 		if ( is_wp_error( $result ) ) {
 			return array();
 		}

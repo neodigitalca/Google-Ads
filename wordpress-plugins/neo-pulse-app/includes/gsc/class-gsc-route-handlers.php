@@ -26,6 +26,7 @@ class Neo_Pulse_App_Gsc_Route_Handlers {
 			array( 'POST', '/fetch-historical-stats', 'fetch_historical_stats' ),
 			array( 'POST', '/fetch-entity-pages-performance', 'fetch_entity_pages_performance' ),
 			array( 'POST', '/fetch-reporting-bundle', 'fetch_reporting_bundle' ),
+			array( 'POST', '/query-daily-series', 'query_daily_series' ),
 			array( 'POST', '/reporting-chat-completion', 'reporting_chat_completion' ),
 			array( 'POST', '/top-pages', 'top_pages' ),
 			array( 'POST', '/url-inventory', 'url_inventory' ),
@@ -106,6 +107,10 @@ class Neo_Pulse_App_Gsc_Route_Handlers {
 
 	public static function fetch_reporting_bundle( WP_REST_Request $request ) {
 		return self::from_result( Neo_Pulse_App_Gsc_Reporting_Bundle::fetch_reporting_bundle( (array) $request->get_json_params() ) );
+	}
+
+	public static function query_daily_series( WP_REST_Request $request ) {
+		return self::from_result( Neo_Pulse_App_Gsc_Query_Daily::query_daily_series( (array) $request->get_json_params() ) );
 	}
 
 	public static function reporting_chat_completion( WP_REST_Request $request ) {
@@ -339,6 +344,11 @@ class Neo_Pulse_App_Gsc_Route_Handlers {
 		}
 		if ( $subpath === 'fetch-reporting-bundle' && $method === 'POST' ) {
 			$r = Neo_Pulse_App_Gsc_Reporting_Bundle::fetch_reporting_bundle( $body );
+			Neo_Pulse_App_Api_Dispatcher::send_json( $r['body'], $r['statusCode'] );
+			return;
+		}
+		if ( $subpath === 'query-daily-series' && $method === 'POST' ) {
+			$r = Neo_Pulse_App_Gsc_Query_Daily::query_daily_series( $body );
 			Neo_Pulse_App_Api_Dispatcher::send_json( $r['body'], $r['statusCode'] );
 			return;
 		}

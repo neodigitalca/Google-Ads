@@ -64,7 +64,7 @@ describe("resolveOverviewBulkPipelineTitles", () => {
     ]);
   });
 
-  it("maps featured image run kind to Google Image, OpenRouter Image, WordPress upload", () => {
+  it("maps featured image run kind to Image requirements, Google Image, OpenRouter Image, WordPress upload", () => {
     expect(resolveOverviewBulkPipelineTitles("aiFeaturedImage")).toEqual([
       ...FEATURED_IMAGE_PIPELINE_TITLES,
     ]);
@@ -501,7 +501,7 @@ describe("buildOverviewMicroActionDetailsProps", () => {
     expect(props.pipelineSectionTitles).toEqual([]);
   });
 
-  it("shows Google Image, OpenRouter Image, and WordPress upload for featured image", () => {
+  it("shows Image requirements, Google Image, OpenRouter Image, and WordPress upload for featured image", () => {
     const url = "https://example.com/a";
     const overviewRows = [makeOverviewRow(url)];
     const scopeKeys = overviewBulkScopeUrlKeysFromRows(overviewRows);

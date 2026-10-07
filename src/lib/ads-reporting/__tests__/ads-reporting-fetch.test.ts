@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ADS_SITE_TOTALS_PERIOD_FILENAME,
   adsBundleHasActivity,
   buildAdsSiteTotalsCsv,
+  fetchAdsReportingBundle,
   filesFromAdsReportingBundle,
 } from "@/lib/ads-reporting/ads-reporting-fetch";
 import {
@@ -89,7 +91,39 @@ describe("adsBundleHasActivity", () => {
   });
 });
 
+describe("fetchAdsReportingBundle", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns period files when API succeeds with zero account metrics", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => bundle({}),
+      })) as unknown as typeof fetch,
+    );
+    const res = await fetchAdsReportingBundle(
+      "1234567890",
+      {
+        primary: { startDate: "2026-07-01", endDate: "2026-09-30" },
+        compare: { startDate: "2026-04-01", endDate: "2026-06-30" },
+      },
+      { reportStructure: "period_progress", compareKind: "period_progress" },
+    );
+    expect(res.startDate).toBe("2026-08-01");
+    expect(res.files.some((f) => f.name === ADS_SITE_TOTALS_PERIOD_FILENAME)).toBe(true);
+    expect(res.files[0]?.content.length).toBeGreaterThan(0);
+  });
+});
+
 describe("filesFromAdsReportingBundle", () => {
+  it("builds period CSVs for zero-metric bundle", () => {
+    const files = filesFromAdsReportingBundle(bundle({}), "period_progress", "Jul 1 to Sep 30, 2026");
+    expect(files.map((f) => f.name)).toContain(ADS_SITE_TOTALS_PERIOD_FILENAME);
+  });
+
   it("emits totals campaigns keywords search terms and signals", () => {
     const files = filesFromAdsReportingBundle(
       bundle({

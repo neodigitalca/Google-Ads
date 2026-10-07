@@ -10,6 +10,7 @@ import {
   resolveEffectiveSourceMode,
   resolveSelectedSectionObj,
 } from "@/lib/image-generator/image-generator-options";
+import { logFeaturedImagePipeline } from "@/lib/image-generator/featured-image-pipeline-log";
 
 export async function runImageChecklist(
   options: ImageGeneratorOptions,
@@ -54,6 +55,14 @@ export async function runImageChecklist(
     colorBackground: options.colorBackground.trim() || undefined,
   });
 
+  if (effectiveMode === "featured") {
+    logFeaturedImagePipeline("IMAGE REQUIREMENTS: starting checklist LLM", {
+      model: context.selectedModel,
+      title: context.flowTitle,
+      bodyChars: context.finalOutput?.length ?? 0,
+    });
+  }
+
   let checklistContent = "";
   await streamChatCompletion({
     apiKey: context.apiKey,
@@ -70,5 +79,14 @@ export async function runImageChecklist(
     },
   });
 
-  return parseImageChecklist(checklistContent);
+  const parsed = parseImageChecklist(checklistContent, {
+    strictFeatured: effectiveMode === "featured",
+  });
+  if (effectiveMode === "featured") {
+    logFeaturedImagePipeline("IMAGE REQUIREMENTS: checklist ready", {
+      itemCount: parsed.length,
+      titles: parsed.map((item) => item.title),
+    });
+  }
+  return parsed;
 }

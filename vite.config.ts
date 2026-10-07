@@ -3,8 +3,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
-import { dataforseoLlmResponsesDevPlugin } from "./scripts/vite-dataforseo-llm-responses-plugin.mjs";
 import { localDominatorDevExportPlugin } from "./scripts/vite-local-dominator-export-plugin.mjs";
+import { gscFetchQueriesDevPlugin } from "./scripts/vite-gsc-fetch-queries-dev-plugin.mjs";
 import { localWpApiProxyPlugin } from "./scripts/vite-local-wp-api-proxy-plugin.mjs";
 import { entityMapsPuppeteerDevPlugin } from "./scripts/vite-entity-maps-puppeteer-plugin.mjs";
 
@@ -85,14 +85,21 @@ export default defineConfig(({ mode, command }) => {
               );
               return;
             }
+            if (url === "/__neo-pulse/dev-ui.json") {
+              res.statusCode = 200;
+              res.setHeader("content-type", "application/json; charset=utf-8");
+              res.setHeader("cache-control", "no-store");
+              res.end(JSON.stringify({ aiModelsPanel: "pipeline-agents-v3" }));
+              return;
+            }
             next();
           });
         },
       },
       isDev && componentTagger(),
-      isDevServer && dataforseoLlmResponsesDevPlugin(),
       isDevServer && entityMapsPuppeteerDevPlugin(),
       isDevServer && localDominatorDevExportPlugin(),
+      isDevServer && gscFetchQueriesDevPlugin(),
       isDevServer && localWpApiProxyPlugin(),
     ].filter(Boolean),
     resolve: {

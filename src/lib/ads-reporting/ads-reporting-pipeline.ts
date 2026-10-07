@@ -9,8 +9,8 @@ import {
   mergePinnedChunksWithRetrieval,
   pickFirstChunkPerSourceFile,
   retrieveTopChunks,
-  splitGscFilesIntoChunks,
-} from "@/lib/gsc-reporting/gsc-reporting-chunks";
+  splitAdsFilesIntoChunks,
+} from "@/lib/ads-reporting/ads-reporting-chunks";
 import { runAdsReportingOutline } from "@/lib/ads-reporting/ads-reporting-outline";
 import { applyAdsReportingMarkdownPost } from "@/lib/ads-reporting/ads-reporting-markdown-post";
 import {
@@ -20,6 +20,7 @@ import {
 import { buildAdsReportDocumentHeading } from "@/lib/ads-reporting/ads-reporting-document-title";
 import { ADS_COMPARE_SIGNALS_FILENAME } from "@/lib/ads-reporting/ads-reporting-fetch";
 import type {
+  AdsReportingCompareKind,
   AdsReportingOutlineResult,
   AdsReportingPipelineProgress,
   AdsReportingPipelineResult,
@@ -42,8 +43,9 @@ export async function runAdsReportingPipeline(args: {
   siteName: string;
   siteUrl: string;
   files: { name: string; content: string }[];
-  compareKind?: "mom" | "yoy" | "custom";
+  compareKind?: AdsReportingCompareKind;
   compareLabel?: string;
+  documentTitlePeriod?: string;
   signal?: AbortSignal;
   onProgress?: (p: AdsReportingPipelineProgress) => void | Promise<void>;
   onOutlineReady?: (payload: { outline: AdsReportingOutlineResult; outlineRequestBodyJson: string }) => void;
@@ -54,8 +56,9 @@ export async function runAdsReportingPipeline(args: {
   savedOutlineRequestBodyJson?: string;
 }): Promise<AdsReportingPipelineResult> {
   if (!args.apiKey.trim()) throw new Error("OpenRouter API key is required.");
+  if (args.files.length === 0) throw new Error("No Ads data loaded.");
   const nonEmpty = args.files.filter((f) => f.content.trim().length > 0);
-  if (nonEmpty.length === 0) throw new Error("No Ads data loaded.");
+  const pipelineFiles = nonEmpty.length > 0 ? nonEmpty : args.files;
   const compareKind = args.compareKind ?? "mom";
   const compareLabel = args.compareLabel ?? "";
 
@@ -63,7 +66,7 @@ export async function runAdsReportingPipeline(args: {
     ? {
         outline: args.savedOutline,
         truncatedInput: false,
-        filenames: nonEmpty.map((f) => f.name),
+        filenames: pipelineFiles.map((f) => f.name),
         outlineRequestBodyJson: args.savedOutlineRequestBodyJson ?? "",
       }
     : await runAdsReportingOutline({
@@ -71,7 +74,7 @@ export async function runAdsReportingPipeline(args: {
         model: args.model,
         siteName: args.siteName,
         siteUrl: args.siteUrl,
-        files: nonEmpty,
+        files: pipelineFiles,
         compareKind,
         compareLabel,
         signal: args.signal,
@@ -88,8 +91,8 @@ export async function runAdsReportingPipeline(args: {
     label: formatAdsOutlineCompleteLabel(outline.sections),
   });
 
-  const chunks = splitGscFilesIntoChunks(nonEmpty);
-  const signalsFile = nonEmpty.find((f) => f.name === ADS_COMPARE_SIGNALS_FILENAME);
+  const chunks = splitAdsFilesIntoChunks(pipelineFiles);
+  const signalsFile = pipelineFiles.find((f) => f.name === ADS_COMPARE_SIGNALS_FILENAME);
   const priorByIndex = new Map((args.priorSectionResults ?? []).map((row) => [row.index, row]));
   const sectionResults: AdsReportingSectionResult[] = [...(args.priorSectionResults ?? [])];
 
@@ -169,7 +172,7 @@ export async function runAdsReportingPipeline(args: {
   }
 
   const title = [
-    `# ${buildAdsReportDocumentHeading(compareLabel)}`,
+    `# ${buildAdsReportDocumentHeading(args.siteName, compareLabel, args.documentTitlePeriod)}`,
     "",
     AGENCY_NAME,
     `Prepared for: ${args.siteName}`,

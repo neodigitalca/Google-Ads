@@ -42,6 +42,7 @@ class Neo_Pulse_Wp_Tools {
 		'wp_super_migrate_flo_sheet_import',
 		'wp_seo_block_sync_library',
 		'wp_theme_functions_put',
+		'wp_plugin_upgrade_from_zip_url',
 	);
 
 	/**
@@ -54,6 +55,7 @@ class Neo_Pulse_Wp_Tools {
 
 		$defs = array(
 			array( 'wp_ping', 'read', 'Plugin health ping', 'wp_ping', 'read' ),
+			array( 'wp_plugin_upgrade_from_zip_url', 'destructive', 'Install or overwrite NEO Pulse WP from a zip URL', 'wp_plugin_upgrade_from_zip_url', 'install_plugins' ),
 			array( 'wp_whoami', 'read', 'Current WordPress user', 'wp_whoami', 'read' ),
 			array( 'wp_site_dashboard', 'read', 'NEO Pulse property dashboard state', 'wp_site_dashboard', 'read' ),
 			array( 'wp_site_index', 'read', 'Site content graph index', 'wp_site_index', 'read' ),
@@ -262,6 +264,11 @@ class Neo_Pulse_Wp_Tools {
 			case 'manage_options':
 				if ( ! current_user_can( 'manage_options' ) ) {
 					return new WP_Error( 'rest_forbidden', __( 'Forbidden.', 'neo-pulse-wp' ), array( 'status' => 403 ) );
+				}
+				return true;
+			case 'install_plugins':
+				if ( ! current_user_can( 'install_plugins' ) ) {
+					return new WP_Error( 'rest_forbidden', __( 'install_plugins capability is required.', 'neo-pulse-wp' ), array( 'status' => 403 ) );
 				}
 				return true;
 			case 'edit_themes':

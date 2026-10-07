@@ -15,19 +15,38 @@ describe("gsc-reporting-outline-bundle", () => {
     expect(selected.map((f) => f.name)).toEqual(["Site-totals-MoM.csv"]);
   });
 
-  it("caps Queries-MoM rows for outline prompt", () => {
-    const rows = ["query,clicks", ...Array.from({ length: 200 }, (_, i) => `q${i},${i}`)].join("\n");
-    const selected = selectGscOutlineSourceFiles([{ name: "Queries-MoM.csv", content: rows }]);
-    expect(selected[0]?.content.split("\n").length).toBeLessThanOrEqual(122);
-    expect(selected[0]?.content).toContain("omitted from outline prompt");
+  it("selects period progress CSVs instead of MoM compare files", () => {
+    const files = [
+      { name: "Site-totals-by-month.csv", content: "Month,Clicks\n2026-09,10" },
+      { name: "Queries-Period.csv", content: "query,clicks\na,1" },
+      { name: "Pages-Period.csv", content: "page,clicks\n/,1" },
+      { name: "Site-totals-MoM.csv", content: "should-not-pick\n" },
+    ];
+    const selected = selectGscOutlineSourceFiles(files, "period_progress");
+    expect(selected.map((f) => f.name)).toEqual([
+      "Site-totals-by-month.csv",
+      "Queries-Period.csv",
+      "Pages-Period.csv",
+    ]);
   });
 
-  it("bundleGscOutlineFilesForPrompt stays under outline cap", () => {
-    const huge = "x".repeat(120_000);
+  it("keeps full Queries-MoM rows for outline prompt", () => {
+    const rows = ["query,clicks", ...Array.from({ length: 600 }, (_, i) => `q${i},${i}`)].join("\n");
+    const selected = selectGscOutlineSourceFiles([
+      { name: "Site-totals-MoM.csv", content: "Period,Clicks\nAug,1" },
+      { name: "Queries-MoM.csv", content: rows },
+    ]);
+    const queries = selected.find((f) => f.name === "Queries-MoM.csv");
+    expect(queries?.content).toBe(rows);
+  });
+
+  it("bundleGscOutlineFilesForPrompt includes full bundled CSV text (no char cap)", () => {
+    const body = "x".repeat(12_000);
     const bundled = bundleGscOutlineFilesForPrompt([
       { name: "Site-totals-MoM.csv", content: "Period,Clicks\nAug,1" },
-      { name: "Queries-MoM.csv", content: huge },
+      { name: "Queries-MoM.csv", content: `query,clicks\n${body}` },
     ]);
-    expect(bundled.text.length).toBeLessThanOrEqual(96_000);
+    expect(bundled.truncated).toBe(false);
+    expect(bundled.text).toContain(body);
   });
 });

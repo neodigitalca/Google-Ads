@@ -1,4 +1,4 @@
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 import { useTeam } from "@/contexts/TeamContext";
 import { AgentRunsPanel } from "@/components/agent-runs/AgentRunsPanel";
 import { PulseAssistChatPanel } from "./PulseAssistChatPanel";

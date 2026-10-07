@@ -422,14 +422,8 @@ class Neo_Pulse_App_Dataforseo_Mcp_Router {
 	}
 
 	private static function is_transient_dataforseo_error( string $message ): bool {
-		$m = strtolower( $message );
-		return str_contains( $m, 'timeout' )
-			|| str_contains( $m, 'timed out' )
-			|| str_contains( $m, 'temporarily unavailable' )
-			|| str_contains( $m, 'internal se server error' )
-			|| str_contains( $m, '503' )
-			|| str_contains( $m, '502' )
-			|| str_contains( $m, '504' );
+		return Neo_Pulse_App_Http_Transient_Retry::is_transient_transport_error( $message )
+			|| str_contains( strtolower( $message ), 'internal se server error' );
 	}
 
 	/**
@@ -505,9 +499,6 @@ class Neo_Pulse_App_Dataforseo_Mcp_Router {
 		}
 		if ( isset( $body['force_web_search'] ) ) {
 			$task['force_web_search'] = (bool) $body['force_web_search'];
-		}
-		if ( isset( $body['max_output_tokens'] ) && is_numeric( $body['max_output_tokens'] ) ) {
-			$task['max_output_tokens'] = (int) $body['max_output_tokens'];
 		}
 		if ( isset( $body['message_chain'] ) && is_array( $body['message_chain'] ) ) {
 			$chain = array();

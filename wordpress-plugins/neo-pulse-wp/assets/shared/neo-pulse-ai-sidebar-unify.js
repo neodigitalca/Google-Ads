@@ -208,9 +208,25 @@
     var searchLauncher = searchWrap.querySelector('.fai-sidebar-launcher, .fbs__icon-launcher');
     var mobileLauncher = document.getElementById('neo-pulse-chat-mobile-launcher');
     if (shell && searchLauncher && typeof shell.registerLauncher === 'function') {
+      var headerSearchOnly = searchWrap.classList.contains('neo-pulse-search-wrap--header-slot');
       shell.registerLauncher(searchLauncher, {
         onBeforeOpen: function () {
           setActiveTab('search');
+          if (!headerSearchOnly) {
+            return;
+          }
+          var host = document.querySelector('[data-fai-unified="1"]');
+          if (!host) {
+            return;
+          }
+          var tabs = host.querySelector('.fai-sidebar-tabs');
+          if (tabs) {
+            tabs.style.display = 'none';
+          }
+          var chatPane = host.querySelector('.fai-sidebar-tab-pane[data-fai-tab="chat"]');
+          if (chatPane) {
+            chatPane.hidden = true;
+          }
         }
       });
     }

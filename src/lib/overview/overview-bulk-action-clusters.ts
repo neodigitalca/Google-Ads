@@ -298,12 +298,7 @@ export function buildOverviewBulkActionClusters(
         id: "ai-featured-image",
         label: "Featured image",
         icon: Wand2,
-        disabled:
-          noRows(c) ||
-          !c.site ||
-          ctx.bulkWorkspaceBusy ||
-          optimizingSite ||
-          optimizingBatch,
+        disabled: noRows(c) || !c.site,
         onSelect: () => void c.handleAiFeaturedImageAll(),
       },
       ...(c.sitemapSource === "sap"

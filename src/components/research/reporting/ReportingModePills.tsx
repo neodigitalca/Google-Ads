@@ -1,10 +1,11 @@
 import { WorkspacePill } from "@/components/shared/WorkspacePill";
 
-export type ReportingWorkspaceMode = "seo" | "ppc";
+export type ReportingWorkspaceMode = "seo" | "ppc" | "both";
 
 const MODES: { id: ReportingWorkspaceMode; label: string }[] = [
   { id: "seo", label: "SEO" },
   { id: "ppc", label: "PPC" },
+  { id: "both", label: "Both" },
 ];
 
 export function ReportingModePills({

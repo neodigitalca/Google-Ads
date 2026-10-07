@@ -22,6 +22,7 @@ import { automationTitleFromRun } from "@/lib/automation-email-delivery";
 import { AGENT_RUN_STEP_KEYS } from "@/lib/agent-runs/agent-run-step-keys";
 import { resolveGscAgentProgressStepKey } from "@/lib/gsc-reporting/gsc-reporting-progress-log";
 import { completeAgentRunExecution } from "@/lib/workflow/workflow-deliveries-skip";
+import { gscReportingSupplementsFromExecutionPayload } from "@/lib/gsc-reporting/gsc-reporting-supplements-from-payload";
 
 function executionPayloadFromSource(
   source: TaskExecutionClientRunContract | TaskExecutionPayload | Record<string, unknown>,
@@ -74,7 +75,7 @@ export async function runGscReportingClientHarness(
   ctx: AgentRunHarnessContext,
   batchKey: string,
 ): Promise<AgentRunResult> {
-  const { comparePreset, compareRanges } = gscRunConfigFromSource(contract);
+  const { comparePreset, compareRanges, gscReportStructure } = gscRunConfigFromSource(contract);
   const saveToDisk = effectiveSaveToDisk("gsc_reporting", contract);
   const saveLocalArchive = effectiveSaveLocalArchive("gsc_reporting", contract);
 
@@ -85,10 +86,15 @@ export async function runGscReportingClientHarness(
     progress: 0.02,
   });
 
+  const executionPayload = executionPayloadFromSource(contract);
+  const supplements = gscReportingSupplementsFromExecutionPayload(executionPayload);
+
   const result = await runGscReportingAgentHarness({
     site,
     comparePreset,
     compareRanges,
+    gscReportStructure,
+    supplements,
     isCancelled: ctx.isCancelled,
     resumePoint: ctx.resumePoint,
     onProgress: async (p, resumePayload) => {
@@ -171,7 +177,7 @@ export async function runGscReportingDirectHarness(
   const site = resolveGscReportingSite(run, ctx.sites ?? []);
   const plan = (run.plan ?? {}) as Record<string, unknown>;
   const planPayload = (plan.executionPayload ?? plan.clientRunContract ?? plan) as TaskExecutionPayload;
-  const { comparePreset, compareRanges } = gscRunConfigFromSource(planPayload);
+  const { comparePreset, compareRanges, gscReportStructure } = gscRunConfigFromSource(planPayload);
   const saveToDisk = effectiveSaveToDisk("gsc_reporting", planPayload);
   const saveLocalArchive = effectiveSaveLocalArchive("gsc_reporting", planPayload);
 
@@ -181,6 +187,7 @@ export async function runGscReportingDirectHarness(
     site,
     comparePreset,
     compareRanges,
+    gscReportStructure,
     isCancelled: ctx.isCancelled,
     resumePoint: ctx.resumePoint,
     onProgress: async (p, resumePayload) => {

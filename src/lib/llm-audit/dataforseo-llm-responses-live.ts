@@ -1,5 +1,5 @@
-import { backendApiUrl } from "@/lib/wordpress-api/connection";
 import type { LlmAuditPlatform } from "@/lib/llm-audit/llm-audit-dataforseo";
+import { mcp_DataForSEO_llm_responses_live } from "@/lib/mcp-tools";
 
 export type DataForSeoLlmResponsesLiveParams = {
   platform: LlmAuditPlatform;
@@ -11,12 +11,10 @@ export type DataForSeoLlmResponsesLiveParams = {
   force_web_search?: boolean;
   web_search_country_iso_code?: string;
   web_search_city?: string;
-  max_output_tokens?: number;
 };
 
 export const DFS_LLM_PAYMENT_SKIP = { skipped: true as const, reason: "dfs_payment" as const };
 
-/** Backend/gateway down or DataForSEO LLM route unavailable — continue bulk without blocking. */
 export const DFS_LLM_UNAVAILABLE_SKIP = { skipped: true as const, reason: "dfs_unavailable" as const };
 
 let dfsPaymentLatched = false;
@@ -86,78 +84,57 @@ export function isDataForSeoPaymentFailure(input: {
   );
 }
 
-function parseJsonOrThrowHtml(text: string, status: number): unknown {
-  const trimmed = text.trim();
-  if (trimmed.startsWith("<!DOCTYPE") || trimmed.startsWith("<html")) {
-    throw new Error(
-      `LLM audit API returned HTML instead of JSON (HTTP ${status}). Restart dev server so /api/dataforseo/llm-responses-live hits DataForSEO directly.`,
-    );
-  }
-  try {
-    return JSON.parse(trimmed) as unknown;
-  } catch {
-    throw new Error(`LLM audit API returned non-JSON (HTTP ${status})`);
-  }
-}
-
-/** Direct DataForSEO LLM Responses Live via backend (not MCP tool registry). */
+/** DataForSEO LLM Responses Live — same MCP route as keyword/SERP (Settings key on every call). */
 export async function dataforseoLlmResponsesLive(
   params: DataForSeoLlmResponsesLiveParams,
 ): Promise<unknown> {
   if (dfsPaymentLatched) return DFS_LLM_PAYMENT_SKIP;
 
-  let res: Response;
   try {
-    res = await fetch(backendApiUrl("/dataforseo/llm-responses-live"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(params),
+    const json = await mcp_DataForSEO_llm_responses_live({
+      platform: params.platform,
+      model_name: params.model_name,
+      user_prompt: params.user_prompt,
+      system_message: params.system_message,
+      message_chain: params.message_chain,
+      web_search: params.web_search,
+      force_web_search: params.force_web_search,
+      web_search_country_iso_code: params.web_search_country_iso_code,
+      web_search_city: params.web_search_city,
     });
-  } catch (err) {
-    console.warn("[DFS LLM] llm-responses-live fetch failed; continuing without ChatGPT facts:", err);
-    return DFS_LLM_UNAVAILABLE_SKIP;
-  }
 
-  const text = await res.text();
-  if (isGatewayHttpStatus(res.status)) {
-    console.warn(`[DFS LLM] llm-responses-live HTTP ${res.status}; continuing without ChatGPT facts`);
-    return DFS_LLM_UNAVAILABLE_SKIP;
-  }
+    if (isDataForSeoPaymentFailure({ json })) {
+      markDfsPaymentFailed();
+      return DFS_LLM_PAYMENT_SKIP;
+    }
 
-  let json: unknown;
-  try {
-    json = parseJsonOrThrowHtml(text, res.status);
+    if (json && typeof json === "object") {
+      const obj = json as Record<string, unknown>;
+      if (typeof obj.error === "string" && obj.error.trim() && !Array.isArray(obj.tasks)) {
+        throw new Error(obj.error.trim());
+      }
+    }
+
+    return json;
   } catch (err) {
-    if (isGatewayHttpStatus(res.status) || !res.ok) {
-      console.warn("[DFS LLM] llm-responses-live non-JSON error body; continuing without ChatGPT facts:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    const status = err instanceof Error ? (err as Error & { status?: number }).status : undefined;
+    if (isDataForSeoPaymentFailure({ httpStatus: status, message })) {
+      markDfsPaymentFailed();
+      return DFS_LLM_PAYMENT_SKIP;
+    }
+    if (status && isGatewayHttpStatus(status)) {
+      console.warn(`[DFS LLM] MCP llm_responses_live HTTP ${status}; continuing without ChatGPT facts`);
+      return DFS_LLM_UNAVAILABLE_SKIP;
+    }
+    const lower = message.toLowerCase();
+    if (
+      lower.includes("502 bad gateway")
+      || lower.includes("503 service")
+      || lower.includes("504 gateway")
+    ) {
       return DFS_LLM_UNAVAILABLE_SKIP;
     }
     throw err;
   }
-
-  if (isDataForSeoPaymentFailure({ httpStatus: res.status, json })) {
-    markDfsPaymentFailed();
-    return DFS_LLM_PAYMENT_SKIP;
-  }
-
-  if (!res.ok) {
-    if (isGatewayHttpStatus(res.status)) {
-      return DFS_LLM_UNAVAILABLE_SKIP;
-    }
-    const msg =
-      json && typeof json === "object" && "error" in json
-        ? String((json as { error: unknown }).error)
-        : `HTTP ${res.status}`;
-    console.warn(`[DFS LLM] llm-responses-live error; continuing without ChatGPT facts: ${msg}`);
-    return DFS_LLM_UNAVAILABLE_SKIP;
-  }
-
-  if (json && typeof json === "object") {
-    const obj = json as Record<string, unknown>;
-    if (typeof obj.error === "string" && obj.error.trim() && !Array.isArray(obj.tasks)) {
-      throw new Error(obj.error.trim());
-    }
-  }
-
-  return json;
 }

@@ -205,19 +205,22 @@ function featuredImageSectionStatus(
   sectionIndex: number,
 ): BulkHarnessSectionUi["status"] {
   const names = (files ?? []).map((file) => file.fileName);
+  const hasRequirements = names.includes("image-requirements.json");
   const hasGoogle = names.includes("google-image.png");
   const hasOpenRouter = names.some((name) => name.startsWith("openrouter-image."));
   const hasWp = names.includes("wordpress.json");
-  if (sectionIndex === 0 && hasGoogle) return "done";
-  if (sectionIndex === 1 && hasOpenRouter) return "done";
-  if (sectionIndex === 2 && hasWp) return "done";
+  if (sectionIndex === 0 && hasRequirements) return "done";
+  if (sectionIndex === 1 && hasGoogle) return "done";
+  if (sectionIndex === 2 && hasOpenRouter) return "done";
+  if (sectionIndex === 3 && hasWp) return "done";
   const completed = Math.min(slice.completed, slice.total);
   if (!isProcessing) return hasWp ? "done" : "waiting";
   if (displayIndex < completed) return "done";
   if (displayIndex === completed) {
-    if (sectionIndex === 0 && !hasGoogle) return "generating";
-    if (sectionIndex === 1 && hasGoogle && !hasOpenRouter) return "generating";
-    if (sectionIndex === 2 && hasOpenRouter && !hasWp) return "generating";
+    if (sectionIndex === 0 && !hasRequirements) return "generating";
+    if (sectionIndex === 1 && hasRequirements && !hasGoogle) return "generating";
+    if (sectionIndex === 2 && hasGoogle && !hasOpenRouter) return "generating";
+    if (sectionIndex === 3 && hasOpenRouter && !hasWp) return "generating";
   }
   return "waiting";
 }

@@ -10,6 +10,8 @@ import {
 import { GscReportingToolbar, type GscReportingToolbarProps } from "@/components/research/reporting/GscReportingToolbar";
 import { buildGscReportingBulkGeneratorDetailsProps } from "@/lib/gsc-reporting/gsc-reporting-bulk-details-bindings";
 import { buildGscReportingMicroSnapshot } from "@/lib/gsc-reporting/gsc-reporting-header-progress";
+import type { ReportingWorkspaceMode } from "@/components/research/reporting/ReportingModePills";
+import type { ReportingLane } from "@/lib/reporting/reporting-lane-artifacts";
 import type { GscReportingPipelineProgress } from "@/lib/gsc-reporting/gsc-reporting-types";
 import type { GscReportingSectionPlan, GscReportingSectionResult } from "@/lib/gsc-reporting/gsc-reporting-types";
 
@@ -25,6 +27,9 @@ export type GscReportingWorkspaceHeaderProps = GeneratorWorkspaceChromeBindings 
   sectionMap?: Record<number, GscReportingSectionResult>;
   generatingSectionIndex?: number | null;
   titleRowMenu?: ReactNode;
+  reportRunPinned?: boolean;
+  reportMode?: ReportingWorkspaceMode;
+  progressLeg?: ReportingLane | null;
 };
 
 export function GscReportingWorkspaceHeader({
@@ -40,10 +45,17 @@ export function GscReportingWorkspaceHeader({
   sectionMap,
   generatingSectionIndex,
   titleRowMenu,
+  reportRunPinned = false,
+  reportMode = "seo",
+  progressLeg = null,
 }: GscReportingWorkspaceHeaderProps) {
+  const showProgressChrome = busy || (reportRunPinned && Boolean(progress?.label?.trim()));
   const progressSnapshot = useMemo(
-    () => (busy ? buildGscReportingMicroSnapshot(progress) : null),
-    [busy, progress],
+    () =>
+      showProgressChrome
+        ? buildGscReportingMicroSnapshot(progress, reportMode, progressLeg ?? undefined)
+        : null,
+    [showProgressChrome, progress, reportMode, progressLeg],
   );
 
   const drawerProps = useMemo(
@@ -66,17 +78,20 @@ export function GscReportingWorkspaceHeader({
       workspaceBusy={busy}
       progressSnapshot={progressSnapshot}
       canOpenDetails={canOpenDetails}
-      isProcessing={busy}
+      isProcessing={showProgressChrome}
       detailsPanelId={DETAILS_PANEL_ID}
       onDetailsOpenChange={onDetailsOpenChange}
       toolbar={<GscReportingToolbar {...toolbarProps} />}
       detailsPanel={
-        <BulkGeneratorDetailsDrawer
-          variant="csv"
-          postDestination="local"
-          wpConfig={null}
-          {...drawerProps}
-        />
+        <>
+          <GscReportingDetailsPanel {...detailsProps} />
+          <BulkGeneratorDetailsDrawer
+            variant="csv"
+            postDestination="local"
+            wpConfig={null}
+            {...drawerProps}
+          />
+        </>
       }
     />
   );

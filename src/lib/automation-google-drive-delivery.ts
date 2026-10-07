@@ -15,7 +15,10 @@ import {
   type ResolveGoogleDriveFolderContext,
   type ResolvedGoogleDriveFolder,
 } from "@/lib/google-drive/resolve-google-drive-folder";
-import { uploadDeliverableToDrive } from "@/lib/google-drive/upload-deliverable-to-drive";
+import {
+  uploadDeliverableToDrive,
+  type UploadDeliverableToDriveResult,
+} from "@/lib/google-drive/upload-deliverable-to-drive";
 import type { TaskExecutionClientRunContract } from "@/lib/tasks-types";
 import { inferAutomationDeliveryStepKey } from "@/lib/workflow/automation-delivery-log";
 import { generateAdsReportingDriveDocumentTitle } from "@/lib/ads-reporting/ads-reporting-document-title";
@@ -27,6 +30,7 @@ import {
 } from "@/lib/gsc-reporting/gsc-reporting-meeting-script-markdown";
 import { buildAutomationEmailIntro } from "@/lib/automation-email-intro";
 import { resolveOpenRouterApiKeyForHarness } from "@/lib/openrouter-api-key-resolve";
+import { embedGscSparklinesInDeliverables } from "@/lib/gsc-reporting/gsc-reporting-drive-sparklines";
 
 export type GoogleDriveDeliveryResult = {
   /** Uploaded file (Google Doc) view link. */
@@ -400,6 +404,39 @@ export function enrichGoogleDriveContractFromSite(
   return { ...typed, ...patch };
 }
 
+export type ReportingGoogleDriveExecutionKind = "gsc_reporting" | "ads_reporting";
+
+/** Upload the generated SEO/PPC report markdown as a Google Doc into the resolved month folder. */
+export async function uploadReportingMarkdownToGoogleDriveFolder(args: {
+  folderId: string;
+  siteName: string;
+  markdown: string;
+  executionKind: ReportingGoogleDriveExecutionKind;
+}): Promise<UploadDeliverableToDriveResult> {
+  const markdown = args.markdown.trim();
+  if (!markdown) {
+    return { success: false, error: "Generate a report before uploading to Google Drive." };
+  }
+  const siteName = args.siteName.trim();
+  let fileName: string;
+  try {
+    fileName =
+      args.executionKind === "ads_reporting"
+        ? await generateAdsReportingDriveDocumentTitle({ siteName, markdown })
+        : await generateGscReportingDriveDocumentTitle({ siteName, markdown });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Drive document title failed.";
+    return { success: false, error: message };
+  }
+  return uploadDeliverableToDrive({
+    fileName,
+    content: markdown,
+    folderId: args.folderId,
+    mime: "text/markdown",
+    convertToGoogleDoc: true,
+  });
+}
+
 export async function uploadDeliverableToGoogleDriveIfConfigured(args: {
   teamId: number;
   executionId: number;
@@ -473,7 +510,7 @@ export async function uploadDeliverableToGoogleDriveIfConfigured(args: {
     "running",
   );
 
-  const deliverables = args.deliverable
+  let deliverables = args.deliverable
     ? [args.deliverable]
     : await resolveDriveUploadDeliverables({
         archiveFiles: args.archiveFiles,
@@ -484,6 +521,17 @@ export async function uploadDeliverableToGoogleDriveIfConfigured(args: {
         compareLabel: args.compareLabel,
         comparePreset: args.comparePreset,
       });
+  if (
+    args.executionKind === "gsc_reporting" &&
+    deliverables.length > 0 &&
+    args.archiveFiles?.some((f) => f.fileName.startsWith("gsc-sparkline-"))
+  ) {
+    deliverables = await embedGscSparklinesInDeliverables({
+      deliverables,
+      archiveFiles: args.archiveFiles,
+      folderId: folder.folderId,
+    });
+  }
   if (deliverables.length === 0) {
     await reportStep("Google Drive: failed (no deliverable)", "error");
     return { googleDriveError: "No deliverable content available to upload." };

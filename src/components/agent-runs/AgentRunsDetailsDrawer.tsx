@@ -22,7 +22,7 @@ import {
   workflowRunIdFromAgentRun,
 } from "@/lib/agent-runs/agent-run-log-download";
 import { useTeam } from "@/contexts/TeamContext";
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 import type { AgentRun, AgentRunUploadedPost } from "@/lib/agent-runs-types";
 import { isAgentRunTerminal } from "@/lib/agent-runs-types";
 import { cn } from "@/lib/utils";

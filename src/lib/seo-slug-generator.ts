@@ -7,7 +7,6 @@
 import { loadApiKey } from "@/lib/api";
 import { openRouterWebAppHeaders } from "@/lib/openrouter-attribution";
 import { postOpenRouterAppChatFetch } from "@/lib/openrouter-app-api";
-
 const SLUG_MAX_LENGTH = 80;
 
 /** Slug OpenRouter calls always use Gemini (ignore site research model override). */
@@ -96,8 +95,8 @@ function resolveLocationForSlug(title: string, entity?: string | null): string |
 }
 
 /**
- * Generate a short, SEO-optimal URL slug for a NEW post only.
- * Returns empty string if there is no primary keyword, no API key, request failure, or unusable model output.
+ * Generate a short, SEO-optimal URL slug for a NEW post only (SAP / local pages).
+ * Blog posts use fillBlogRowSlugFromOpenRouter at Ideas time; do not call this for national blog rows.
  * Do not use when updating an existing post (preserve original slug).
  */
 export async function generateSEOSlug(
@@ -126,7 +125,8 @@ Primary keyword: "${keyword}"
 ${locationBlock}
 
 **Slug rules (mandatory):**
-- Return **only** the slug: lowercase, hyphen-separated \`[a-z0-9-]\`, no quotes or explanation.
+- Return **only** the slug: lowercase, **hyphen-separated** \`[a-z0-9-]\`, no quotes or explanation.
+- **Every word** in the slug must be separated by a hyphen. Never concatenate words into one token (forbidden: \`hunterdouglas\`).
 - **Minimum intent:** the fewest **intent-bearing** tokens from the keyword plus location. Only nouns, verbs, adjectives, and place names that carry search meaning may appear.
 - **Known abbreviations (always, not optional):** when a token has a **widely recognized short form** used in local URLs — postal/civic, trade and profession shorthand, medical, scheduling — **always** output the short form. **Never** keep the long spelling when a real shorthand exists. Normalize morphological variants of the same trade (noun vs adjective forms) to **one** consistent shorthand. When no real short form exists, keep the full word. **Never** clip place names or invent letter-soup.
 - **Place names:** spell neighborhood and city names in full. Region as 2-letter code when present. At most one hyperlocal token, one city, one region code.

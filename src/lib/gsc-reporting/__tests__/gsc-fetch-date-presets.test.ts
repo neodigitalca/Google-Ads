@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   computeCompareRangesForPreset,
+  computeCompareRangesForSpan,
   computeMomCompareRanges,
   computeTrailingFullMonthsCompareRanges,
+  computeTrailingFullMonthsYearOverYearCompareRanges,
+  formatGscComparePeriodLabel,
   formatGscReportFullDateRange,
   formatLocalYmd,
   formatTrailingMonthsTriggerLabel,
@@ -80,7 +83,17 @@ describe("parseTrailingMonthCount", () => {
   });
 
   it("formats the trigger label", () => {
-    expect(formatTrailingMonthsTriggerLabel(4)).toBe("4 months vs 4");
+    expect(formatTrailingMonthsTriggerLabel(4)).toBe("4 vs 4");
+  });
+});
+
+describe("computeCompareRangesForSpan previous year", () => {
+  it("maps 3 full months to the same window one year earlier", () => {
+    const r = computeCompareRangesForSpan(3, "previous_year", REF);
+    expect(r.primary).toEqual(computeTrailingFullMonthsCompareRanges(3, REF).primary);
+    expect(r.compare).toEqual(computeTrailingFullMonthsYearOverYearCompareRanges(3, REF).compare);
+    expect(r.compare.startDate).toBe("2025-01-01");
+    expect(r.compare.endDate).toBe("2025-03-31");
   });
 });
 
@@ -95,6 +108,12 @@ describe("computeCompareRangesForPreset trailing months", () => {
 describe("formatLocalYmd", () => {
   it("formats local calendar date", () => {
     expect(formatLocalYmd(REF)).toBe("2026-04-13");
+  });
+});
+
+describe("formatGscComparePeriodLabel", () => {
+  it("shows the year once for cross-month ranges in the same year", () => {
+    expect(formatGscComparePeriodLabel("2026-07-01", "2026-09-30")).toBe("Jul 1 – Sep 30, 2026");
   });
 });
 

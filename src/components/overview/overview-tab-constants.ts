@@ -35,6 +35,7 @@ export type MetaBulkActionKey =
   | "wpUpload";
 
 export const FEATURED_IMAGE_PIPELINE_TITLES = [
+  "Image requirements",
   "Google Image",
   "OpenRouter Image",
   "WordPress upload",

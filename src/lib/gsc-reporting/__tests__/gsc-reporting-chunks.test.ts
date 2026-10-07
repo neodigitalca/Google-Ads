@@ -73,9 +73,18 @@ describe("getGscReportingSectionSystemPrompt", () => {
     expect(s).toMatch(/No.*site-wide KPI|Search performance/i);
   });
 
-  it("search_performance_period owns the canonical KPI table", () => {
-    const s = getGscReportingSectionSystemPrompt("search_performance_period");
-    expect(s).toMatch(/canonical KPI table|owns/i);
+  it("search_performance_period MoM injects site totals and top queries tables", () => {
+    const s = getGscReportingSectionSystemPrompt("search_performance_period", "mom");
+    expect(s).toMatch(/Site search totals \(GSC\)/);
+    expect(s).toMatch(/Top search queries/);
+    expect(s).toMatch(/Forbidden.*Clk:/i);
+  });
+
+  it("search_performance_period progress forbids GSC site totals tables", () => {
+    const s = getGscReportingSectionSystemPrompt("search_performance_period", "period_progress");
+    expect(s).toMatch(/injects \*\*only\*\* \*\*Top search queries/);
+    expect(s).toMatch(/GSC site-wide totals tables are forbidden/);
+    expect(s).not.toMatch(/app injects \*\*exactly one\*\* \*\*Site search totals by month/);
   });
 
   it("sap_local_seo and content_performance require thematic page buckets, not one row per URL", () => {
@@ -229,35 +238,21 @@ describe("buildUserMessageForSection", () => {
 });
 
 describe("defaultSectionsFromPayload", () => {
-  it("places generative_ai_impressions after executive_summary when includeGenerativeAi", () => {
-    const p: GscManualAiPayload = {
-      executiveSummary: "x",
-      topOpportunities: [],
-      clusters: [],
-    };
-    const s = defaultSectionsFromPayload(p, "mom", { includeGenerativeAi: true });
-    expect(s).toHaveLength(6);
-    expect(s[0]!.kind).toBe("executive_summary");
-    expect(s[1]!.kind).toBe("generative_ai_impressions");
-    expect(s[1]!.h2Title).toBe("Generative AI Search Impressions");
-  });
-
-  it("ends with content_performance (no FAQ, top opportunities, cluster, or all-search-terms sections)", () => {
+  it("ends with sap_local_seo after content_performance (no FAQ, top opportunities, cluster, or all-search-terms sections)", () => {
     const p: GscManualAiPayload = {
       executiveSummary: "x",
       topOpportunities: [],
       clusters: [{ name: "Cluster A", examples: ["a", "b"], aggregate: "agg" }],
     };
     const s = defaultSectionsFromPayload(p);
-    expect(s).toHaveLength(5);
+    expect(s).toHaveLength(4);
     expect(s[0]!.kind).toBe("executive_summary");
     expect(s[0]!.h2Title).toBe("Executive Summary");
     expect(s[1]!.kind).toBe("search_performance_period");
     expect(s[1]!.h2Title).toBe("Search Performance Compared Month Over Month");
-    expect(s[2]!.kind).toBe("key_performance_insights");
+    expect(s[2]!.kind).toBe("content_performance");
+    expect(s[2]!.h2Title).toBe("Content Performance: Your Growing Digital Footprint");
     expect(s[3]!.kind).toBe("sap_local_seo");
-    expect(s[4]!.kind).toBe("content_performance");
-    expect(s[4]!.h2Title).toBe("Content Performance: Your Growing Digital Footprint");
     expect(s.every((x) => x.kind !== "cluster")).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ import {
   formatLlmAuditHarnessPromptBlock,
 } from "@/lib/llm-audit/llm-audit-dataforseo";
 import { dataforseoLlmResponsesLive, resetDfsPaymentLatch } from "@/lib/llm-audit/dataforseo-llm-responses-live";
+import { fetchLlmAuditOpenRouter } from "@/lib/llm-audit/llm-audit-openrouter";
 
 vi.mock("@/lib/llm-audit/dataforseo-llm-responses-live", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/llm-audit/dataforseo-llm-responses-live")>();
@@ -17,6 +18,12 @@ vi.mock("@/lib/llm-audit/dataforseo-llm-responses-live", async (importOriginal) 
     dataforseoLlmResponsesLive: vi.fn(),
   };
 });
+
+vi.mock("@/lib/llm-audit/llm-audit-openrouter", () => ({
+  fetchLlmAuditOpenRouter: vi.fn(),
+  LLM_AUDIT_OPENROUTER_MODEL: "openai/gpt-4o-mini:online",
+  LLM_AUDIT_OPENROUTER_TIMEOUT_MS: 120_000,
+}));
 import { cityStateFromNapAddress, resolveSiteLocationLabel, webSearchCountryIsoFromLocation } from "@/lib/llm-audit/resolve-site-location-label";
 import type { SeoContentBriefV1 } from "@/lib/overview-seo-content-brief";
 
@@ -194,6 +201,7 @@ describe("fetchLlmAuditParallel", () => {
   beforeEach(() => {
     resetDfsPaymentLatch();
     vi.mocked(dataforseoLlmResponsesLive).mockReset();
+    vi.mocked(fetchLlmAuditOpenRouter).mockReset();
   });
 
   it("runs live ChatGPT, Gemini, and Perplexity", async () => {
@@ -220,10 +228,23 @@ describe("fetchLlmAuditParallel", () => {
     expect(brief.platforms.every((p) => p.status === "ok")).toBe(true);
   });
 
-  it("skips DataForSEO payment failures without a failed progress line", async () => {
+  it("falls back to OpenRouter when DataForSEO LLM is skipped", async () => {
     vi.mocked(dataforseoLlmResponsesLive).mockResolvedValue({
       skipped: true,
-      reason: "dfs_payment",
+      reason: "dfs_unavailable",
+    });
+    vi.mocked(fetchLlmAuditOpenRouter).mockResolvedValue({
+      siteUrl: "https://blindswest.ca/blog/window-blind-repair-issues-fixes/",
+      location: "Calgary, AB",
+      platforms: [
+        {
+          platform: "chat_gpt",
+          label: "OpenRouter web audit",
+          model_name: "openai/gpt-4o-mini:online",
+          status: "ok",
+          responseText: "Fallback audit fact.",
+        },
+      ],
     });
     const progress: string[] = [];
     const brief = await fetchLlmAuditParallel({
@@ -231,9 +252,10 @@ describe("fetchLlmAuditParallel", () => {
       siteUrl: "https://blindswest.ca/blog/window-blind-repair-issues-fixes/",
       onProgress: (message) => progress.push(message),
     });
-    expect(dataforseoLlmResponsesLive).toHaveBeenCalledTimes(1);
-    expect(brief.platforms).toHaveLength(3);
-    expect(brief.platforms.every((p) => p.status === "error")).toBe(true);
-    expect(progress.some((line) => /failed|402|payment/i.test(line))).toBe(false);
+    expect(dataforseoLlmResponsesLive).toHaveBeenCalledTimes(3);
+    expect(fetchLlmAuditOpenRouter).toHaveBeenCalledTimes(1);
+    expect(brief.platforms).toHaveLength(1);
+    expect(brief.platforms[0]?.status).toBe("ok");
+    expect(progress.some((line) => /OpenRouter web audit/i.test(line))).toBe(true);
   });
 });

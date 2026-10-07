@@ -137,6 +137,34 @@ async function ensureDockerWorker(ownerId, spec) {
   return created.service ?? created;
 }
 
+async function ensureDockerOllama(ownerId, spec) {
+  const existing = (await listServices()).find((s) => s.name === spec.name);
+  if (existing?.id) {
+    console.log(`[skip] ${spec.name} exists: ${existing.id}`);
+    return existing;
+  }
+
+  const created = await api("POST", "/services", {
+    type: "web_service",
+    name: spec.name,
+    ownerId,
+    repo: REPO,
+    branch: spec.branch,
+    autoDeploy: "yes",
+    serviceDetails: {
+      runtime: "docker",
+      plan: "standard",
+      envSpecificDetails: {
+        dockerfilePath: "./Dockerfile.ollama",
+        dockerContext: ".",
+      },
+    },
+    envVars: spec.envVars,
+  });
+  console.log(`[created] ${spec.name}:`, created.id || created.service?.id);
+  return created.service ?? created;
+}
+
 async function triggerDeploy(serviceId) {
   try {
     const deploy = await api("POST", `/services/${serviceId}/deploys`, { clearCache: "do_not_clear" });
@@ -172,6 +200,7 @@ function readRepoEnv() {
     ldPassword: readKey(".env.localdominator", "LOCAL_DOMINATOR_PASSWORD"),
     ldLoginUrl: readKey(".env.localdominator", "LOCAL_DOMINATOR_LOGIN_URL") || "https://app.localdominator.co/login/",
     workerToken: process.env.LD_WORKER_AUTH_TOKEN || crypto.randomBytes(24).toString("hex"),
+    ollamaToken: process.env.OLLAMA_AUTH_TOKEN || crypto.randomBytes(24).toString("hex"),
   };
 }
 
@@ -221,6 +250,18 @@ async function main() {
     envVars: workerEnv,
   });
 
+  const demoOllamaExisting = (await listServices()).find((s) => s.name === "flowbie-demo-ollama");
+  const savedOllamaToken =
+    process.env.OLLAMA_AUTH_TOKEN?.trim() ||
+    (demoOllamaExisting?.id ? await getEnvVar(demoOllamaExisting.id, "OLLAMA_AUTH_TOKEN") : "");
+  if (savedOllamaToken) secrets.ollamaToken = savedOllamaToken;
+
+  const demoOllama = await ensureDockerOllama(ownerId, {
+    name: "flowbie-demo-ollama",
+    branch: BRANCH_DEMO,
+    envVars: [{ key: "OLLAMA_MODELS", value: "qwen3:8b" }],
+  });
+
   const prodStatic = await ensureStaticSite(ownerId, {
     name: "flowbie-prod-static",
     branch: BRANCH_PROD,
@@ -231,6 +272,12 @@ async function main() {
     name: "flowbie-prod-worker",
     branch: BRANCH_PROD,
     envVars: workerEnv,
+  });
+
+  const prodOllama = await ensureDockerOllama(ownerId, {
+    name: "flowbie-prod-ollama",
+    branch: BRANCH_PROD,
+    envVars: [{ key: "OLLAMA_MODELS", value: "qwen3:8b" }],
   });
 
   const staticEnv = (profile) => [
@@ -246,15 +293,23 @@ async function main() {
     { key: "LD_WORKER_AUTH_TOKEN", value: secrets.workerToken },
   ];
 
+  const ollamaSecrets = [
+    { key: "OLLAMA_MODELS", value: "qwen3:8b" },
+    { key: "OLLAMA_AUTH_TOKEN", value: secrets.ollamaToken },
+  ];
+
   if (demoStatic?.id) await putEnvVars(demoStatic.id, staticEnv("demo"));
   if (prodStatic?.id) await putEnvVars(prodStatic.id, staticEnv("prod"));
   if (demoWorker?.id) await putEnvVars(demoWorker.id, workerSecrets);
   if (prodWorker?.id) await putEnvVars(prodWorker.id, workerSecrets);
+  if (demoOllama?.id) await putEnvVars(demoOllama.id, ollamaSecrets);
+  if (prodOllama?.id) await putEnvVars(prodOllama.id, ollamaSecrets);
 
   if (prodStatic?.id) await updateServiceBranch(prodStatic.id, BRANCH_DEMO);
   if (prodWorker?.id) await updateServiceBranch(prodWorker.id, BRANCH_DEMO);
+  if (prodOllama?.id) await updateServiceBranch(prodOllama.id, BRANCH_DEMO);
 
-  for (const svc of [demoStatic, demoWorker, prodStatic, prodWorker]) {
+  for (const svc of [demoStatic, demoWorker, demoOllama, prodStatic, prodWorker, prodOllama]) {
     const id = svc?.id;
     if (id) await triggerDeploy(id);
   }
@@ -269,8 +324,12 @@ async function main() {
   console.log("- Demo worker:", demoWorker?.serviceDetails?.url || "https://flowbie-demo-worker.onrender.com");
   console.log("- Prod static:", prodStatic?.serviceDetails?.url || "https://flowbie-prod-static.onrender.com");
   console.log("- Prod worker:", prodWorker?.serviceDetails?.url || "https://flowbie-prod-worker.onrender.com");
+  console.log("- Demo ollama:", demoOllama?.serviceDetails?.url || "https://flowbie-demo-ollama.onrender.com");
+  console.log("- Prod ollama:", prodOllama?.serviceDetails?.url || "https://flowbie-prod-ollama.onrender.com");
   console.log("- WP Engine worker URL: https://ld.neodigital.ca (or prod worker onrender URL until DNS verified)");
   console.log(`- LD_WORKER_AUTH_TOKEN (save for WP secrets): ${secrets.workerToken}`);
+  console.log(`- OLLAMA_AUTH_TOKEN (save for WP NEO_PULSE_APP_OLLAMA_AUTH): ${secrets.ollamaToken}`);
+  console.log("- WP NEO_PULSE_APP_OLLAMA_BASE_URL: prod ollama onrender URL (Bearer auth required on Render)");
 }
 
 main().catch((err) => {

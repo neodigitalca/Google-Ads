@@ -88,7 +88,7 @@ class Neo_Pulse_App_Gsc_Service_Account {
 			return $jwt;
 		}
 
-		$response = wp_remote_post(
+		$response = Neo_Pulse_App_Http_Transient_Retry::remote_post(
 			self::TOKEN_URL,
 			array(
 				'timeout' => 30,
@@ -97,7 +97,8 @@ class Neo_Pulse_App_Gsc_Service_Account {
 					'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
 					'assertion'  => $jwt,
 				),
-			)
+			),
+			3
 		);
 
 		if ( is_wp_error( $response ) ) {
@@ -372,7 +373,7 @@ class Neo_Pulse_App_Gsc_Service_Account {
 			return $token;
 		}
 
-		$response = wp_remote_get(
+		$response = Neo_Pulse_App_Http_Transient_Retry::remote_get(
 			self::WEBMASTERS . '/sites',
 			array(
 				'timeout' => 45,
@@ -380,7 +381,8 @@ class Neo_Pulse_App_Gsc_Service_Account {
 					'Authorization' => 'Bearer ' . $token,
 					'Accept'        => 'application/json',
 				),
-			)
+			),
+			3
 		);
 
 		if ( is_wp_error( $response ) ) {
@@ -474,7 +476,7 @@ class Neo_Pulse_App_Gsc_Service_Account {
 		}
 
 		$url = self::WEBMASTERS . '/sites/' . rawurlencode( $property ) . '/searchAnalytics/query';
-		$response = wp_remote_post(
+		$response = Neo_Pulse_App_Http_Transient_Retry::remote_post(
 			$url,
 			array(
 				'timeout' => 90,
@@ -484,7 +486,8 @@ class Neo_Pulse_App_Gsc_Service_Account {
 					'Accept'        => 'application/json',
 				),
 				'body'    => wp_json_encode( $body ),
-			)
+			),
+			3
 		);
 
 		if ( is_wp_error( $response ) ) {
@@ -515,7 +518,7 @@ class Neo_Pulse_App_Gsc_Service_Account {
 		}
 
 		$url = self::WEBMASTERS . '/sites/' . rawurlencode( $property ) . '/sitemaps';
-		$response = wp_remote_get(
+		$response = Neo_Pulse_App_Http_Transient_Retry::remote_get(
 			$url,
 			array(
 				'timeout' => 45,
@@ -523,7 +526,8 @@ class Neo_Pulse_App_Gsc_Service_Account {
 					'Authorization' => 'Bearer ' . $token,
 					'Accept'        => 'application/json',
 				),
-			)
+			),
+			3
 		);
 
 		if ( is_wp_error( $response ) ) {

@@ -2,7 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useMemo } from "react";
 import { usePulseAssistContext } from "@/contexts/pulse-assist-context";
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 import { useTeam } from "@/contexts/TeamContext";
 import type { AssistCard, AssistCardLink, AssistCardTable, AssistNavigateTarget } from "@/lib/pulse-assist/types";
 import { isInAppAssistHref, isPulseAssistHref, parseAppHref, parsePulseAssistHref } from "@/lib/pulse-assist/navigation";

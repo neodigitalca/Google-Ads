@@ -1,0 +1,11 @@
+---
+description: Never connect to remote, cloud, or cloned Cursor workspaces for this repo
+alwaysApply: true
+---
+
+# Local workspace only (no remote)
+
+- Work only in the local folder the user opened (`b:\Neo Pulse\pulse` and sibling paths on this machine).
+- Do **not** use MCP or tools that move the agent to a remote workspace, cloned root, cloud agent VM, or Origin-hosted checkout.
+- Do **not** call `move_agent_to_cloned_root`, `create_project` for remote hosts, or start Cloud / Worktree agent runs unless the user explicitly asks in that message.
+- Shell, file edits, and dev servers run on this PC only.

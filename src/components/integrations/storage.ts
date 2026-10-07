@@ -5,6 +5,11 @@ import { applyManagerCloudSnapshotToLocalStorage } from "@/lib/manager-cloud-set
 import { BACKEND_API_BASE } from "@/lib/wordpress-api/connection";
 import { isOptimizationPackageTier } from "@/lib/wordpress-optimization-package";
 import { wordPressSiteHostKey } from "@/lib/wordpress-site-host-key";
+import {
+  isShutterSpotProperty,
+  SHUTTER_SPOT_CANONICAL_NAME,
+  SHUTTER_SPOT_GOOGLE_ADS_CUSTOMER_ID,
+} from "@/lib/shutter-spot-site";
 import type { WordPressSite } from "./types";
 import { WORDPRESS_SITES_STORAGE_KEY } from "./types";
 
@@ -124,10 +129,13 @@ export function minimalSiteForLocalStorage(site: WordPressSite): WordPressSite {
     googleAdsCustomerId: slim.googleAdsCustomerId,
     gbpLocationId: slim.gbpLocationId,
     semrushSiteAuditProjectId: slim.semrushSiteAuditProjectId,
+    semrushPositionTrackingProjectId: slim.semrushPositionTrackingProjectId,
+    semrushPositionTrackingCampaignId: slim.semrushPositionTrackingCampaignId,
     editorialCountsPeriodStartYmd: slim.editorialCountsPeriodStartYmd,
     optimizationPackage: slim.optimizationPackage,
     industryVertical: slim.industryVertical,
     benchmarkCustomTag: slim.benchmarkCustomTag,
+    profileTags: slim.profileTags,
     pluginAccessToken: slim.pluginAccessToken,
     slackEnabledForProperty: slim.slackEnabledForProperty,
     slackChannelId: slim.slackChannelId,
@@ -154,6 +162,49 @@ export function minimalSiteForLocalStorage(site: WordPressSite): WordPressSite {
         }
       : undefined,
     scheduledPosts: slim.scheduledPosts,
+  };
+}
+
+function siteHostForLocalDefaults(site: WordPressSite): string {
+  try {
+    const raw = (site.productionSiteUrl || site.siteUrl || "").trim();
+    if (!raw) return "";
+    const url = raw.startsWith("http") ? raw : `https://${raw}`;
+    return new URL(url).hostname.replace(/^www\./i, "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** Integrations display name stays Shutter Spot (Google Ads MCC sub-account 745-406-1453). */
+function applyShutterSpotDisplayNameMigration(site: WordPressSite): WordPressSite {
+  if (!isShutterSpotProperty(site)) return site;
+  const ads = (site.googleAdsCustomerId ?? "").replace(/\D/g, "");
+  return {
+    ...site,
+    name: SHUTTER_SPOT_CANONICAL_NAME,
+    googleAdsCustomerId: ads.length === 10 ? site.googleAdsCustomerId : SHUTTER_SPOT_GOOGLE_ADS_CUSTOMER_ID,
+  };
+}
+
+/** In the Shade Position Tracking IDs (local dev default when unset). */
+function applyInTheShadeSemrushPositionTrackingDefaults(site: WordPressSite): WordPressSite {
+  const host = siteHostForLocalDefaults(site);
+  const name = (site.name ?? "").trim().toLowerCase();
+  const isShade =
+    host === "intheshadeflorida.com" ||
+    name.includes("in the shade") ||
+    name.includes("inthe shade");
+  if (!isShade) return site;
+  const projectId = site.semrushPositionTrackingProjectId?.trim();
+  const campaignId = site.semrushPositionTrackingCampaignId?.trim();
+  const nextProjectId = projectId || "25786226";
+  const nextCampaignId = campaignId || "25786226_3204732";
+  if (projectId && campaignId) return site;
+  return {
+    ...site,
+    semrushPositionTrackingProjectId: nextProjectId,
+    semrushPositionTrackingCampaignId: nextCampaignId,
   };
 }
 
@@ -200,7 +251,7 @@ export function getStoredSites(): WordPressSite[] {
           delete migratedSite.optimizationPackage;
         }
 
-        return migratedSite;
+        return applyInTheShadeSemrushPositionTrackingDefaults(applyShutterSpotDisplayNameMigration(migratedSite));
       });
       
       // Save migrated sites back to localStorage if any changes were made
@@ -267,8 +318,13 @@ function findMirrorSiteRow(local: WordPressSite, serverSites: WordPressSite[]): 
   const byId = serverSites.find((s) => s.id === local.id);
   if (byId) return byId;
   const host = wordPressSiteHostKey(local.siteUrl);
-  if (!host) return undefined;
-  return serverSites.find((s) => wordPressSiteHostKey(s.siteUrl) === host);
+  if (host) {
+    const byHost = serverSites.find((s) => wordPressSiteHostKey(s.siteUrl) === host);
+    if (byHost) return byHost;
+  }
+  const nameKey = (local.name ?? "").trim().toLowerCase();
+  if (!nameKey) return undefined;
+  return serverSites.find((s) => (s.name ?? "").trim().toLowerCase() === nameKey);
 }
 
 /** Merge server-mirrored gbpLocationId / ga4PropertyId onto local sites when the browser copy is missing them. */
@@ -391,5 +447,10 @@ export async function hydrateLocalAppStateFromServerIfEmpty(): Promise<{
   const sitesHydrated = getStoredSites().length > 0;
   const cloudHydrated = sitesHydrated ? await hydrateManagerCloudSettingsIfEmpty() : false;
   return { sitesHydrated, cloudHydrated };
+}
+
+/** GA4 Property ID field only (Google Ads customer ID is separate). */
+export function inferGa4PropertyIdFromSiteFields(site: WordPressSite): string {
+  return site.ga4PropertyId?.trim() ?? "";
 }
 

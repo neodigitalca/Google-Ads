@@ -1,8 +1,6 @@
 import type { BulkGeneratorDetailsPanelProps } from "@/components/keyword-research/bulk/BulkGeneratorDetailsPanel";
 import type { GscReportingDetailsPanelProps } from "@/components/research/reporting/GscReportingDetailsPanel";
-import {
-  GSC_REPORTING_COMPARE_PRESET_OPTIONS,
-} from "@/lib/gsc-reporting/gsc-fetch-date-presets";
+import { GSC_REPORTING_COMPARE_PRESET_OPTIONS } from "@/lib/gsc-reporting/gsc-fetch-date-presets";
 import type { GscReportingSectionPlan, GscReportingSectionResult } from "@/lib/gsc-reporting/gsc-reporting-types";
 import type { BulkHarnessSectionUi } from "@/hooks/use-bulk-auto-generate";
 

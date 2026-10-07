@@ -21,6 +21,7 @@ import {
   prepareHarnessSectionHtml,
   stitchedHarnessArticleValid,
 } from '@/lib/bulk/harness-section-validate';
+import { runHarnessHtmlQualityControl } from '@/lib/content-generation/harness-html-quality-control';
 import { injectBlacklistRagIntoMessages } from '@/lib/content-word-blocklist';
 import { findImportedSectionBody } from '@/lib/bulk/blog-import-parser';
 import {
@@ -323,6 +324,16 @@ export async function generateMarkdownContentHarnessed(
   const isPressReleaseHarness = promptEnv?.contentKind === "press_release";
   const releaseTopic =
     promptEnv?.primaryKeyword?.trim() || row.keyword?.trim() || row.keyword_focus?.trim() || "";
+
+  const finalizeStitchedHarnessHtml = async (stitchedHtml: string): Promise<string> => {
+    if (isPressReleaseHarness) return stitchedHtml;
+    options.onProgress?.(harnessRowIndex, 0, 'Quality control: checking HTML...');
+    return runHarnessHtmlQualityControl({
+      html: stitchedHtml,
+      apiKey: options.openRouterApiKey,
+      model: getBlogModel(promptEnv?.siteId),
+    });
+  };
 
   const entityFromRow =
     row.entity &&
@@ -875,7 +886,7 @@ export async function generateMarkdownContentHarnessed(
     if (!stitchedHarnessArticleValid(sequentialHtml, { requireIllustrative })) {
       throw new Error("Harness: stitched article failed validation after single pass");
     }
-    return sequentialHtml;
+    return finalizeStitchedHarnessHtml(sequentialHtml);
   }
 
   const overviewInPageAnchorBlock = formatHarnessInPageAnchorBlock(bodyAnchors, { contextOnly: true });
@@ -935,7 +946,7 @@ export async function generateMarkdownContentHarnessed(
       "[Bulk Harness] Stitched article missing Answer, Overview, or illustrative scenario after section retries",
     );
   }
-  return html;
+  return finalizeStitchedHarnessHtml(html);
 }
 
 export { stitchHarnessSections } from './bulk-harness-outline';

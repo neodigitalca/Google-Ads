@@ -259,6 +259,13 @@ export function linkPipelineSectionToGeneratedFile(
 
   const title = section.title.trim().toLowerCase();
   if (!title) return null;
+  if (title === "image requirements") {
+    return (
+      files.find((file) => file.name.toLowerCase() === "image-requirements.json") ??
+      files.find((file) => file.name.toLowerCase().includes("featured-image-checklist")) ??
+      null
+    );
+  }
   if (title === "google image") {
     return (
       files.find((file) => file.name.toLowerCase() === "google-image.png") ??

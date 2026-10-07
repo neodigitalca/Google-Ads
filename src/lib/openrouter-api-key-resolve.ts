@@ -22,6 +22,11 @@ export async function resolveOpenRouterApiKeyFromSettingsPlugin(): Promise<strin
   throw new Error("Add an OpenRouter API key in Settings.");
 }
 
+/** Sync key for app API headers (Dashboard localStorage). */
+export function getOpenRouterApiKeyForApp(): string {
+  return loadApiKey()?.trim() ?? "";
+}
+
 /** Prefer Dashboard/local key; use server secrets only when the client key is unset. */
 export async function resolveOpenRouterApiKeyForHarness(): Promise<string> {
   const clientKey = loadApiKey()?.trim() ?? "";

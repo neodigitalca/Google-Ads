@@ -31,7 +31,7 @@ import {
 import type { OverviewSitemapSource } from "@/lib/overview/overview-sitemap-source";
 import { generateFaqIntroParagraph } from "@/lib/overview/overview-blog-faq-intro-agent";
 import { loadApiKey } from "@/lib/api";
-import { getProductionModel } from "@/lib/optimization-settings-storage";
+import { getMetaModel } from "@/lib/optimization-settings-storage";
 import { mapOverviewAiCopyWithConcurrency } from "@/lib/overview/overview-ai-copy-concurrency";
 import { overviewBulkPageRanges } from "@/lib/overview/overview-bulk-page-size";
 import { initOverviewBulkHarnessPagination, setOverviewBulkHarnessPageState } from "@/lib/overview/overview-bulk-page-state";
@@ -362,7 +362,7 @@ export async function runFaqPairsForRow(params: RunFaqPairsForRowParams): Promis
     }
     const introParagraph = await generateFaqIntroParagraph({
       apiKey,
-      model: getProductionModel(),
+      model: getMetaModel(),
       focusKeyword: row.focusKeyword,
       pageTitle: row.title,
       entries: merged,

@@ -69,8 +69,15 @@ export function GoogleAnalyticsSettingsContent() {
         </h3>
       </div>
       <p className="text-base text-white">
-        Upload the service account JSON once. Set GA4 Property ID per site in Properties → Edit site, then Test GA on the site tile.
+        Upload the service account JSON once. Set the numeric GA4 Property ID per site in Properties → Edit site, then Test GA on the site tile.
       </p>
+      {savedEmail ? (
+        <p className="text-base text-amber-200/90">
+          API access uses the service account{" "}
+          <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">{savedEmail}</code>, not your personal
+          Google login. In GA4, Admin → Property access management → Add users → paste that email → Viewer.
+        </p>
+      ) : null}
 
       <div className="space-y-2">
         <input

@@ -124,7 +124,9 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
   const [featuredImagePerBlog, setFeaturedImagePerBlog] = useState<boolean>(true);
   const [featuredImageType, setFeaturedImageType] = useState<'ai-generated' | 'google-maps'>('ai-generated');
   const [generalIntent, setGeneralIntent] = useState<string>('');
-  
+  const [checklistPhase, setChecklistPhase] = useState("");
+  const [checklistProgressPct, setChecklistProgressPct] = useState<number | undefined>(undefined);
+
   // Selection state for blog ideas
   const [selectedBlogIndices, setSelectedBlogIndices] = useState<Set<number>>(new Set());
   
@@ -368,7 +370,18 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
     connectedSite: connectedSite || undefined,
     siteConfigs,
     selectedWordPressSites,
+    onProgress: (step, progress) => {
+      setChecklistPhase(step);
+      setChecklistProgressPct(progress);
+    },
   });
+
+  useEffect(() => {
+    if (!isGeneratingChecklist) {
+      setChecklistPhase("");
+      setChecklistProgressPct(undefined);
+    }
+  }, [isGeneratingChecklist]);
 
   const prevForcedInputModeRef = useRef(forcedInputMode);
 
@@ -884,6 +897,8 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
       generalIntent,
       setGeneralIntent,
       isGeneratingChecklist,
+      checklistPhase,
+      checklistProgressPct,
       hasGeneratedChecklist,
       handleGenerateChecklist: handleGenerateChecklistAndSelectAll,
       sitemapInventoryLinks,
@@ -952,6 +967,8 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
     handleNumberOfBlogsChange,
     generalIntent,
     isGeneratingChecklist,
+    checklistPhase,
+    checklistProgressPct,
     hasGeneratedChecklist,
     handleGenerateChecklistAndSelectAll,
     sitemapInventoryLinks,
@@ -1165,7 +1182,11 @@ export const BulkAutoGeneratePanel: React.FC<BulkAutoGeneratePanelProps> = ({
               <GeneratedBlogIdeasList
                 hasGeneratedChecklist={hasGeneratedChecklist}
                 slotMode={!hasGeneratedChecklist}
-                placeholderCount={BULK_GENERATOR_EMPTY_ROW_COUNT}
+                placeholderCount={
+                  !hasGeneratedChecklist && generatedRows.length > 0
+                    ? generatedRows.length
+                    : BULK_GENERATOR_EMPTY_ROW_COUNT
+                }
                 generatedRows={generatedRows}
                 selectedBlogIndices={selectedBlogIndices}
                 setSelectedBlogIndices={setSelectedBlogIndices}

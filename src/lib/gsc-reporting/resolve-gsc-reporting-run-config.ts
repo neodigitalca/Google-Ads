@@ -7,6 +7,7 @@ import {
   type GscReportingComparePresetId,
 } from "@/lib/gsc-reporting/gsc-fetch-date-presets";
 import type { GscReportingAutomationComparePreset } from "@/lib/gsc-reporting/gsc-reporting-agent-harness";
+import type { GscReportStructure } from "@/lib/gsc-reporting/gsc-reporting-monthly-totals";
 import type { TaskExecutionPayload } from "@/lib/tasks-types";
 
 export function defaultGscReportingExecutionPayload(): TaskExecutionPayload {
@@ -57,35 +58,44 @@ export function payloadForGscTrailingMonthCount(monthCount: number): TaskExecuti
   };
 }
 
+export function resolveGscReportStructure(
+  payload?: Pick<TaskExecutionPayload, "gscReportStructure"> | null,
+): GscReportStructure {
+  return payload?.gscReportStructure === "period_progress" ? "period_progress" : "compare";
+}
+
 export function resolveGscReportingRunConfig(
   payload?: TaskExecutionPayload | Record<string, unknown> | null,
 ): {
   comparePreset: GscReportingAutomationComparePreset;
   compareRanges?: GscCompareRanges;
   presetId: GscReportingComparePresetId;
+  gscReportStructure: GscReportStructure;
 } {
   const typed = (payload ?? {}) as TaskExecutionPayload;
+  const gscReportStructure = resolveGscReportStructure(typed);
   const trailingCount = parseTrailingMonthCount(String(typed.gscTrailingMonthCount ?? ""));
   if (trailingCount != null) {
     const presetId = gscComparePresetIdForTrailingCount(trailingCount);
     if (trailingCount === 1) {
-      return { comparePreset: "mom", presetId };
+      return { comparePreset: "mom", presetId, gscReportStructure };
     }
     return {
       comparePreset: "mom",
       compareRanges: computeTrailingFullMonthsCompareRanges(trailingCount),
       presetId,
+      gscReportStructure,
     };
   }
   const presetId = resolveGscComparePresetId(typed);
   const comparePreset: GscReportingAutomationComparePreset = presetId === "yoy" ? "yoy" : "mom";
   if (presetId === "custom_compare" && typed.gscCompareRanges) {
-    return { comparePreset, compareRanges: typed.gscCompareRanges, presetId };
+    return { comparePreset, compareRanges: typed.gscCompareRanges, presetId, gscReportStructure };
   }
   if (isGscTrailingMonthsPreset(presetId)) {
-    return { comparePreset, compareRanges: computeCompareRangesForPreset(presetId), presetId };
+    return { comparePreset, compareRanges: computeCompareRangesForPreset(presetId), presetId, gscReportStructure };
   }
-  return { comparePreset, presetId };
+  return { comparePreset, presetId, gscReportStructure };
 }
 
 export function defaultGscCompareRangesForPreset(

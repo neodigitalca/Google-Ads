@@ -4,7 +4,7 @@
  */
 import type { GscQueryPerfRow, GscSiteTotalsPreviousMonth } from "@/lib/gsc-reporting/gsc-reporting-fetch";
 import { parseCanadianNumber, splitCsvLine } from "@/lib/gsc-reporting/gsc-number-format";
-export type GscCompareKind = "mom" | "yoy" | "custom";
+export type GscCompareKind = "mom" | "yoy" | "custom" | "period_progress";
 
 export type GscCompareSignalPattern =
   | "query_footprint_expansion"
@@ -415,6 +415,7 @@ export function buildCompareSignalsFileFromBundle(
 }
 
 export function searchPerformanceH2ForCompareKind(compareKind: GscCompareKind): string {
+  if (compareKind === "period_progress") return "Search Performance This Period";
   if (compareKind === "yoy") return "Search Performance Compared Year Over Year";
   if (compareKind === "custom") return "Search Performance Compared Period Over Period";
   return "Search Performance Compared Month Over Month";
@@ -448,5 +449,8 @@ export const COMPARE_SIGNALS_SECTION_KINDS = new Set([
   "search_performance_period",
   "key_performance_insights",
 ]);
+
+/** Same sections that receive QUERY_SPOTLIGHT_NARRATIVE pin chunks. */
+export const QUERY_SPOTLIGHT_SECTION_KINDS = COMPARE_SIGNALS_SECTION_KINDS;
 
 export const COMPARE_SIGNALS_LEXICON = `**COMPARE_SIGNALS (when present in RETRIEVED DATA or RAW_DATA):** Treat \`primaryPattern\`, \`interpretation\`, and \`forbiddenFraming\` as **authoritative**. When \`primaryPattern\` is **query_footprint_expansion**, **forbidden** phrasing includes "visibility decline", "search visibility fell", and "overall visibility worsened". When Search queries rose AND impressions rose AND average position worsened, prose must mention **query discovery / footprint expansion** before noting click or position softness. Use \`compareLabel\` for period wording; do **not** say "month over month" when \`compareKind\` is **yoy** or **custom**.`;

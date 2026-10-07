@@ -1,5 +1,9 @@
 import { REPORT_TEMPERATURE } from "@/lib/competitor-research/competitor-report-openrouter-limits";
-import { postOpenRouterAppChat, type OpenRouterAppResponseFormat } from "@/lib/openrouter-app-api";
+import {
+  openRouterPromptText,
+  postOpenRouterAppChat,
+  type OpenRouterAppResponseFormat,
+} from "@/lib/openrouter-app-api";
 
 /** GSC reporting LLM calls use the shared OpenRouter proxy (schema-aware), not a separate GSC route. */
 export async function callGscReportingOpenRouterChatCompletion(args: {
@@ -16,12 +20,18 @@ export async function callGscReportingOpenRouterChatCompletion(args: {
   content: string;
   finishReason?: string;
   nativeFinishReason?: string;
+  parsed?: Record<string, unknown>;
 }> {
+  const system = openRouterPromptText(args.system);
+  const user = openRouterPromptText(args.user);
+  if (!system || !user) {
+    throw new Error("GSC reporting OpenRouter call missing system or user prompt text.");
+  }
   return postOpenRouterAppChat({
     apiKey: args.apiKey,
     model: args.model,
-    system: args.system,
-    user: args.user,
+    system,
+    user,
     maxTokens: args.maxTokens,
     signal: args.signal,
     temperature: args.temperature ?? REPORT_TEMPERATURE,

@@ -83,6 +83,7 @@ export async function resolveBulkWordPressPostTitle(args: {
 }): Promise<string> {
   const kw = args.focusKeyword.trim();
   const place = args.entity?.trim() ?? "";
+  const model = args.model?.trim() || getBlogModel(args.siteId);
   const apiKey = args.apiKey.trim();
   if (!apiKey) {
     throw new Error("Title agent requires an OpenRouter API key");
@@ -104,8 +105,6 @@ Candidate titles (intent only; write ONE new complete title):
 ${candidateLines || "(no candidates)"}
 
 JSON contract: respond with one object only. Double-quoted key wordpress_title. Example shape: {"wordpress_title":"How To Choose Between Hunter Douglas And Alta Shades"}`;
-
-  const model = args.model?.trim() || getBlogModel(args.siteId);
 
   const { content } = await callOpenRouterChatCompletion({
     apiKey,

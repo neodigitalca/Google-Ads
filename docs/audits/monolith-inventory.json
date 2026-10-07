@@ -1,0 +1,2755 @@
+{
+  "generatedAt": "2026-10-07T19:52:17.164Z",
+  "repoRoot": "B:/Neo Pulse",
+  "scope": "desktop-app",
+  "excludes": [
+    "wordpress-plugins"
+  ],
+  "thresholds": {
+    "monolith": 500,
+    "watch": 300
+  },
+  "summary": {
+    "monolith": 146,
+    "watch": 243,
+    "byArea": {
+      "scripts": {
+        "monolith": 6,
+        "watch": 15
+      },
+      "src/lib": {
+        "monolith": 89,
+        "watch": 170
+      },
+      "src/components": {
+        "monolith": 51,
+        "watch": 58
+      }
+    }
+  },
+  "files": [
+    {
+      "path": "src/lib/bulk-auto-generate.ts",
+      "lines": 3154,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/EntityGenerationFeature.tsx",
+      "lines": 2838,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/overview/MetaOptimizerPageRowDetails.tsx",
+      "lines": 2384,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/research/competitor/CompetitorResearchTab.tsx",
+      "lines": 2186,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/sap-generator/LocalAnalysisPanel.tsx",
+      "lines": 2177,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/blog-template-builder.ts",
+      "lines": 2041,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/research/proposal/ProposalResearchTab.tsx",
+      "lines": 1944,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/BulkOptimizationPanel.tsx",
+      "lines": 1888,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/content-sanitizer.ts",
+      "lines": 1885,
+      "tier": "monolith",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-runner.ts",
+      "lines": 1853,
+      "tier": "monolith",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/chatgpt-audit/lib.mjs",
+      "lines": 1847,
+      "tier": "monolith",
+      "cluster": "scripts-research-chatgpt",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/content-optimization/topic-research-fanout.ts",
+      "lines": 1678,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/image-reference-research.ts",
+      "lines": 1585,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-generation/wordpress-uploader.ts",
+      "lines": 1543,
+      "tier": "monolith",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/research/local/LocalStrategyResearchTab.tsx",
+      "lines": 1405,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/local-seo-strategy-from-grid.ts",
+      "lines": 1348,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/SitePropertyFormFields.tsx",
+      "lines": 1295,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/keyword-research/BulkAutoGeneratePanel.tsx",
+      "lines": 1251,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/vertical-benchmark/vertical-benchmark-bulk-template.ts",
+      "lines": 1221,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-fetch.ts",
+      "lines": 1197,
+      "tier": "monolith",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/bulk-content-generator.ts",
+      "lines": 1174,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/build-automation-recipes.mjs",
+      "lines": 1168,
+      "tier": "monolith",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/local-dominator-csv.ts",
+      "lines": 1155,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-grid-location-wiki-agent.ts",
+      "lines": 1142,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-content-analyze-fix.ts",
+      "lines": 1108,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-sap-row-keyword-fill.ts",
+      "lines": 1099,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-generation-upload.ts",
+      "lines": 1056,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/pulse-forge/TaskBuilderView.tsx",
+      "lines": 1041,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/chat/layout/useChatShellState.ts",
+      "lines": 1002,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/prompt-builders/system-user.ts",
+      "lines": 995,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/workflow/WorkflowEditorView.tsx",
+      "lines": 967,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-in-content-image-harness-run.ts",
+      "lines": 966,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/shared/bulk-details-tile-sections.tsx",
+      "lines": 964,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/manager/tasks/TasksShell.tsx",
+      "lines": 963,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-overview-prepend.ts",
+      "lines": 956,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/__tests__/workflow-then-runner.test.ts",
+      "lines": 950,
+      "tier": "monolith",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/sap-cross-site-image-search.ts",
+      "lines": 933,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/research/reporting/ReportingTab.tsx",
+      "lines": 931,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-local-image-generate.ts",
+      "lines": 922,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/WordPressFeature.tsx",
+      "lines": 890,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/agent-runs/run-task-execution-client.ts",
+      "lines": 887,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/UnifiedContentSelector.tsx",
+      "lines": 887,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/keyword-research/bulk/BlogIdeaRowCompact.tsx",
+      "lines": 863,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-links-harness-run.ts",
+      "lines": 846,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/__tests__/sap-cross-site-image-search.test.ts",
+      "lines": 846,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/agent-run-post-creator-proof.ts",
+      "lines": 844,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-then-runner.ts",
+      "lines": 818,
+      "tier": "monolith",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/pulse-assist-feature-playbooks.cjs",
+      "lines": 814,
+      "tier": "monolith",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-site-warm-cache.ts",
+      "lines": 813,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/grid-blog-brief-by-topic-agent.ts",
+      "lines": 803,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/knowledge-graph-auto-trigger.ts",
+      "lines": 800,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-site-display-name-from-dfs-gmb.ts",
+      "lines": 798,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/GSCFeature.tsx",
+      "lines": 796,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/master-instructions-storage.ts",
+      "lines": 794,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-report-ai.ts",
+      "lines": 785,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/generate-api-docs.mjs",
+      "lines": 779,
+      "tier": "monolith",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/components/research/backlinking/BacklinkingResearchTab.tsx",
+      "lines": 773,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/nap-extractor.ts",
+      "lines": 764,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/planner/AutomationGoogleDriveFields.tsx",
+      "lines": 761,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/WordPressCardActions.tsx",
+      "lines": 759,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/keyword-research/BulkBlogGenerationTab.tsx",
+      "lines": 740,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/research/sitemap-optimizer/SitemapOptimizerResearchTab.tsx",
+      "lines": 733,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-research-row.ts",
+      "lines": 718,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/workflow/WorkflowRagSidebar.tsx",
+      "lines": 715,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/content-generator.ts",
+      "lines": 714,
+      "tier": "monolith",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/TaskTriggerFields.tsx",
+      "lines": 710,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-optimization/content-optimizer-bulk-generator-bindings.ts",
+      "lines": 707,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/__tests__/overview-bulk-details-bindings.test.ts",
+      "lines": 705,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/content-optimizer/MultiSiteContentOptimizerPanel.tsx",
+      "lines": 695,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/ensure-links-per-section.ts",
+      "lines": 694,
+      "tier": "monolith",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/workflow/WorkflowNodeInspector.tsx",
+      "lines": 692,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/social/run-social-creator-generate.ts",
+      "lines": 688,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/TaskDetailPane.tsx",
+      "lines": 684,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/SEMTaskListDialog.tsx",
+      "lines": 682,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/keyword-ai-analyzer.ts",
+      "lines": 681,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/bulk-csv-parser.ts",
+      "lines": 673,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/pulse-assist/PulseAssistChatPanel.tsx",
+      "lines": 673,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "scripts/research/browser-automation/agent-loop.mjs",
+      "lines": 664,
+      "tier": "monolith",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/local-analysis-suggest-from-inventory.ts",
+      "lines": 661,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/agent-run-log-format.ts",
+      "lines": 658,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-simple-keyword-recommendation.ts",
+      "lines": 657,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-site-cache.ts",
+      "lines": 657,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-bulk-details-bindings.ts",
+      "lines": 655,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/image-reference-research.test.ts",
+      "lines": 650,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/keyword-api.ts",
+      "lines": 648,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-bulk-seo-payload.ts",
+      "lines": 648,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/prompt-builders/bulk-ideas.ts",
+      "lines": 647,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/TaskFormLayout.tsx",
+      "lines": 644,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/progress-display.ts",
+      "lines": 640,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/ui/sidebar.tsx",
+      "lines": 637,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/notify-messages/research.ts",
+      "lines": 636,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/image-api.ts",
+      "lines": 631,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/SitemapSection.tsx",
+      "lines": 629,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/WordPressSiteList.tsx",
+      "lines": 627,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/image-checklist-builder.ts",
+      "lines": 620,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/run-ppc-meta-ad-generate.ts",
+      "lines": 620,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/tasks-api.ts",
+      "lines": 615,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/competitor-research/competitor-keyword-cluster-openrouter.ts",
+      "lines": 613,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-api/posts.ts",
+      "lines": 613,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/automation-google-drive-delivery.ts",
+      "lines": 611,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/overview/OverviewBulkMicroProgress.tsx",
+      "lines": 605,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-wikipedia-link-harness-run.ts",
+      "lines": 604,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-research-harness-run.ts",
+      "lines": 603,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/section-parser.ts",
+      "lines": 598,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/keyword-research/bulk/WordPressScheduleFields.tsx",
+      "lines": 589,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/manager/tasks/NewProjectDialog.tsx",
+      "lines": 586,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/research/competitor/CompetitorSiteGrid.tsx",
+      "lines": 581,
+      "tier": "monolith",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/ServiceAreaSelector.tsx",
+      "lines": 576,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/shared/__tests__/bulk-details-tile-sections.test.ts",
+      "lines": 573,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-links-extract.ts",
+      "lines": 572,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-optimization/__tests__/content-optimizer-bulk-generator-bindings.test.ts",
+      "lines": 570,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/ppc/google/GoogleAdsCampaignRowDetails.tsx",
+      "lines": 564,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "scripts/research/local-dominator/lib.mjs",
+      "lines": 559,
+      "tier": "monolith",
+      "cluster": "scripts-research-local-dominator",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/content-word-blocklist.ts",
+      "lines": 558,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/run-chatgpt-audit-client-harness.ts",
+      "lines": 555,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/executor.ts",
+      "lines": 554,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/GbpPostPropertyPanel.tsx",
+      "lines": 552,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-wp-upload-harness-run.ts",
+      "lines": 547,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/KeywordSelectionDialog.tsx",
+      "lines": 540,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-optimization/first-party-authority-prompt.ts",
+      "lines": 539,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-sitemap-scraper.ts",
+      "lines": 536,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/bulk-harness.test.ts",
+      "lines": 535,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/OutputManager/VideoScriptGenerator.tsx",
+      "lines": 535,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/wordpress-scheduler.ts",
+      "lines": 533,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/run-browser-automation-client-harness.ts",
+      "lines": 530,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-strategy-research/local-strategy-sap-schedule-from-grid.ts",
+      "lines": 530,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-sap-entity-context.ts",
+      "lines": 528,
+      "tier": "monolith",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/PostCalendar.tsx",
+      "lines": 527,
+      "tier": "monolith",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/manager/pulse-forge/ForgeAutomationsFilters.tsx",
+      "lines": 527,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-preload-suggested-keywords.ts",
+      "lines": 526,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-faq-harness-run.ts",
+      "lines": 524,
+      "tier": "monolith",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/tasks-types.ts",
+      "lines": 518,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/NewTaskDialog.tsx",
+      "lines": 518,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/bulk/blog-import-direct-extras.ts",
+      "lines": 515,
+      "tier": "monolith",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/meta-ad-prompt-builder.ts",
+      "lines": 512,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/ManagerWorkspace.tsx",
+      "lines": 509,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/external-link-placeholders.ts",
+      "lines": 508,
+      "tier": "monolith",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/pulse-assist/stream.ts",
+      "lines": 508,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-sap-inventory-collision.ts",
+      "lines": 506,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/post-creator/post-creator-bulk-runner.ts",
+      "lines": 505,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/entity-transform-families-agent.ts",
+      "lines": 505,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/GoogleDriveSettingsContent.tsx",
+      "lines": 505,
+      "tier": "monolith",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/wordpress-api/acf-discovery.ts",
+      "lines": 504,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wikipedia/wiki-entity-pool.ts",
+      "lines": 501,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/competitor-research/competitor-report-agent.ts",
+      "lines": 500,
+      "tier": "monolith",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/TasksListView.tsx",
+      "lines": 500,
+      "tier": "monolith",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/grid-prefilled-group-cluster.ts",
+      "lines": 499,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/llm-audit/llm-audit-dataforseo.ts",
+      "lines": 495,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/planner/AutomationWhatPanel.tsx",
+      "lines": 495,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/competitor-research/competitor-report-wire.ts",
+      "lines": 492,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/entity-generation/ui/EntityDistanceDiscoverySection.tsx",
+      "lines": 488,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-optimization/__tests__/topic-research-fanout.test.ts",
+      "lines": 483,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-keyword-analyzer.ts",
+      "lines": 483,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-analysis-keyword-cluster.ts",
+      "lines": 483,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/in-content-image-generator.ts",
+      "lines": 482,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/OutputManager/ModificationChat.tsx",
+      "lines": 482,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/backlink-research/backlink-tile-enriched.ts",
+      "lines": 481,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/keyword-research/bulk/BulkGeneratorDetailsPanel.tsx",
+      "lines": 479,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/PostSelector.tsx",
+      "lines": 476,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/agent-runs/__tests__/agent-run-grouping.test.ts",
+      "lines": 475,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview-seo-content-brief.ts",
+      "lines": 475,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/chat/sidebar/ChatSidebar.tsx",
+      "lines": 475,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/keyword-research/bulk/BulkGeneratorDetailsDrawer.tsx",
+      "lines": 472,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/CompactWordPressTile.tsx",
+      "lines": 467,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-sap-title-agent.ts",
+      "lines": 466,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/types.ts",
+      "lines": 466,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/__tests__/blog-template-builder-posts-optimize.test.ts",
+      "lines": 465,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/elementor-optimizer.ts",
+      "lines": 463,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-api/acf-scanner.ts",
+      "lines": 463,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/local-analysis-suggest-from-inventory.test.ts",
+      "lines": 463,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/prompt-builders-keyword.ts",
+      "lines": 461,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/enrich-sitemap-optimizer-gsc-import.ts",
+      "lines": 461,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-compare-signals.ts",
+      "lines": 456,
+      "tier": "watch",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wp-page-analyzer.ts",
+      "lines": 456,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/storage.ts",
+      "lines": 456,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/competitor-research/competitor-report-keyword-extract.ts",
+      "lines": 455,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-strategy-research/manager-local-analysis-analyze.ts",
+      "lines": 453,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-bulk-action-clusters.ts",
+      "lines": 453,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/elementor-page-content/elementor-section-context.ts",
+      "lines": 450,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-api/content-scanner.ts",
+      "lines": 450,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/ppc/google/GoogleAdsCampaignInsightsPanel.tsx",
+      "lines": 449,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/google-drive/google-drive-folder-hierarchy.ts",
+      "lines": 448,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/entity/read-existing-origins-api.ts",
+      "lines": 447,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/WordPressSiteAdminLayout.tsx",
+      "lines": 447,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/bulk/harness-section-validate.ts",
+      "lines": 446,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-aiseo-after-upload.ts",
+      "lines": 444,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/keyword-research/bulk/GeneratedBlogIdeasList.tsx",
+      "lines": 440,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/keyword-research/PressReleaseTab.tsx",
+      "lines": 440,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/gsc-query-clustering.ts",
+      "lines": 439,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/prompt-builders/overview-link-rules.ts",
+      "lines": 439,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-acf-origin.ts",
+      "lines": 439,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/sap-peer-market-select.ts",
+      "lines": 436,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/overview-content-analyze-fix.test.ts",
+      "lines": 436,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/pulse-forge/PulseForgeShell.tsx",
+      "lines": 434,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "scripts/build-pulse-assist-catalog.cjs",
+      "lines": 433,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/agent-runs/run-local-dominator-export-client-harness.ts",
+      "lines": 433,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wikipedia/wikipedia-granular-entity-pool-for-suggest.ts",
+      "lines": 432,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-headers-harness-run.ts",
+      "lines": 430,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/prompt-builders/__tests__/first-party-authority.test.ts",
+      "lines": 430,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/run-server-post-creator-upload.ts",
+      "lines": 429,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/prompt-builders/core.ts",
+      "lines": 429,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/build-grid-rank-math-redirects.ts",
+      "lines": 429,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/gsc-dev-fetch-queries.mjs",
+      "lines": 426,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/gbp-post/gbp-post-bulk-generator-bindings.ts",
+      "lines": 426,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/blog-import-parser.ts",
+      "lines": 425,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-api/types.ts",
+      "lines": 425,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-scenario-section.ts",
+      "lines": 423,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/__tests__/workflow-parallel-clients.test.ts",
+      "lines": 423,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/GMBSettingsContent.tsx",
+      "lines": 422,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/json-repair-utility.ts",
+      "lines": 421,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/chatgpt-audit-jobs.mjs",
+      "lines": 420,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/components/manager/ManagerTopBarDisplayConsole.tsx",
+      "lines": 419,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/ads-reporting/ads-reporting-fetch.ts",
+      "lines": 418,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/keyword-mcp-service.ts",
+      "lines": 417,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/keyword-research/bulk/BulkCsvRunProgressGrid.tsx",
+      "lines": 417,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/gsc-manual-ai-aggregate.ts",
+      "lines": 416,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/browser-automation/tools/definitions.mjs",
+      "lines": 415,
+      "tier": "watch",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
+      "path": "src/components/generator/image/useImageGenerator.ts",
+      "lines": 415,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/mobile-app/MobileChatScreen.tsx",
+      "lines": 415,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/__tests__/internal-link-placeholders.test.ts",
+      "lines": 413,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/entity-generation/ui/EntityGenerationMainSection.tsx",
+      "lines": 413,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/MasterInstructionsSection.tsx",
+      "lines": 413,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-content-cleanup-run.ts",
+      "lines": 412,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/quarter-gap-bulk-template.ts",
+      "lines": 411,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-pipeline.ts",
+      "lines": 411,
+      "tier": "watch",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/teams-api.ts",
+      "lines": 409,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/OutputManager/OutputManagerContent.tsx",
+      "lines": 409,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-row-scrape.ts",
+      "lines": 408,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/task-automation-ui.ts",
+      "lines": 408,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/browser-automation/site-health-audit.mjs",
+      "lines": 406,
+      "tier": "watch",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/elementor-page-content/run-elementor-harness-row.ts",
+      "lines": 406,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-generation/page-extra-content-generator.ts",
+      "lines": 405,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-aiseo-row-artifacts.ts",
+      "lines": 405,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/chat/layout/ChatMinimalLayout.tsx",
+      "lines": 405,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/SEMFeature.tsx",
+      "lines": 405,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/keyword-research/SemanticKeywordsList.tsx",
+      "lines": 403,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/agent-runs/use-agent-run-live-snapshot.ts",
+      "lines": 401,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/agent-runs/__tests__/agent-run-resume-log.test.ts",
+      "lines": 400,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-optimization/images-extract.ts",
+      "lines": 400,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/sap-peer-featured-image-search.ts",
+      "lines": 400,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/meta-ad-agents/meta-ad-instagram-reference-agent.ts",
+      "lines": 395,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/chat/use-chat-poll.ts",
+      "lines": 395,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/bulk-schedule-gap.ts",
+      "lines": 394,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-outline.ts",
+      "lines": 394,
+      "tier": "watch",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/chat/layout/ChatDefaultLayout.tsx",
+      "lines": 394,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-sync-grid-preload.ts",
+      "lines": 392,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/research/citation/CitationResearchTab.tsx",
+      "lines": 392,
+      "tier": "watch",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/OptimizationSettingsPanel.tsx",
+      "lines": 391,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/faq-entries.ts",
+      "lines": 390,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/reporting/reporting-date-presets.ts",
+      "lines": 389,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/pulse-forge/PulseForgeAutomationsList.tsx",
+      "lines": 389,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-harness-scroll-links.ts",
+      "lines": 388,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/workflow/WorkflowThenStepInspector.tsx",
+      "lines": 388,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/openrouter-app-api.ts",
+      "lines": 385,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/edmonton-internal-links/link-map-rules.mjs",
+      "lines": 383,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/overview/overview-content-optimize-pipeline.ts",
+      "lines": 383,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/ppc/google/GoogleAdsCampaignRowCompact.tsx",
+      "lines": 383,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/entity-page-creator/entity-page-creator-phases.ts",
+      "lines": 381,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/bulk-generation-wp-inventory.ts",
+      "lines": 380,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wikipedia/wiki-fetch-content.ts",
+      "lines": 380,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/llm-audit/fetch-seo-content-brief-wave.ts",
+      "lines": 379,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/edmonton-internal-links/apply-map.mjs",
+      "lines": 378,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/entity/origins-to-wiki-flow.ts",
+      "lines": 378,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/entity-page-creator/entity-page-creator-pipeline.ts",
+      "lines": 376,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/entity-generation/generation/wikipediaSearch.ts",
+      "lines": 376,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-agent-harness.ts",
+      "lines": 374,
+      "tier": "watch",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/OptimizationSettingsPopover.tsx",
+      "lines": 374,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "scripts/audit-chrome-console.mjs",
+      "lines": 371,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/sitemap-optimizer-cluster-agent.ts",
+      "lines": 366,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/local-dominator-export-jobs.mjs",
+      "lines": 365,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/bulk/blog-import-direct.ts",
+      "lines": 365,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/dfs-article-audit/__tests__/dfs-article-audit.test.ts",
+      "lines": 364,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-api/validate-internal-links.ts",
+      "lines": 364,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/content-word-blocklist.test.ts",
+      "lines": 362,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-reporting-section-prompts.ts",
+      "lines": 361,
+      "tier": "watch",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/pulse-forge/forge-automations-filters.ts",
+      "lines": 361,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/chat-api.ts",
+      "lines": 360,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/vertical-benchmark/vertical-benchmark-grid-entity.ts",
+      "lines": 360,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/agent-runs/AgentRunsPanel.tsx",
+      "lines": 360,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/post-creator/post-creator-wordpress-upload.ts",
+      "lines": 357,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-scenario-harness-run.ts",
+      "lines": 356,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/entity-generation/ui/CSVTemplateDialog.tsx",
+      "lines": 356,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/agent-runs/__tests__/agent-run-post-creator-proof.test.ts",
+      "lines": 355,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-step-test.ts",
+      "lines": 355,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/keyword-research/AIAnalysisTabs.tsx",
+      "lines": 355,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/sitemap-merge-publish-contract.ts",
+      "lines": 354,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/planner/PulseForgePostSchedulePanel.tsx",
+      "lines": 354,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/integrations/wordpress/OptimizationPreviewDialog.tsx",
+      "lines": 353,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/__tests__/overview-blog-local-image.test.ts",
+      "lines": 352,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/LLMSettingsTabContent.tsx",
+      "lines": 351,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/manager/tasks/planner/TaskBuilderArchivePanel.tsx",
+      "lines": 351,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/OutputManager/hooks/useDraftModification.ts",
+      "lines": 351,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/workflow/workflow-agent-plan.ts",
+      "lines": 350,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk-file-manager.ts",
+      "lines": 349,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/elementor-page-content/apply-elementor-section-copy.ts",
+      "lines": 349,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/post-creator/post-creator-agent-harness.ts",
+      "lines": 349,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/bulk/blog-import-openrouter-run.ts",
+      "lines": 348,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/entity-generation/hooks/useEntityGeneration.ts",
+      "lines": 348,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/google-drive/resolve-google-drive-folder.ts",
+      "lines": 347,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-generation/bulk-acf-seo-bundle.ts",
+      "lines": 346,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/sitemap-optimizer-rankmath-import.ts",
+      "lines": 346,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/OutputManager/hooks/usePlanModification.ts",
+      "lines": 346,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/acf-field-mapper.ts",
+      "lines": 345,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/OutputManager/hooks/useFinalModification.ts",
+      "lines": 345,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-links-apply-local.ts",
+      "lines": 344,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/ppc-campaign-insights-types.ts",
+      "lines": 344,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/implementation-report-generator.ts",
+      "lines": 342,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-links-agent-payload.ts",
+      "lines": 342,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/gmb-content/SocialMediaModal.tsx",
+      "lines": 342,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/__tests__/resolve-google-drive-folder.test.ts",
+      "lines": 341,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-summarizer.ts",
+      "lines": 340,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-analysis/__tests__/entity-site-warm-cache.test.ts",
+      "lines": 340,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/build-content-sheet-rows.ts",
+      "lines": 340,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/automation-email-delivery.ts",
+      "lines": 339,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/blueprint-keyword-analyzer.ts",
+      "lines": 339,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/local-analysis/entity-preload-clusters-hydrate.ts",
+      "lines": 339,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-csv-rows-runner.ts",
+      "lines": 339,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/render-provision.mjs",
+      "lines": 338,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/prompt-builders/modification.ts",
+      "lines": 338,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/setup-agentmail.mjs",
+      "lines": 337,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/content-generation/__tests__/harness-upload-prep.test.ts",
+      "lines": 336,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/run-ppc-google-campaign-generate.ts",
+      "lines": 336,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/quarter-bounds.ts",
+      "lines": 335,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wikipedia/entity-hint-lookup.ts",
+      "lines": 335,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/integrations/wordpress/BulkImportClientsDialog.tsx",
+      "lines": 335,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/keyword-formatter.ts",
+      "lines": 334,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wikipedia/__tests__/wiki-entity-pool.test.ts",
+      "lines": 334,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/__tests__/workflow-agent-plan.test.ts",
+      "lines": 334,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/__tests__/workflow-ld-continue-watchdog.test.ts",
+      "lines": 334,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/content-generation/featured-image-handler.ts",
+      "lines": 333,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gbp-post/gbp-post-one-site.ts",
+      "lines": 332,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-reporting/gsc-query-cluster-ai.ts",
+      "lines": 331,
+      "tier": "watch",
+      "cluster": "lib-gsc-reporting",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/browser-automation-jobs.mjs",
+      "lines": 329,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/entity-sap-brief-agent.ts",
+      "lines": 329,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/report-discovery.ts",
+      "lines": 328,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs-types.ts",
+      "lines": 327,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/elementor-page-content/parse-elementor-section-outline.ts",
+      "lines": 327,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-ai-all-meta-batch.ts",
+      "lines": 327,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/meta-ads-types.ts",
+      "lines": 327,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/workflow-rag-archive.test.ts",
+      "lines": 326,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/wordpress-post-selector.ts",
+      "lines": 325,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/agent-runs/AgentRunsDetailsDrawer.tsx",
+      "lines": 325,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/components/overview/OverviewPagesSection.tsx",
+      "lines": 325,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/parse-gsc-pages-csv.ts",
+      "lines": 324,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/run-entity-page-creator-client-harness.ts",
+      "lines": 322,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-graph-mutations.ts",
+      "lines": 322,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/browser-automation/tools/interaction.mjs",
+      "lines": 321,
+      "tier": "watch",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/bulk/bulk-gsc-site-queries.ts",
+      "lines": 321,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "scripts/research/browser-automation/tools/executor.mjs",
+      "lines": 320,
+      "tier": "watch",
+      "cluster": "scripts-browser-automation",
+      "area": "scripts"
+    },
+    {
+      "path": "src/components/integrations/entity-generation/validation/entityValidator.ts",
+      "lines": 320,
+      "tier": "watch",
+      "cluster": "components-integrations",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/overview/overview-blog-overview-harness-run.ts",
+      "lines": 319,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/research/sitemap-optimizer/SitemapPlanToolbar.tsx",
+      "lines": 319,
+      "tier": "watch",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/content-generation/internal-link-placeholders.ts",
+      "lines": 318,
+      "tier": "watch",
+      "cluster": "lib-content-generation",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/agent-runs/agent-run-grouping.ts",
+      "lines": 317,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/social/content-creator-bulk-generator-bindings.ts",
+      "lines": 317,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/ui/chart.tsx",
+      "lines": 317,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/bulk/__tests__/blog-import-direct.test.ts",
+      "lines": 316,
+      "tier": "watch",
+      "cluster": "lib-bulk",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-types.ts",
+      "lines": 316,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/social/social-creator-types.ts",
+      "lines": 315,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/llm-audit/llm-audit-openrouter.ts",
+      "lines": 314,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/social/run-content-creator-generate.ts",
+      "lines": 314,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/notify-messages/wordpress.ts",
+      "lines": 313,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/__tests__/wordpress-scheduler.test.ts",
+      "lines": 313,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/blog-idea-gsc-keyword-selector.ts",
+      "lines": 312,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/blog-idea-keyword-combiner.ts",
+      "lines": 312,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/entity-geographic-level.ts",
+      "lines": 312,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/gsc-self-learning.ts",
+      "lines": 311,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-ai-meta-harness-run.ts",
+      "lines": 311,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-inventory-progressive-hydrate.ts",
+      "lines": 311,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/manager/tasks/PostCreatorExecutionFields.tsx",
+      "lines": 311,
+      "tier": "watch",
+      "cluster": "components-manager",
+      "area": "src/components"
+    },
+    {
+      "path": "scripts/research/llm-audit-probe.mjs",
+      "lines": 310,
+      "tier": "watch",
+      "cluster": "scripts-other",
+      "area": "scripts"
+    },
+    {
+      "path": "src/lib/chat-preferences-types.ts",
+      "lines": 310,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-ai-title-harness-run.ts",
+      "lines": 309,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/app-notifications.ts",
+      "lines": 308,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/meta-ad-visual-reference-plan.ts",
+      "lines": 308,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/research/reporting/GscReportingComparePopover.tsx",
+      "lines": 308,
+      "tier": "watch",
+      "cluster": "components-research",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/image-generator/run-featured-image.ts",
+      "lines": 307,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/ppc/meta-ads-bulk-generator-bindings.ts",
+      "lines": 307,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/social/social-creator-bulk-generator-bindings.ts",
+      "lines": 307,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/overview-ai-all-meta-harness-run.ts",
+      "lines": 306,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/prompt-builders/pipeline.ts",
+      "lines": 304,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/pulse-assist/context.ts",
+      "lines": 304,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/workflow/workflow-api.ts",
+      "lines": 304,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/chat/calls/ChatHuddleSidebar.tsx",
+      "lines": 303,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    },
+    {
+      "path": "src/lib/workflow/workflow-then-aggregate.ts",
+      "lines": 301,
+      "tier": "watch",
+      "cluster": "lib-workflow",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/llm-audit/__tests__/llm-audit-openrouter.test.ts",
+      "lines": 300,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/overview/__tests__/overview-aiseo-after-upload.test.ts",
+      "lines": 300,
+      "tier": "watch",
+      "cluster": "lib-overview-harness",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/lib/sitemap-optimizer/trash-merge-source-posts.ts",
+      "lines": 300,
+      "tier": "watch",
+      "cluster": "lib-other",
+      "area": "src/lib"
+    },
+    {
+      "path": "src/components/OutputManager/components/ModificationPanel.tsx",
+      "lines": 300,
+      "tier": "watch",
+      "cluster": "components-other",
+      "area": "src/components"
+    }
+  ]
+}

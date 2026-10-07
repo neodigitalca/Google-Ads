@@ -11,6 +11,8 @@ class Neo_Pulse_Wp_Search {
 
 	const OPTION_KEY = 'neo_pulse_wp_search_settings';
 
+	const DEFAULT_OPENROUTER_MODEL = 'deepseek/deepseek-v4.1-flash';
+
 	const SETTINGS_MIGRATION_KEY = 'neo_pulse_wp_search_settings_migrated_v2';
 
 	const REST_NAMESPACE = 'neo-pulse/v1';
@@ -49,6 +51,7 @@ class Neo_Pulse_Wp_Search {
 			'border_radius'       => 8,
 			'font_size'           => 16,
 			'auto_front_page'     => false,
+			'openrouter_model'    => self::DEFAULT_OPENROUTER_MODEL,
 		);
 
 		$saved = get_option( self::OPTION_KEY, array() );
@@ -60,6 +63,27 @@ class Neo_Pulse_Wp_Search {
 		}
 
 		return self::$settings_cache;
+	}
+
+	/**
+	 * OpenRouter model for AI search (intent, word-ready, popular terms). Does not affect chat or editor wands.
+	 *
+	 * @return string
+	 */
+	public static function get_openrouter_model(): string {
+		$settings = self::get_search_settings();
+		$model    = isset( $settings['openrouter_model'] ) ? trim( (string) $settings['openrouter_model'] ) : '';
+		if ( $model !== '' ) {
+			return $model;
+		}
+		if ( defined( 'NEO_PULSE_WP_SEARCH_OPENROUTER_MODEL' ) && NEO_PULSE_WP_SEARCH_OPENROUTER_MODEL !== '' ) {
+			return trim( (string) NEO_PULSE_WP_SEARCH_OPENROUTER_MODEL );
+		}
+		$env = getenv( 'NEO_PULSE_WP_SEARCH_OPENROUTER_MODEL' );
+		if ( $env ) {
+			return trim( (string) $env );
+		}
+		return Neo_Pulse_Wp_OpenRouter::get_model();
 	}
 
 	/**
@@ -101,6 +125,10 @@ class Neo_Pulse_Wp_Search {
 
 		if ( array_key_exists( 'auto_front_page', $data ) ) {
 			$merged['auto_front_page'] = ! empty( $data['auto_front_page'] );
+		}
+
+		if ( array_key_exists( 'openrouter_model', $data ) ) {
+			$merged['openrouter_model'] = sanitize_text_field( trim( (string) $data['openrouter_model'] ) );
 		}
 
 		update_option( self::OPTION_KEY, $merged, false );
@@ -1545,7 +1573,7 @@ class Neo_Pulse_Wp_Search {
 
 		$system = 'You are a WordPress site search assistant. Given a user search query, respond with ONLY valid JSON (no markdown, no explanation): {"intent":"informational|navigational|transactional","keywords":["keyword1","keyword2"],"sentiment":"positive|neutral|negative"}. Rules for keywords: extract 2-4 terms that should be used to FIND the right WordPress content. Prefer terms that match static PAGES and service/location URLs (contact, services, service-area city names), not blog post topics, unless the user clearly wants articles. For navigational queries like "contact page", keywords should be the page name (e.g. ["contact"]). For location queries, include city or "service area" terms. Think: page TITLE, SLUG, or URL path segment.';
 
-		$result = Neo_Pulse_Wp_OpenRouter::complete( $system, $query, 150, 0.1 );
+		$result = Neo_Pulse_Wp_OpenRouter::complete( $system, $query, 150, 0.1, self::get_openrouter_model() );
 
 		if ( is_wp_error( $result ) ) {
 			return $fallback;
@@ -1580,7 +1608,7 @@ class Neo_Pulse_Wp_Search {
 
 		$system = 'You judge whether a search box input contains at least one complete, correctly spelled real word (English or a proper noun). Partial mid-word typing is not ready. Trailing space is optional. Respond with ONLY valid JSON (no markdown): {"ready": true} or {"ready": false}. Examples: "plu" false, "plumber" true, "plumber edmonton" true, "plumber ed" true when "plumber" is complete, "asdfgh" false.';
 
-		$result = Neo_Pulse_Wp_OpenRouter::complete( $system, $query, 64, 0.0 );
+		$result = Neo_Pulse_Wp_OpenRouter::complete( $system, $query, 64, 0.0, self::get_openrouter_model() );
 		if ( is_wp_error( $result ) ) {
 			return false;
 		}

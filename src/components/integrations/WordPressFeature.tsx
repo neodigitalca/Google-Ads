@@ -59,6 +59,7 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
     handleDeleteSite,
     handleDeleteSitesBulk,
     handleToggleEnabled,
+    handleConnectSite,
     handleSaveSite,
     handleSaveSitesBulk,
     handleTestConnection,
@@ -166,9 +167,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
   const [formGoogleAdsCustomerId, setFormGoogleAdsCustomerId] = useState("");
   const [formGbpLocationId, setFormGbpLocationId] = useState("");
   const [formSemrushSiteAuditProjectId, setFormSemrushSiteAuditProjectId] = useState("");
+  const [formSemrushPositionTrackingProjectId, setFormSemrushPositionTrackingProjectId] = useState("");
+  const [formSemrushPositionTrackingCampaignId, setFormSemrushPositionTrackingCampaignId] = useState("");
   const [formEditorialCountsPeriodStartYmd, setFormEditorialCountsPeriodStartYmd] = useState("");
   const [formOptimizationPackage, setFormOptimizationPackage] = useState("basic");
   const [formBenchmarkCustomTag, setFormBenchmarkCustomTag] = useState("");
+  const [formProfileTags, setFormProfileTags] = useState<string[]>([]);
   const [formServiceCity, setFormServiceCity] = useState("");
   const [formServiceState, setFormServiceState] = useState("");
   const [formServiceCountry, setFormServiceCountry] = useState("");
@@ -232,9 +236,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
       setFormGoogleAdsCustomerId(formData.googleAdsCustomerId ?? "");
       setFormGbpLocationId(formData.gbpLocationId ?? "");
       setFormSemrushSiteAuditProjectId(formData.semrushSiteAuditProjectId ?? "");
+      setFormSemrushPositionTrackingProjectId(formData.semrushPositionTrackingProjectId ?? "");
+      setFormSemrushPositionTrackingCampaignId(formData.semrushPositionTrackingCampaignId ?? "");
       setFormEditorialCountsPeriodStartYmd(formData.editorialCountsPeriodStartYmd ?? "");
       setFormOptimizationPackage(formData.optimizationPackage ?? "");
       setFormBenchmarkCustomTag(formData.benchmarkCustomTag ?? "");
+      setFormProfileTags(formData.profileTags ?? []);
       setFormServiceCity(formData.serviceCity ?? "");
       setFormServiceState(formData.serviceState ?? "");
       setFormServiceCountry(formData.serviceCountry ?? "");
@@ -311,9 +318,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
       setFormGoogleAdsCustomerId(formData.googleAdsCustomerId ?? "");
       setFormGbpLocationId(formData.gbpLocationId ?? "");
       setFormSemrushSiteAuditProjectId(formData.semrushSiteAuditProjectId ?? "");
+      setFormSemrushPositionTrackingProjectId(formData.semrushPositionTrackingProjectId ?? "");
+      setFormSemrushPositionTrackingCampaignId(formData.semrushPositionTrackingCampaignId ?? "");
       setFormEditorialCountsPeriodStartYmd(formData.editorialCountsPeriodStartYmd ?? "");
       setFormOptimizationPackage(formData.optimizationPackage ?? "");
       setFormBenchmarkCustomTag(formData.benchmarkCustomTag ?? "");
+      setFormProfileTags(formData.profileTags ?? []);
       setFormServiceCity("");
     setFormServiceState("");
     setFormServiceCountry("");
@@ -353,9 +363,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
       ga4ForSave,
       gbpForSave,
       formSemrushSiteAuditProjectId,
+      formSemrushPositionTrackingProjectId,
+      formSemrushPositionTrackingCampaignId,
       formEditorialCountsPeriodStartYmd,
       formOptimizationPackage,
       formBenchmarkCustomTag,
+      formProfileTags,
       formServiceCity,
       formServiceState,
       formServiceCountry,
@@ -393,9 +406,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
     formGoogleAdsCustomerId,
     formGbpLocationId,
     formSemrushSiteAuditProjectId,
+    formSemrushPositionTrackingProjectId,
+    formSemrushPositionTrackingCampaignId,
     formEditorialCountsPeriodStartYmd,
     formOptimizationPackage,
     formBenchmarkCustomTag,
+    formProfileTags,
     formServiceCity,
     formServiceState,
     formServiceCountry,
@@ -421,9 +437,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
       formGoogleAdsCustomerId={formGoogleAdsCustomerId}
       formGbpLocationId={formGbpLocationId}
       formSemrushSiteAuditProjectId={formSemrushSiteAuditProjectId}
+      formSemrushPositionTrackingProjectId={formSemrushPositionTrackingProjectId}
+      formSemrushPositionTrackingCampaignId={formSemrushPositionTrackingCampaignId}
       formEditorialCountsPeriodStartYmd={formEditorialCountsPeriodStartYmd}
       formOptimizationPackage={formOptimizationPackage}
       formBenchmarkCustomTag={formBenchmarkCustomTag}
+      formProfileTags={formProfileTags}
       formServiceCity={formServiceCity}
       formServiceState={formServiceState}
       formServiceCountry={formServiceCountry}
@@ -436,9 +455,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
       onFormGoogleAdsCustomerIdChange={setFormGoogleAdsCustomerId}
       onFormGbpLocationIdChange={setFormGbpLocationId}
       onFormSemrushSiteAuditProjectIdChange={setFormSemrushSiteAuditProjectId}
+      onFormSemrushPositionTrackingProjectIdChange={setFormSemrushPositionTrackingProjectId}
+      onFormSemrushPositionTrackingCampaignIdChange={setFormSemrushPositionTrackingCampaignId}
       onFormEditorialCountsPeriodStartYmdChange={setFormEditorialCountsPeriodStartYmd}
       onFormOptimizationPackageChange={setFormOptimizationPackage}
       onFormBenchmarkCustomTagChange={setFormBenchmarkCustomTag}
+      onFormProfileTagsChange={setFormProfileTags}
       onFormServiceCityChange={setFormServiceCity}
       onFormServiceStateChange={setFormServiceState}
       onFormServiceCountryChange={setFormServiceCountry}
@@ -726,6 +748,7 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
         isLoadingCalendar={isLoadingCalendar}
         onTest={handleTestConnection}
         onToggleEnabled={handleToggleEnabled}
+        onConnectSite={handleConnectSite}
         onDetect={handleDetectSitemaps}
         onEdit={handleEditSite}
         onDelete={handleDeleteSite}
@@ -832,9 +855,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
         formGoogleAdsCustomerId={formGoogleAdsCustomerId}
         formGbpLocationId={formGbpLocationId}
         formSemrushSiteAuditProjectId={formSemrushSiteAuditProjectId}
+        formSemrushPositionTrackingProjectId={formSemrushPositionTrackingProjectId}
+        formSemrushPositionTrackingCampaignId={formSemrushPositionTrackingCampaignId}
         formEditorialCountsPeriodStartYmd={formEditorialCountsPeriodStartYmd}
         formOptimizationPackage={formOptimizationPackage}
         formBenchmarkCustomTag={formBenchmarkCustomTag}
+        formProfileTags={formProfileTags}
         formServiceCity={formServiceCity}
         formServiceState={formServiceState}
         formServiceCountry={formServiceCountry}
@@ -847,9 +873,12 @@ export const WordPressFeature: React.FC<WordPressFeatureProps> = ({
         onFormGoogleAdsCustomerIdChange={setFormGoogleAdsCustomerId}
         onFormGbpLocationIdChange={setFormGbpLocationId}
         onFormSemrushSiteAuditProjectIdChange={setFormSemrushSiteAuditProjectId}
+        onFormSemrushPositionTrackingProjectIdChange={setFormSemrushPositionTrackingProjectId}
+        onFormSemrushPositionTrackingCampaignIdChange={setFormSemrushPositionTrackingCampaignId}
         onFormEditorialCountsPeriodStartYmdChange={setFormEditorialCountsPeriodStartYmd}
         onFormOptimizationPackageChange={setFormOptimizationPackage}
         onFormBenchmarkCustomTagChange={setFormBenchmarkCustomTag}
+        onFormProfileTagsChange={setFormProfileTags}
         onFormServiceCityChange={setFormServiceCity}
         onFormServiceStateChange={setFormServiceState}
         onFormServiceCountryChange={setFormServiceCountry}

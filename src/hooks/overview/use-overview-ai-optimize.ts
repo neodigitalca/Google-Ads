@@ -15,6 +15,7 @@ import { runAiAllMetaBatch } from "@/lib/overview/overview-ai-all-meta-batch-age
 import type { AiAllMetaCatalogRow } from "@/lib/overview/overview-ai-all-meta-batch-catalog";
 import type { AiAllMetaRowPatch } from "@/lib/overview/overview-ai-all-meta-batch-parse";
 import type { WordPressSite } from "@/components/integrations/types";
+import { getMetaModel } from "@/lib/optimization-settings-storage";
 import {
   formatPageLocalContextPromptBlock,
   resolvePageLocalContext,
@@ -142,6 +143,7 @@ function faqPrimaryLocalPromptBlock(
  */
 export function useOverviewAiOptimize(options: UseOverviewAiOptions): UseOverviewAiResult {
   const { apiKey, model, temperature, maxTokens, topP, napSummary, wordPressSiteId, wordPressSite } = options;
+  const metaModel = getMetaModel(wordPressSiteId) || model;
   const [loading, setLoading] = useState(false);
   const [focusKeywordLoading, setFocusKeywordLoading] = useState(false);
   const [auditChecklistLoading, setAuditChecklistLoading] = useState(false);
@@ -166,7 +168,7 @@ export function useOverviewAiOptimize(options: UseOverviewAiOptions): UseOvervie
       let result = "";
       await streamChatCompletion({
         apiKey,
-        model,
+        model: metaModel,
         messages,
         temperature,
         maxTokens,
@@ -179,7 +181,7 @@ export function useOverviewAiOptimize(options: UseOverviewAiOptions): UseOvervie
 
       return result.trim();
     },
-    [apiKey, model, temperature, maxTokens, topP, wordPressSiteId],
+    [apiKey, metaModel, temperature, maxTokens, topP, wordPressSiteId],
   );
 
   const optimizeTitle = useCallback(
@@ -1085,12 +1087,12 @@ Rules:
     async (catalog: AiAllMetaCatalogRow[]): Promise<Map<string, AiAllMetaRowPatch>> => {
       return runAiAllMetaBatch(catalog, {
         apiKey,
-        model,
+        model: metaModel,
         siteId: wordPressSiteId,
         napSummary,
       });
     },
-    [apiKey, model, wordPressSiteId, napSummary],
+    [apiKey, metaModel, wordPressSiteId, napSummary],
   );
 
   return {

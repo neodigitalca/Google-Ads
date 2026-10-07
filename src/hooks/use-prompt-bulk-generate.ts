@@ -1,35 +1,22 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { notify } from "@/lib/app-notifications";
-import { NOTIFY_ALL_BLOG_IDEAS_ARE_ALREADY_SELECTED_PLEA, NOTIFY_COULD_NOT_PARSE_BLOG_IDEAS_FROM_THE_RESP, NOTIFY_FAILED_TO_GENERATE_CHECKLIST_PLEASE_TRY_, NOTIFY_FETCHING_FULL_WORDPRESS_INVENTORY_POSTS_, NOTIFY_INVALID_TARGET_SITE_EXAMPLE_COM_IS_NOT_A, NOTIFY_KNOWLEDGE_BASE_IS_EMPTY_BLOG_IDEAS_WILL_, NOTIFY_PLEASE_DESELECT_AT_LEAST_ONE_BLOG_IDEA_T, NOTIFY_PLEASE_ENSURE_API_KEYS_ARE_SET, NOTIFY_READING_KNOWLEDGE_BASE, notifyGeneratedXBlogIdeax, notifyRegeneratedXBlogIdeaxKeptXSelected, notifyWordpressSiteNotFoundX } from "@/lib/notify-messages";
-import { streamChatCompletion } from '@/lib/api';
+import { NOTIFY_ALL_BLOG_IDEAS_ARE_ALREADY_SELECTED_PLEA, NOTIFY_FAILED_TO_GENERATE_CHECKLIST_PLEASE_TRY_, NOTIFY_PLEASE_DESELECT_AT_LEAST_ONE_BLOG_IDEA_T, NOTIFY_PLEASE_ENSURE_API_KEYS_ARE_SET } from "@/lib/notify-messages";
 import { resolveOpenRouterApiKeyForHarness } from '@/lib/openrouter-api-key-resolve';
-import { buildBulkBlogIdeasSystemPrompt, buildBulkBlogIdeasUserPrompt } from '@/lib/prompt-builders';
-import { parseBlogIdeasChecklist, type CSVRow } from '@/lib/bulk-auto-generate';
+import type { CSVRow } from '@/lib/bulk-auto-generate';
 import { parseTitleTemplate } from '@/lib/title-template-parser';
 import type { Message } from '@/lib/api';
-import { loadKnowledgeBaseForBulkIdeas } from '@/lib/kb-for-bulk-ideas';
-import {
-  loadBulkSitemapInventoryForSite,
-  revokeBulkSitemapInventoryLinks,
-  type LoadBulkSitemapInventoryResult,
-} from '@/lib/bulk/bulk-sitemap-inventory-session';
-import type { PromptBulkSitemapInventoryBuckets, PromptBulkSitemapInventoryLink } from '@/lib/bulk/prompt-bulk-sitemap-inventory';
+import { revokeBulkSitemapInventoryLinks } from '@/lib/bulk/bulk-sitemap-inventory-session';
+import type { PromptBulkSitemapInventoryLink } from '@/lib/bulk/prompt-bulk-sitemap-inventory';
 import { getStoredSites, type WordPressSite } from '@/components/IntegrationsTab';
 import type { ConnectedSiteSummary } from '@/components/integrations/types';
 import { getResearchModel } from '@/lib/optimization-settings-storage';
 import type { KeywordAIAnalysis } from '@/lib/keyword-types';
-import { scrapePromptBulkSiteKwJson, revokePromptBulkSiteKwHostedLink, type PromptBulkSiteKwHostedLink } from '@/lib/bulk/prompt-bulk-site-kw-scrape';
-import {
-  buildPromptBulkKwConnectedSiteContext,
-  selectPromptBulkLowHangingKeywords,
-} from '@/lib/bulk/prompt-bulk-kw-research-agent';
-import { aiRejectBrandOrBlockedTexts } from '@/lib/content-brand-ai-gate';
+import { revokePromptBulkSiteKwHostedLink, type PromptBulkSiteKwHostedLink } from '@/lib/bulk/prompt-bulk-site-kw-scrape';
 import { mergePromptBulkIdeaSlots } from '@/lib/bulk/merge-prompt-bulk-idea-slots';
-import { fillPromptBulkIdeaTitlesFromAgent } from '@/lib/bulk/fill-prompt-bulk-idea-titles';
-import {
-  normalizeBulkSitemapScopeTags,
-  type BulkSitemapScopeTag,
-} from '@/lib/bulk/bulk-sitemap-mode';
+import { generateSimplePromptIdeas } from '@/lib/bulk/prompt-bulk-ideas-simple';
+import { fillBlogRowKeywordFocusFromOpenRouter } from '@/lib/bulk/prompt-bulk-keyword-focus-agent';
+import { fillBlogRowMetaFromOpenRouter } from '@/lib/local-analysis/entity-sap-meta-agent';
+import { fillBlogRowSlugFromOpenRouter } from '@/lib/local-analysis/blog-slug-agent';
 import type { BulkSiteSitemapConfig } from '@/components/keyword-research/bulk/BulkGeneratorSitemapMenu';
 
 export interface UsePromptBulkGenerateProps {
@@ -134,10 +121,7 @@ export function usePromptBulkGenerate({
     const allSlotModifiers = generatedRows
       .slice(0, numberOfBlogs)
       .map((r) => r.modifier?.trim() ?? "");
-    const allSlotTitles = generatedRows
-      .slice(0, numberOfBlogs)
-      .map((r) => r.title?.trim() ?? "");
-    
+
     // Calculate how many new blogs to generate
     const keptCount = keepIndices ? keepIndices.length : 0;
     const blogsToGenerate = numberOfBlogs - keptCount;
@@ -152,273 +136,53 @@ export function usePromptBulkGenerate({
         ? allSlotModifiers.filter((_, i) => !keepIndices.includes(i))
         : allSlotModifiers.slice(0, blogsToGenerate);
 
-    const slotTitlesForGeneration =
-      keepIndices && keepIndices.length > 0
-        ? allSlotTitles.filter((_, i) => !keepIndices.includes(i))
-        : allSlotTitles.slice(0, blogsToGenerate);
-
-    const filledUserSlotCount = slotKeywordsForGeneration.filter((kw) => kw.trim()).length;
-    const emptySlotCount = Math.max(0, blogsToGenerate - filledUserSlotCount);
-    
     if (blogsToGenerate <= 0) {
       notify.error(NOTIFY_ALL_BLOG_IDEAS_ARE_ALREADY_SELECTED_PLEA);
       setIsGeneratingChecklist(false);
       return undefined;
     }
     
-    // Build a prompt from the settings
-    const userMessage = `Generate ${blogsToGenerate} blog post ideas${optionalPrompt ? ` with the following characteristics: ${optionalPrompt}` : ''}`;
+    const topicLine = [flowPurpose?.trim(), optionalPrompt?.trim()].filter(Boolean).join(". ");
+    const userMessage = topicLine
+      ? `Generate ${blogsToGenerate} blog post ideas for this topic: ${topicLine}`
+      : `Generate ${blogsToGenerate} blog post ideas`;
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
 
     try {
-      let siteInventoryBuckets: PromptBulkSitemapInventoryBuckets | undefined;
+      onProgress?.("Generating blog ideas…", 30);
+
       let matchedWpSite: WordPressSite | null = null;
-      let siteKwJsonText: string | undefined;
-      let lowHangingKeywords: string[] = [];
-
       if (connectedSite) {
-        notify.info(NOTIFY_FETCHING_FULL_WORDPRESS_INVENTORY_POSTS_);
         const sites = getStoredSites();
-
-        const normalizeDomain = (url: string): string =>
-          url.trim().toLowerCase().replace(/\/$/, '').replace(/^https?:\/\/(www\.)?/, '').split('/')[0];
-
-        const connectedDomain = normalizeDomain(connectedSite.siteUrl);
-        if (connectedDomain === 'example.com' || connectedDomain.endsWith('.example.com')) {
-          notify.error(NOTIFY_INVALID_TARGET_SITE_EXAMPLE_COM_IS_NOT_A);
-          setIsGeneratingChecklist(false);
-          return undefined;
-        }
-
-        const wordPressSite = sites.find(s => {
-          const normalize = (url: string) => url.trim().toLowerCase().replace(/\/$/, '').replace(/^https?:\/\/(www\.)?/, '');
-          return normalize(s.siteUrl) === normalize(connectedSite.siteUrl);
-        }) ?? null;
-        matchedWpSite = wordPressSite;
-
-        if (!wordPressSite) {
-          notify.error(notifyWordpressSiteNotFoundX(connectedSite.siteUrl));
-          setIsGeneratingChecklist(false);
-          return undefined;
-        }
-
-        if (!wordPressSite.username?.trim() || !wordPressSite.appPassword?.trim()) {
-          notify.error('WordPress username and application password are required to load sitemap inventory for idea generation.');
-          setIsGeneratingChecklist(false);
-          return undefined;
-        }
-
-        onProgress?.('Loading Posts, Pages, and SAP sitemap inventory…', 10);
-        const siteIdForScope = Array.from(selectedWordPressSites ?? [])[0] ?? wordPressSite.id;
-        const scopeTags = normalizeBulkSitemapScopeTags(siteConfigs?.[siteIdForScope]?.scopeTags);
-        const inventory: LoadBulkSitemapInventoryResult = await loadBulkSitemapInventoryForSite(
-          wordPressSite,
-          (msg) => onProgress?.(msg, 12),
-          scopeTags.length > 0 ? { scopeTags } : undefined,
-        );
-
-        revokeBulkSitemapInventoryLinks(sitemapLinksRef.current);
-        sitemapLinksRef.current = inventory.links;
-        setSitemapInventoryLinks(inventory.links);
-        siteInventoryBuckets = inventory.buckets;
-        setLastInventorySentToAiCount(inventory.totalRows);
-
-        setWordPressPostsMetadata(inventory.postsMetadata);
-
-        onProgress?.(
-          `Inventory loaded: ${inventory.buckets.posts.rowCount} posts, ${inventory.buckets.pages.rowCount} pages, ${inventory.buckets.sap.rowCount} SAP (${inventory.totalRows} total URLs)`,
-          18,
-        );
-
-        onProgress?.('Loading GSC and Semrush keywords...', 20);
-        const kwScrape = await scrapePromptBulkSiteKwJson(wordPressSite);
-        revokePromptBulkSiteKwHostedLink(siteKwLinkRef.current);
-        siteKwLinkRef.current = kwScrape.hostedLink;
-        setSiteKwHostedLink(kwScrape.hostedLink);
-
-        const hasSiteKwRows = kwScrape.json.gsc.length > 0 || kwScrape.json.semrush.length > 0;
-        if (hasSiteKwRows && emptySlotCount > 0) {
-          siteKwJsonText = kwScrape.keywordsJsonText;
-          onProgress?.('Research agent selecting low-hanging keywords...', 24);
-          lowHangingKeywords = await selectPromptBulkLowHangingKeywords({
-            apiKey: effectiveOpenRouterKey,
-            siteId: wordPressSite.id,
-            keywordsJsonText: kwScrape.keywordsJsonText,
-            numberOfBlogs: emptySlotCount,
-            topic: flowPurpose,
-            modifier: optionalPrompt,
-            inventoryUrlCount: inventory.totalRows,
-            siteInventoryJson: inventory.buckets.posts.json || undefined,
-            connectedSite: buildPromptBulkKwConnectedSiteContext(wordPressSite),
-          });
-        }
-      } else {
-        setWordPressPostsMetadata([]);
-        revokeBulkSitemapInventoryLinks(sitemapLinksRef.current);
-        sitemapLinksRef.current = [];
-        setSitemapInventoryLinks([]);
-        revokePromptBulkSiteKwHostedLink(siteKwLinkRef.current);
-        siteKwLinkRef.current = null;
-        setSiteKwHostedLink(null);
+        const normalize = (url: string) =>
+          url.trim().toLowerCase().replace(/\/$/, "").replace(/^https?:\/\/(www\.)?/, "");
+        matchedWpSite =
+          sites.find((s) => normalize(s.siteUrl) === normalize(connectedSite.siteUrl)) ?? null;
       }
 
-      onProgress?.('Generating blog ideas with AI…', 28);
-      const { activeKnowledgeBaseText } = loadKnowledgeBaseForBulkIdeas();
-      if (activeKnowledgeBaseText && activeKnowledgeBaseText.trim().length > 0) {
-        onProgress?.('📚 Reading knowledge base for ideas...', 24);
-        console.log("[Bulk ideas] KB chars:", activeKnowledgeBaseText.length);
-        notify.info(NOTIFY_READING_KNOWLEDGE_BASE);
-      } else if (!siteInventoryBuckets) {
-        notify.warning(NOTIFY_KNOWLEDGE_BASE_IS_EMPTY_BLOG_IDEAS_WILL_);
+      const ideaModel = getResearchModel(matchedWpSite?.id);
+      onProgress?.("Writing titles…", 60);
+
+      let cappedParsedRows = await generateSimplePromptIdeas({
+        apiKey: effectiveOpenRouterKey,
+        model: ideaModel,
+        count: blogsToGenerate,
+        topic: flowPurpose,
+        modifier: optionalPrompt,
+        slotKeywords: slotKeywordsForGeneration,
+        slotModifiers: slotModifiersForGeneration,
+        temperature,
+        maxTokens: Math.min(maxTokens || 4000, 8192),
+      });
+
+      if (featuredImagePerBlog) {
+        cappedParsedRows = cappedParsedRows.map((row) => ({
+          ...row,
+          featuredImage: row.featuredImage ?? "y",
+        }));
       }
 
-      const limitedKnowledgeBaseText =
-        activeKnowledgeBaseText.length > 5000
-          ? `${activeKnowledgeBaseText.substring(0, 5000)}\n\n[Knowledge base truncated for token optimization...]`
-          : activeKnowledgeBaseText;
-
-      const effectiveGscKeywords =
-        emptySlotCount <= 0
-          ? []
-          : lowHangingKeywords.length > 0
-            ? lowHangingKeywords
-            : keywordMode === 'gsc-keywords'
-              ? gscExactKeywords
-              : [];
-      const effectiveKeywordMode =
-        effectiveGscKeywords.length > 0 ? 'gsc-keywords' : keywordMode;
-
-      const systemPrompt = buildBulkBlogIdeasSystemPrompt(
-        flowPurpose || '',
-        limitedKnowledgeBaseText,
-        blogsToGenerate,
-        entityMode,
-        entityValue,
-        effectiveKeywordMode,
-        keywordValue,
-        optionalPrompt,
-        titleTemplate,
-        featuredImagePerBlog,
-        connectedSite,
-        undefined,
-        effectiveGscKeywords.length > 0 ? effectiveGscKeywords : undefined,
-        keywordAnalysisResults,
-        'content_blog',
-        siteInventoryBuckets,
-        slotKeywordsForGeneration,
-        slotModifiersForGeneration,
-      );
-      const userPrompt = buildBulkBlogIdeasUserPrompt(
-        userMessage,
-        blogsToGenerate,
-        optionalPrompt,
-        undefined,
-        effectiveGscKeywords.length > 0 ? effectiveGscKeywords : undefined,
-        flowPurpose || undefined,
-        'content_blog',
-        siteInventoryBuckets,
-        emptySlotCount > 0 ? siteKwJsonText : undefined,
-        slotKeywordsForGeneration,
-      );
-
-      let inventoryUrlCountForAi: number | null = null;
-      if (siteInventoryBuckets) {
-        inventoryUrlCountForAi =
-          siteInventoryBuckets.posts.rowCount +
-          siteInventoryBuckets.pages.rowCount +
-          siteInventoryBuckets.sap.rowCount;
-      }
-
-      const checklistResearchModel = getResearchModel(matchedWpSite?.id);
-
-      let checklistContent = '';
-      try {
-        const safeMaxTokens = Math.min(maxTokens || 4000, 16000);
-
-        onProgress?.('🤖 Streaming AI response (research model — blog ideas)...', 35);
-        await streamChatCompletion({
-          apiKey: effectiveOpenRouterKey,
-          model: checklistResearchModel,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature,
-          maxTokens: safeMaxTokens,
-          topP,
-          onContentChunk: (chunk) => {
-            checklistContent += chunk;
-            setChatMessages(prev => {
-              const newMessages = [...prev];
-              const lastMsg = newMessages[newMessages.length - 1];
-              if (lastMsg && lastMsg.role === 'assistant') {
-                lastMsg.content = checklistContent;
-              } else {
-                newMessages.push({ role: 'assistant', content: checklistContent });
-              }
-              return newMessages;
-            });
-          },
-        });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Blog ideas generation error:', error);
-        
-        // Provide more specific error messages
-        if (errorMessage.includes('400') || errorMessage.includes('Request too large')) {
-          throw new Error('Request too large. The knowledge base or prompt is too long. Try reducing the knowledge base content or simplifying your prompt.');
-        }
-        if (errorMessage.includes('401') || errorMessage.includes('Invalid API key')) {
-          throw new Error('Invalid OpenRouter API key. Please check your API key in settings.');
-        }
-        if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
-          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
-        }
-        
-        throw new Error(`Failed to generate blog ideas: ${errorMessage}`);
-      }
-
-      setLastInventorySentToAiCount(inventoryUrlCountForAi);
-
-      // Parse checklist into CSVRow[]
-      const companyNameForGate = connectedSite?.name ?? matchedWpSite?.name ?? null;
-      let parsedRows = parseBlogIdeasChecklist(
-        checklistContent, 
-        titleTemplate,
-        entityList,
-        keywordList,
-        locationList,
-        numberList,
-        companyNameForGate,
-      );
-
-      if (companyNameForGate?.trim() && parsedRows.length > 0) {
-        const rejected = await aiRejectBrandOrBlockedTexts({
-          apiKey: effectiveOpenRouterKey,
-          model: getResearchModel(matchedWpSite?.id),
-          companyName: companyNameForGate,
-          candidates: parsedRows.flatMap((r) => [r.keyword, r.title].filter(Boolean) as string[]),
-          kind: "keyword",
-        });
-        if (rejected.length > 0) {
-          const rejectKeys = new Set(
-            rejected.map((t) => t.trim().toLowerCase().replace(/\s+/g, " ")),
-          );
-          parsedRows = parsedRows.filter((r) => {
-            const kw = (r.keyword ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-            const title = (r.title ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-            return !rejectKeys.has(kw) && !rejectKeys.has(title);
-          });
-        }
-      }
-
-      if (parsedRows.length === 0) {
-        notify.error(NOTIFY_COULD_NOT_PARSE_BLOG_IDEAS_FROM_THE_RESP);
-        setChatMessages(prev => prev.slice(0, -1));
-        return undefined;
-      }
-
-      const cappedParsedRows = parsedRows.slice(0, blogsToGenerate);
+      setLastInventorySentToAiCount(null);
 
       mergePromptBulkIdeaSlots({
         parsedRows: cappedParsedRows,
@@ -427,15 +191,6 @@ export function usePromptBulkGenerate({
         slotModifiers: slotModifiersForGeneration,
         keepIndices,
       });
-
-      if (!(titleTemplate && titleTemplate.trim())) {
-        onProgress?.('Writing titles…', 80);
-        await fillPromptBulkIdeaTitlesFromAgent({
-          rows: cappedParsedRows,
-          apiKey: effectiveOpenRouterKey,
-          preservedSlotTitles: slotTitlesForGeneration,
-        });
-      }
 
       // Helper function to parse list strings (split by newlines or commas)
       const parseListString = (list: string): string[] => {
@@ -446,34 +201,17 @@ export function usePromptBulkGenerate({
           .filter(item => item.length > 0);
       };
 
-      // CRITICAL: If entityMode is manual, assign entities to rows
-      // This should happen BEFORE title template processing so entities are available for templates
-      if (entityMode === 'manual') {
-        // Try entityList first, then fallback to entityValue
-        const entitySource = (entityList && entityList.trim()) ? entityList : entityValue;
-        
-        console.log(`[Entity Assignment] Manual mode detected. EntityList: "${entityList}", EntityValue: "${entityValue}", Using: "${entitySource}"`);
-        
-        if (entitySource && entitySource.trim()) {
+      if (entityMode === "manual") {
+        const entitySource = entityList?.trim() ? entityList : entityValue;
+        if (entitySource?.trim()) {
           const entityValues = parseListString(entitySource);
-          console.log(`[Entity Assignment] Parsed ${entityValues.length} entities:`, entityValues);
-          
-          if (entityValues.length > 0) {
-            cappedParsedRows.forEach((row, index) => {
-              // Assign entity from list (one per row, cycling if list is shorter)
-              const entityIndex = Math.min(index, entityValues.length - 1);
-              row.entity = entityValues[entityIndex] || '';
-              console.log(`[Entity Assignment] Row ${index + 1}: Assigned entity "${row.entity}" (from index ${entityIndex})`);
-            });
-          } else {
-            console.warn(`[Entity Assignment] No entities parsed from source: "${entitySource}"`);
-          }
-        } else {
-          console.warn(`[Entity Assignment] No entity source available. EntityList: "${entityList}", EntityValue: "${entityValue}"`);
+          cappedParsedRows.forEach((row, index) => {
+            const entityIndex = Math.min(index, entityValues.length - 1);
+            row.entity = entityValues[entityIndex] || "";
+          });
         }
       }
 
-      // CRITICAL: If title template is provided, ensure ALL titles follow the template
       if (titleTemplate && titleTemplate.trim()) {
         const entityValues = parseListString(entityList || '');
         const keywordValues = parseListString(keywordList || '');
@@ -499,7 +237,6 @@ export function usePromptBulkGenerate({
           const templateTitle = parseTitleTemplate(titleTemplate, variables);
           if (templateTitle && templateTitle.trim()) {
             row.title = templateTitle.trim();
-            console.log(`[Title Template] FORCED template for row ${index + 1}: "${row.title}"`);
           }
           // Sync entity to row when template provided an Entity (so Origin ACF gets set from entity)
           if (variables.Entity && variables.Entity.trim() && variables.Entity.trim() !== 'N/A') {
@@ -508,20 +245,84 @@ export function usePromptBulkGenerate({
         });
       }
 
+      const lockedSlotKeywords = cappedParsedRows.map(
+        (_, i) => Boolean(slotKeywordsForGeneration[i]?.trim()),
+      );
+
+      onProgress?.("Distilling focus keywords…", 78);
+      cappedParsedRows = await fillBlogRowKeywordFocusFromOpenRouter(cappedParsedRows, {
+        apiKey: effectiveOpenRouterKey,
+        siteId: matchedWpSite?.id,
+        siteName: (connectedSite?.name ?? matchedWpSite?.name ?? "").trim(),
+        topic: flowPurpose?.trim() || topicLine,
+        lockedSlotKeywords,
+        strict: true,
+        onProgress: (done, total) => {
+          if (total > 0) {
+            onProgress?.(`Focus keywords ${done}/${total}…`, 78 + Math.round((done / total) * 5));
+          }
+        },
+      });
+
+      onProgress?.("Writing meta descriptions…", 85);
+      const rowsForMeta = cappedParsedRows.map((row) => {
+        const { meta_description: _drop, ...rest } = row;
+        return rest;
+      });
+      cappedParsedRows = await fillBlogRowMetaFromOpenRouter(rowsForMeta, {
+        apiKey: effectiveOpenRouterKey,
+        model: ideaModel,
+        siteId: matchedWpSite?.id,
+        siteName: (connectedSite?.name ?? matchedWpSite?.name ?? "").trim(),
+        strict: true,
+        onProgress: (done, total) => {
+          if (total > 0) {
+            onProgress?.(`Meta descriptions ${done}/${total}…`, 82 + Math.round((done / total) * 6));
+          }
+        },
+      });
+      const missingMeta = cappedParsedRows.find((r) => !(r.meta_description ?? "").trim());
+      if (missingMeta) {
+        throw new Error("Meta description agent did not return a description for every idea row.");
+      }
+
+      onProgress?.("Writing URL slugs…", 90);
+      cappedParsedRows = await fillBlogRowSlugFromOpenRouter(cappedParsedRows, {
+        apiKey: effectiveOpenRouterKey,
+        model: ideaModel,
+        siteId: matchedWpSite?.id,
+        onProgress: (done, total) => {
+          if (total > 0) {
+            onProgress?.(`URL slugs ${done}/${total}…`, 90 + Math.round((done / total) * 8));
+          }
+        },
+      });
+      const missingSlug = cappedParsedRows.find((r) => !(r.target_slug ?? "").trim());
+      if (missingSlug) {
+        throw new Error("URL slug agent did not return a slug for every idea row.");
+      }
+
       // Determine final rows (merged or new)
       let finalRows: CSVRow[];
       if (keepIndices && keepIndices.length > 0) {
         const keptRows = keepIndices.map(idx => generatedRows[idx]).filter(Boolean);
         finalRows = [...keptRows, ...cappedParsedRows].slice(0, numberOfBlogs);
-        notify.success(notifyRegeneratedXBlogIdeaxKeptXSelected(cappedParsedRows.length, cappedParsedRows.length !== 1 ? 's' : '', keptRows.length));
       } else {
         finalRows = cappedParsedRows;
-        notify.success(notifyGeneratedXBlogIdeax(cappedParsedRows.length, cappedParsedRows.length !== 1 ? 's' : ''));
       }
 
       setGeneratedRows(finalRows);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: finalRows
+            .map((r, i) => `${i + 1}. ${r.title}\nMeta: ${r.meta_description ?? ""}`)
+            .join("\n\n"),
+        },
+      ]);
 
-      onProgress?.('✅ Generation complete!', 100);
+      onProgress?.("Done", 100);
       setHasGeneratedChecklist(true);
       return finalRows;
     } catch (error) {

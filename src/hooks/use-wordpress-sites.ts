@@ -27,6 +27,7 @@ import { persistGbpLocationIdInput } from "@/lib/gbp-post/normalize-gbp-location
 import { getStoredSites, mergeServerGbpLocationIdsIntoLocalSites, mergeServerWpEngineCredentialsIntoLocalSites, restoreSitesFromServerMirrorIfEmpty, saveSites } from "@/components/integrations/storage";
 import { type WordPressSite } from "@/components/integrations/types";
 import { isOptimizationPackageTier } from "@/lib/wordpress-optimization-package";
+import { normalizeProfileTags } from "@/lib/wordpress-property-profile-tags";
 import { scrapeChildSitemap } from "@/lib/wordpress-sitemap-scraper";
 import { extractNAPAndSaveToSiteSilent, triggerKnowledgeGraphWorkflow } from "@/lib/knowledge-graph-auto-trigger";
 import { detectEntitySitemap } from "@/lib/entity-sitemap-detector";
@@ -96,8 +97,11 @@ function useWordPressSitesState() {
       googleAdsCustomerId: "",
       gbpLocationId: "",
       semrushSiteAuditProjectId: "",
+      semrushPositionTrackingProjectId: "",
+      semrushPositionTrackingCampaignId: "",
       editorialCountsPeriodStartYmd: "",
       benchmarkCustomTag: "",
+      profileTags: [] as string[],
       slackEnabledForProperty: true,
       slackChannelId: "",
       slackChannelName: "",
@@ -118,12 +122,15 @@ function useWordPressSitesState() {
       googleAdsCustomerId: site.googleAdsCustomerId ?? "",
       gbpLocationId: site.gbpLocationId ?? "",
       semrushSiteAuditProjectId: site.semrushSiteAuditProjectId ?? "",
+      semrushPositionTrackingProjectId: site.semrushPositionTrackingProjectId ?? "",
+      semrushPositionTrackingCampaignId: site.semrushPositionTrackingCampaignId ?? "",
       editorialCountsPeriodStartYmd: site.editorialCountsPeriodStartYmd ?? "",
       optimizationPackage:
         site.optimizationPackage?.trim() && isOptimizationPackageTier(site.optimizationPackage.trim())
           ? site.optimizationPackage.trim()
           : "",
       benchmarkCustomTag: site.benchmarkCustomTag?.trim() ?? "",
+      profileTags: site.profileTags ?? [],
       serviceCity: readSiteServiceCity(site),
       serviceState: readSiteServiceState(site),
       serviceCountry: readSiteServiceCountry(site),
@@ -475,9 +482,12 @@ function useWordPressSitesState() {
     formGa4PropertyId?: string,
     formGbpLocationId?: string,
     formSemrushSiteAuditProjectId?: string,
+    formSemrushPositionTrackingProjectId?: string,
+    formSemrushPositionTrackingCampaignId?: string,
     formEditorialCountsPeriodStartYmd?: string,
     formOptimizationPackage?: string,
     formBenchmarkCustomTag?: string,
+    formProfileTags?: string[],
     formServiceCity?: string,
     formServiceState?: string,
     formServiceCountry?: string,
@@ -516,11 +526,17 @@ function useWordPressSitesState() {
         return persisted || undefined;
       })(),
       semrushSiteAuditProjectId: formSemrushSiteAuditProjectId?.trim() || undefined,
+      semrushPositionTrackingProjectId: formSemrushPositionTrackingProjectId?.trim() || undefined,
+      semrushPositionTrackingCampaignId: formSemrushPositionTrackingCampaignId?.trim() || undefined,
       editorialCountsPeriodStartYmd: formEditorialCountsPeriodStartYmd?.trim() || undefined,
       optimizationPackage,
       benchmarkCustomTag: formBenchmarkCustomTag?.trim() || undefined,
+      profileTags: normalizeProfileTags(formProfileTags ?? editingSite?.profileTags),
       postBankEnabled: true,
     };
+    if (siteData.profileTags.length === 0) {
+      delete siteData.profileTags;
+    }
     const servicePatch = buildSiteLocationsPatch(
       siteData,
       formServiceCity ?? readSiteServiceCity(editingSite),

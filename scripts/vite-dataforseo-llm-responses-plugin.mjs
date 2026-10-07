@@ -1,7 +1,7 @@
 import {
   handleDataForSeoLlmResponsesLive,
   isLlmResponsesLiveRequest,
-  loadDataForSeoAuth,
+  resolveDataForSeoAuthFromRequest,
 } from "./dataforseo-llm-responses-direct.mjs";
 
 function readRequestBody(req) {
@@ -15,12 +15,10 @@ function readRequestBody(req) {
 
 /** Fallback when local WP proxy plugin is off; localWpApiProxyPlugin handles this path first when enabled. */
 export function dataforseoLlmResponsesDevPlugin() {
-  const auth = loadDataForSeoAuth();
   return {
     name: "dataforseo-llm-responses-dev",
     enforce: "pre",
     configureServer(server) {
-      if (!auth) return;
       server.middlewares.use(async (req, res, next) => {
         const path = (req.url ?? "").split("?")[0] ?? "";
         if (!isLlmResponsesLiveRequest(req.method, path)) {
@@ -29,6 +27,19 @@ export function dataforseoLlmResponsesDevPlugin() {
         }
         try {
           const raw = await readRequestBody(req);
+          const bodyJson = raw?.length ? JSON.parse(raw.toString("utf8")) : {};
+          const auth = resolveDataForSeoAuthFromRequest(req, bodyJson);
+          if (!auth) {
+            res.statusCode = 401;
+            res.setHeader("content-type", "application/json; charset=utf-8");
+            res.end(
+              JSON.stringify({
+                error: "DataForSEO API key required",
+                hint: "Save your DataForSEO login:password in Dashboard → Settings → DataForSEO, then retry.",
+              }),
+            );
+            return;
+          }
           const result = await handleDataForSeoLlmResponsesLive(raw, auth);
           res.statusCode = result.status;
           res.setHeader("content-type", "application/json; charset=utf-8");

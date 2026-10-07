@@ -20,6 +20,7 @@ import { BACKEND_API_BASE } from "@/lib/wordpress-api/connection";
 import { getGMBPullDateRanges } from "@/lib/gmb-date-helpers";
 import { loadApiKey } from "@/lib/api";
 import { resolveRecommendedAuthor } from "@/lib/wordpress-api/author-resolver";
+import { normalizeGa4PropertyIdForApi, resolveGa4PropertyIdForReporting } from "@/lib/ga4-property-id";
 import { cn } from "@/lib/utils";
 import {
   TASK_FORM_FLAT_CONTROL_CLASS,
@@ -167,7 +168,14 @@ ${footnote}`;
   };
 
   const handleTestGA = async () => {
-    const propertyId = site.ga4PropertyId?.trim() ?? "";
+    let propertyId = "";
+    try {
+      const raw = resolveGa4PropertyIdForReporting(site);
+      propertyId = raw ? normalizeGa4PropertyIdForApi(raw) : "";
+    } catch (err) {
+      notify.error(err instanceof Error ? err.message : "Invalid GA4 Property ID.");
+      return;
+    }
     if (!propertyId) {
       notify.error(NOTIFY_ADD_GA4_PROPERTY_ID_FOR_THIS_SITE_CLICK_);
       return;

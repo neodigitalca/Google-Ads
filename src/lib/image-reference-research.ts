@@ -10,19 +10,49 @@ import {
   parseJsonObjectFromModelText,
   type OpenRouterVisionContentPart,
 } from "@/lib/openrouter-vision-chat";
-import { getResearchModel } from "@/lib/optimization-settings-storage";
+import {
+  IMAGE_EVIDENCE_PLAN_RESPONSE_FORMAT,
+  IMAGE_GROUNDING_CLASSIFICATION_RESPONSE_FORMAT,
+} from "@/lib/image-grounding-classification-schema";
+import { getMetaModel, getResearchModel } from "@/lib/optimization-settings-storage";
 import {
   type GoogleImagesSerpItem,
 } from "@/lib/overview/overview-local-image-dfs-normalize";
 import { BACKEND_API_BASE, backendApiUrl } from "@/lib/wordpress-api/connection";
 import { openRouterWebAppHeaders } from "@/lib/openrouter-attribution";
 import { postOpenRouterAppChatFetch } from "@/lib/openrouter-app-api";
+import { callOpenRouterChatCompletion } from "@/lib/competitor-research/competitor-report-openrouter";
+import {
+  isWindowTreatmentImageContext,
+  WINDOW_TREATMENT_IMAGE_PROMPT_RULES,
+} from "@/lib/image-window-treatment-prompt-rules";
+import { logFeaturedImagePipeline } from "@/lib/image-generator/featured-image-pipeline-log";
 
 export const IMAGE_REF_CANDIDATE_LIMIT = 10;
 export const IMAGE_REF_FIT_MIN = 0.4;
 export const IMAGE_REF_QUALITY_MIN = 0.2;
 /** Featured/section classify path: max grounding targets. */
 export const IMAGE_REF_MAX_TARGETS = 3;
+
+function groundingClassificationFromModelPayload(args: {
+  parsed?: Record<string, unknown>;
+  content: string;
+}): ImageGroundingClassification {
+  if (args.parsed && typeof args.parsed === "object" && !Array.isArray(args.parsed)) {
+    return parseImageGroundingClassification(args.parsed);
+  }
+  const trimmed = args.content.trim();
+  if (!trimmed) {
+    throw new Error("Image grounding classification returned empty output");
+  }
+  try {
+    return parseImageGroundingClassification(parseJsonObjectFromModelText(trimmed));
+  } catch (err) {
+    const preview = trimmed.slice(0, 120).replace(/\s+/g, " ");
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`${detail} (preview: ${preview})`);
+  }
+}
 /** Legacy Solo fan-out helper only (allocateSoloFanOutCaps). Intent plan path has no product count cap. */
 export const IMAGE_REF_SOLO_MAX_TARGETS = 7;
 /** Legacy Solo per-target helper. Intent plan uses per-need pickCount instead. */
@@ -878,7 +908,8 @@ export async function classifyImageGroundingTargets(params: {
 }): Promise<ImageGroundingClassification> {
   const apiKey = params.apiKey.trim();
   if (!apiKey) throw new Error("OpenRouter API key not found");
-  const model = params.model || getResearchModel();
+  /** Reasoning research models (e.g. DeepSeek) often ignore JSON mode; meta model handles json_object reliably. */
+  const model = getMetaModel();
   const c = params.context;
   const lines: string[] = [];
   if (c.title?.trim()) lines.push(`Title: ${c.title.trim()}`);
@@ -905,55 +936,75 @@ export async function classifyImageGroundingTargets(params: {
     "CONTEXT RULE (critical): city + street + named store/building/bridge belong in ONE place/setting query together.",
     "Named stores on a street are the place itself — phrase as \"Jasper Avenue Save On Foods Edmonton\", never \"Jasper Avenue by Save On Foods\". Do not use \"by\" to detach the store from the street.",
     "Do NOT drop the foreground subject when a place is also named.",
+    "Return ONLY one JSON object. No prose, markdown, code fences, or explanation before or after the JSON.",
     'Example: "person running across high level bridge when it is about to rain" →',
-    '[{"kind":"other","layer":"foreground","query":"person running jogging","role":"foreground runner","location_name":"United States"},{"kind":"place","layer":"background","query":"High Level Bridge Edmonton pedestrian walkway","role":"bridge setting","location_name":"Canada"}].',
+    '{"mode":"grounded","targets":[{"kind":"other","layer":"foreground","query":"person running jogging","role":"foreground runner","location_name":"United States"},{"kind":"place","layer":"background","query":"High Level Bridge Edmonton pedestrian walkway","role":"bridge setting","location_name":"Canada"}]}',
     'Example: "Steve Buscemi riding a Segway on Whyte Avenue Edmonton" →',
-    '[{"kind":"other","layer":"foreground","query":"Steve Buscemi riding Segway","role":"named person subject","location_name":"United States"},{"kind":"place","layer":"background","query":"Whyte Avenue Edmonton street view","role":"street setting","location_name":"Canada"}].',
+    '{"mode":"grounded","targets":[{"kind":"other","layer":"foreground","query":"Steve Buscemi riding Segway","role":"named person subject","location_name":"United States"},{"kind":"place","layer":"background","query":"Whyte Avenue Edmonton street view","role":"street setting","location_name":"Canada"}]}',
     'Example: "cyber truck in downtown edmonton jasper ave save on foods" →',
-    '[{"kind":"product","layer":"foreground","query":"Tesla Cybertruck","role":"foreground vehicle","location_name":"United States"},{"kind":"place","layer":"background","query":"Jasper Avenue Save On Foods Edmonton","role":"street setting","location_name":"Canada"}].',
+    '{"mode":"grounded","targets":[{"kind":"product","layer":"foreground","query":"Tesla Cybertruck","role":"foreground vehicle","location_name":"United States"},{"kind":"place","layer":"background","query":"Jasper Avenue Save On Foods Edmonton","role":"street setting","location_name":"Canada"}]}',
     "Set location_name to the country that best matches the place (Canada for Edmonton, etc.). Subject-only searches may use United States.",
-    "If abstract, return mode abstract and empty targets.",
+    'If abstract, return {"mode":"abstract","targets":[]}.',
   ].join(" ");
 
-  const res = await postOpenRouterAppChatFetch( {
-    method: "POST",
-    headers: openRouterWebAppHeaders(apiKey),
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: `Classify grounding needs:\n\n${lines.join("\n")}` },
-      ],
-      temperature: 0.2,
-      max_tokens: 600,
-      response_format: { type: "json_object" },
-    }),
+  const { content, parsed } = await callOpenRouterChatCompletion({
+    apiKey,
+    model,
+    system,
+    user: `Classify grounding needs. Reply with JSON only.\n\n${lines.join("\n")}`,
+    temperature: 0,
+    maxTokens: 800,
+    responseFormat: IMAGE_GROUNDING_CLASSIFICATION_RESPONSE_FORMAT,
   });
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Grounding classify failed ${res.status}: ${errText.slice(0, 200)}`);
-  }
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  const content = data.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    return { mode: "abstract", targets: [] };
-  }
-  return parseImageGroundingClassification(parseJsonObjectFromModelText(content));
+  return groundingClassificationFromModelPayload({ parsed, content });
 }
 
-function buildContextLines(c: ImageReferenceResearchContext): string[] {
+function buildContextLines(
+  c: ImageReferenceResearchContext,
+  options?: { maxBodyChars?: number; maxSectionChars?: number },
+): string[] {
+  const maxBody = options?.maxBodyChars;
+  const maxSection = options?.maxSectionChars ?? 800;
   const lines: string[] = [];
   if (c.title?.trim()) lines.push(`Title: ${c.title.trim()}`);
   if (c.purpose?.trim()) lines.push(`Purpose: ${c.purpose.trim()}`);
   if (c.sectionHeader?.trim()) lines.push(`Section: ${c.sectionHeader.trim()}`);
   if (c.sectionContent?.trim()) {
-    lines.push(`Section content: ${c.sectionContent.trim().slice(0, 800)}`);
+    const section = c.sectionContent.trim();
+    lines.push(
+      `Section content: ${
+        section.length > maxSection ? `${section.slice(0, maxSection)}...` : section
+      }`,
+    );
   }
-  if (c.userPrompt?.trim()) lines.push(`User prompt: ${c.userPrompt.trim().slice(0, 400)}`);
-  if (c.body?.trim()) lines.push(`Body: ${c.body.trim().slice(0, 1000)}`);
+  if (c.userPrompt?.trim()) lines.push(`User prompt: ${c.userPrompt.trim()}`);
+  if (c.body?.trim()) {
+    const body = c.body.trim();
+    if (maxBody === 0 || maxBody === undefined) {
+      lines.push(`Body: ${body}`);
+    } else {
+      lines.push(
+        `Body: ${body.length > maxBody ? `${body.slice(0, maxBody)}...` : body}`,
+      );
+    }
+  }
   return lines;
+}
+
+/** Never throw: bad model JSON must not block featured image generation. */
+function safeParseImageEvidencePlan(
+  content: string,
+  logLabel: string,
+): ImageEvidencePlan {
+  try {
+    return parseImageEvidenceNeeds(parseJsonObjectFromModelText(content));
+  } catch (err) {
+    const parseError = err instanceof Error ? err.message : String(err);
+    logFeaturedImagePipeline(`Google Image: evidence plan parse skipped (${logLabel})`, {
+      parseError,
+    });
+    return { mode: "abstract", needs: [] };
+  }
 }
 
 /**
@@ -968,7 +1019,7 @@ export async function planImageEvidenceNeeds(params: {
   const apiKey = params.apiKey.trim();
   if (!apiKey) throw new Error("OpenRouter API key not found");
   const model = params.model || getResearchModel();
-  const lines = buildContextLines(params.context);
+  const lines = buildContextLines(params.context, { maxBodyChars: 1000 });
   if (!lines.length) return { mode: "abstract", needs: [] };
 
   const system = [
@@ -1022,7 +1073,66 @@ export async function planImageEvidenceNeeds(params: {
   if (typeof content !== "string" || !content.trim()) {
     return { mode: "abstract", needs: [] };
   }
-  return parseImageEvidenceNeeds(parseJsonObjectFromModelText(content));
+  return safeParseImageEvidencePlan(content, "solo");
+}
+
+/** Featured blog/service images: plan DataForSEO Google Images evidence (install context required). */
+export async function planFeaturedImageEvidenceNeeds(params: {
+  apiKey: string;
+  model?: string;
+  context: ImageReferenceResearchContext;
+}): Promise<ImageEvidencePlan> {
+  const apiKey = params.apiKey.trim();
+  if (!apiKey) throw new Error("OpenRouter API key not found");
+  const lines = buildContextLines(params.context, { maxBodyChars: 0 });
+  if (!lines.length) {
+    return { mode: "abstract", needs: [] };
+  }
+
+  const system = [
+    "You plan Google Images evidence for ONE WordPress FEATURED blog image (photoreal, 16:9).",
+    "Default to grounded mode. Use abstract ONLY when the article is pure metaphor with zero physical subject to photograph.",
+    "Home services, products, repairs, installations, equipment, and window/door/HVAC topics MUST be grounded.",
+    "Write queries exactly how a user types them into Google Images.",
+    "acceptanceBrief MUST require correct install context (e.g. blinds need visible window frame and glazing, not blinds on bare drywall).",
+    "Return compact JSON only:",
+    '{"mode":"abstract"|"grounded","needs":[{"kind":"place"|"product"|"howto"|"other","layer":"foreground"|"midground"|"background","query":"google images search query","role":"short why","location_name":"Canada"|"United States"|"United Kingdom"|"Australia","acceptanceBrief":"what must be visibly true","pickCount":1}]}',
+    "pickCount = integer >= 1. Max 3 needs total.",
+    'Example title "Window blind repair" →',
+    '{"mode":"grounded","needs":[{"kind":"howto","layer":"midground","query":"white window blinds installed in window frame living room","role":"in-context install","location_name":"United States","acceptanceBrief":"Must show blinds mounted in a real window with frame and glazing; not blinds on solid wall alone.","pickCount":2}]}',
+    "Return ONLY one JSON object.",
+  ].join(" ");
+
+  const systemWithTopicRules = isWindowTreatmentImageContext(lines.join("\n"))
+    ? `${system} ${WINDOW_TREATMENT_IMAGE_PROMPT_RULES}`
+    : system;
+
+  /** Meta model + json_schema: DeepSeek often breaks json_object on long featured context. */
+  const planModel = getMetaModel();
+  try {
+    const { content, parsed } = await callOpenRouterChatCompletion({
+      apiKey,
+      model: planModel,
+      system: systemWithTopicRules,
+      user: `Plan featured-image Google Images evidence:\n\n${lines.join("\n")}`,
+      temperature: 0,
+      maxTokens: 1200,
+      responseFormat: IMAGE_EVIDENCE_PLAN_RESPONSE_FORMAT,
+    });
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parseImageEvidenceNeeds(parsed);
+    }
+    if (typeof content === "string" && content.trim()) {
+      return safeParseImageEvidencePlan(content, "featured");
+    }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    logFeaturedImagePipeline("Google Image: evidence plan LLM failed (continuing without refs)", {
+      model: planModel,
+      error: detail,
+    });
+  }
+  return { mode: "abstract", needs: [] };
 }
 
 async function fetchGoogleImagesForQuery(
@@ -1254,11 +1364,14 @@ export async function researchGoogleImageReferences(params: {
   maxTargets?: number;
   /** Solo: fan out subject + place into Google Images queries. */
   enablePlaceQueryFanOut?: boolean;
+  /** Featured blog images: evidence plan + require grounded DataForSEO refs. */
+  groundingProfile?: "default" | "featured";
 }): Promise<ImageReferenceResearchResult> {
   const apiKey = params.apiKey.trim();
   if (!apiKey) throw new Error("OpenRouter API key not found");
   const model = params.model || getResearchModel();
   const soloIntentPlan = Boolean(params.enablePlaceQueryFanOut);
+  const featuredProfile = params.groundingProfile === "featured";
   const maxTargets = params.maxTargets ?? IMAGE_REF_MAX_TARGETS;
 
   let classification: ImageGroundingClassification;
@@ -1282,6 +1395,24 @@ export async function researchGoogleImageReferences(params: {
       mode: plan.mode,
       targets: evidenceNeedsToTargets(plan.needs),
     };
+  } else if (featuredProfile) {
+    logFeaturedImagePipeline("Google Image: featured evidence plan (LLM)", {
+      model: getMetaModel(),
+      title: params.context.title,
+    });
+    const plan = await planFeaturedImageEvidenceNeeds({
+      apiKey,
+      model,
+      context: params.context,
+    });
+    classification = {
+      mode: plan.mode,
+      targets: evidenceNeedsToTargets(plan.needs).slice(0, maxTargets),
+    };
+    logFeaturedImagePipeline("Google Image: evidence plan result", {
+      mode: plan.mode,
+      needs: plan.needs.map((n) => n.query),
+    });
   } else {
     classification = await classifyImageGroundingTargets({
       apiKey,
@@ -1291,6 +1422,9 @@ export async function researchGoogleImageReferences(params: {
   }
 
   if (classification.mode === "abstract" || !classification.targets.length) {
+    if (featuredProfile) {
+      logFeaturedImagePipeline("Google Image: no grounded targets (continuing without refs)");
+    }
     return { mode: "abstract", targets: [], references: [] };
   }
 
@@ -1307,17 +1441,28 @@ export async function researchGoogleImageReferences(params: {
   const settled = await Promise.all(
     targets.map(async (target) => {
       try {
+        if (featuredProfile) {
+          logFeaturedImagePipeline("Google Image: DataForSEO search", {
+            query: target.query,
+            location: target.location_name ?? "United States",
+          });
+        }
         const candidates = await fetchGoogleImagesForQuery(
           target.query,
           target.location_name,
         );
-        if (!candidates.length) return [] as ImageReferenceResult[];
+        if (!candidates.length) {
+          if (featuredProfile) {
+            logFeaturedImagePipeline("Google Image: no SERP candidates", {
+              query: target.query,
+            });
+          }
+          return [] as ImageReferenceResult[];
+        }
         const pickCount = Math.max(
           1,
           Math.floor(
-            target.pickCount ??
-              params.maxReferencesPerTarget ??
-              1,
+            target.pickCount ?? params.maxReferencesPerTarget ?? 1,
           ),
         );
         return await pickTopReferencesForTarget({
@@ -1336,11 +1481,6 @@ export async function researchGoogleImageReferences(params: {
   );
 
   let references = settled.flat();
-  if (params.requireReferences && !references.length) {
-    throw new Error(
-      `No suitable Google Images references for: ${targets.map((t) => t.query).join(", ")}`,
-    );
-  }
 
   if (references.length && params.enablePlaceQueryFanOut) {
     try {
@@ -1407,6 +1547,7 @@ export function buildGroundedImagePromptSuffix(
     "",
     "REFERENCE PHOTOS ATTACHED:",
     "Compose ONE coherent photograph with real depth of field. The final image must look like a single real camera shot that makes physical sense.",
+    "INSTALL CONTEXT: match how subjects are mounted in the reference photos (window in frame, door in jamb). Never isolate a product on blank wall when refs show in-context install.",
     "ANTI-MESH (critical): attached refs are evidence for identity and setting — not collage layers. Do not cut, mesh, paste, or composite a subject photo onto a place photo.",
     "ONE CAMERA: shared perspective, lighting, shadows, scale, and ground contact. Rebuild the subject in situ at the place as if photographed there.",
     "Match subject identity from product/person refs (shape, finish, face) without transplanting that source photo's environment, sky, or mismatched lighting.",

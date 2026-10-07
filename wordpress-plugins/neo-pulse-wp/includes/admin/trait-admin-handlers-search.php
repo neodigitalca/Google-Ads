@@ -40,6 +40,9 @@ trait Neo_Pulse_Wp_Admin_Trait_Handlers_Search {
 				$data['content_type_labels'] = $raw['content_type_labels'];
 			}
 			$data['auto_front_page'] = ! empty( $raw['auto_front_page'] );
+			if ( isset( $raw['openrouter_model'] ) ) {
+				$data['openrouter_model'] = (string) $raw['openrouter_model'];
+			}
 		}
 
 		if ( $tab === 'appearance' ) {

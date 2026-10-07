@@ -43,6 +43,10 @@ import { publishedLinkFromRowFiles } from "@/lib/sitemap-optimizer/sitemap-merge
 import { isBulkDetailsDrawerRowActive } from "@/components/overview/overview-tab/overview-bulk-run-helpers";
 import { notify } from "@/lib/app-notifications";
 import { NOTIFY_CSV_DOWNLOADED } from "@/lib/notify-messages";
+import {
+  BLOG_IMPORT_PIPELINE_TITLES,
+  filterBlogImportRowFiles,
+} from "@/lib/bulk/blog-import-minimal";
 
 function downloadBlob(file: BulkDetailsDownloadable) {
   const blob = new Blob([file.content], { type: file.mimeType });
@@ -87,10 +91,13 @@ export function BulkGeneratorDetailsDrawer(props: BulkGeneratorDetailsPanelProps
   } = props;
 
   const isSimpleAiseoHarness = isAiseoSimpleHarnessRunKind(runKind);
+  const isBlogImportVariant = variant === "blog-import";
 
-  const effectivePipelineSectionTitles = pipelineSectionTitles?.length
-    ? pipelineSectionTitles
-    : undefined;
+  const effectivePipelineSectionTitles = isBlogImportVariant
+    ? [...BLOG_IMPORT_PIPELINE_TITLES]
+    : pipelineSectionTitles?.length
+      ? pipelineSectionTitles
+      : undefined;
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(() => new Set());
   const pinnedExpandedRowsRef = useRef<Set<string>>(new Set());
@@ -285,7 +292,10 @@ export function BulkGeneratorDetailsDrawer(props: BulkGeneratorDetailsPanelProps
                 entitySapRowDisplay ||
                 rowUsesGoogleImageFeatured(row, undefined) ||
                 effectivePipelineSectionTitles?.[0] === GOOGLE_IMAGE_PIPELINE_TITLE;
-              const rowFiles = filesByRow?.get(globalRowIndex) ?? [];
+              let rowFiles = filesByRow?.get(globalRowIndex) ?? [];
+              if (isBlogImportVariant) {
+                rowFiles = filterBlogImportRowFiles(rowFiles);
+              }
               const previewUrl = publishedLinkFromRowFiles(rowFiles) ?? undefined;
               const displayRow = entitySapRowDisplay
                 ? csvRowToEntitySapOverviewRowDisplay(row, index, previewUrl)
@@ -308,7 +318,9 @@ export function BulkGeneratorDetailsDrawer(props: BulkGeneratorDetailsPanelProps
                 (section) => section.status === "generating",
               );
               const rowIsResearch = runKind === "research";
-              const rowPipelineTitles = rowIsResearch
+              const rowPipelineTitles = isBlogImportVariant
+                ? [...BLOG_IMPORT_PIPELINE_TITLES]
+                : rowIsResearch
                 ? [...RESEARCH_HARNESS_PIPELINE_TITLES]
                 : resolveBulkRowPipelineTitlesWithGoogleImage(
                     runKind,
@@ -357,7 +369,9 @@ export function BulkGeneratorDetailsDrawer(props: BulkGeneratorDetailsPanelProps
                 : isActive && !isSimpleAiseoHarness && rowHarnessSectionsList.length > 0
                   ? `${rowHarnessSectionsList.filter((section) => section.status === "done").length}/${rowHarnessSectionsList.length}`
                   : "";
-              const showGeneratedFiles = isFileSlotRun
+              const showGeneratedFiles = isBlogImportVariant
+                ? isExpanded || isActive
+                : isFileSlotRun
                 ? isExpanded || isActive
                 : isSimpleAiseoHarness
                   ? isExpanded
@@ -402,7 +416,7 @@ export function BulkGeneratorDetailsDrawer(props: BulkGeneratorDetailsPanelProps
                           statusMessage={isActive ? livePhase || undefined : undefined}
                           progressLabel={rowStepProgress || activeProgressLabel || undefined}
                           defaultFilesOpen={isFileSlotRun && isActive}
-                          filesOnly={isFileSlotRun}
+                          filesOnly={isFileSlotRun || isBlogImportVariant}
                           fileSlotRunKind={isFileSlotRun ? runKind : undefined}
                         />
                       ) : null}

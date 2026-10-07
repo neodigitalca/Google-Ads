@@ -1,0 +1,88 @@
+import { useState, useCallback } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ApiKeyCopyButton } from "@/components/ApiKeyCopyButton";
+import { notify } from "@/lib/app-notifications";
+import {
+  NOTIFY_SEMRUSH_API_KEY_CLEARED,
+  NOTIFY_SEMRUSH_API_KEY_SAVED_SUCCESSFULLY,
+} from "@/lib/notify-messages";
+import { saveSemrushApiKey, loadSemrushApiKey } from "../lib/api";
+import { syncSemrushToWorkspace } from "@/lib/manager-wordpress-properties-api";
+import { DASHBOARD_SETTINGS_FIELD_CLASS } from "@/components/manager/dashboard/dashboard-panel-styles";
+
+interface SemrushApiKeyContentProps {
+  apiKey: string;
+  setApiKey: (key: string) => void;
+  saveApiKey: (key: string) => void;
+}
+
+const INPUT_CLASS = `${DASHBOARD_SETTINGS_FIELD_CLASS} min-w-0 flex-1 h-12`;
+
+export const SemrushApiKeyContent: React.FC<SemrushApiKeyContentProps> = ({
+  apiKey,
+  setApiKey,
+  saveApiKey: saveKeyInLocalStorage,
+}) => {
+  const [localApiKey, setLocalApiKey] = useState(apiKey || loadSemrushApiKey());
+
+  const handleSave = useCallback(async () => {
+    if (localApiKey.trim()) {
+      const trimmed = localApiKey.trim();
+      saveKeyInLocalStorage(trimmed);
+      saveSemrushApiKey(trimmed);
+      setApiKey(trimmed);
+      const sync = await syncSemrushToWorkspace({ semrushApiKey: trimmed });
+      if (!sync.ok) {
+        notify.error(sync.error || "Semrush key saved in this browser but server sync failed.");
+        return;
+      }
+      notify.success(NOTIFY_SEMRUSH_API_KEY_SAVED_SUCCESSFULLY);
+    } else {
+      saveKeyInLocalStorage("");
+      saveSemrushApiKey("");
+      setApiKey("");
+      await syncSemrushToWorkspace({ semrushApiKey: "" });
+      notify.warning(NOTIFY_SEMRUSH_API_KEY_CLEARED);
+    }
+  }, [localApiKey, setApiKey, saveKeyInLocalStorage]);
+
+  return (
+    <div className="space-y-2">
+      <p className="font-semibold text-white">Semrush</p>
+      <p className="text-base text-white">
+        Position Tracking and Analytics use your Semrush{" "}
+        <strong className="font-semibold">v3 API key</strong> (Profile, Subscription info, API units). Do not paste MCP
+        personal access tokens (semrtkn-pat).{" "}
+        <a
+          href="https://www.semrush.com/users/edit/api/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline-offset-2 hover:underline"
+        >
+          Open API keys
+        </a>
+        . Saved locally and synced to your server.
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <Input
+          id="semrush-apiKey"
+          type="password"
+          value={localApiKey}
+          onChange={(e) => setLocalApiKey(e.target.value)}
+          aria-label="Semrush API key"
+          autoComplete="off"
+          className={INPUT_CLASS}
+        />
+        <ApiKeyCopyButton
+          value={localApiKey}
+          emptyMessage="Enter a Semrush API key to copy."
+          aria-label="Copy Semrush API key"
+        />
+        <Button type="button" onClick={handleSave} className="h-12 shrink-0 text-base">
+          Save
+        </Button>
+      </div>
+    </div>
+  );
+};

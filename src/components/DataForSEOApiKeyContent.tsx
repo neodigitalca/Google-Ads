@@ -43,7 +43,8 @@ export const DataForSEOApiKeyContent: React.FC<DataForSEOApiKeyContentProps> = (
     <div className="space-y-2">
       <p className="font-semibold text-white">DataForSEO</p>
       <p className="text-base text-white">
-        Keyword research. Keys from{" "}
+        Keyword research. Paste your DataForSEO API password (account login lives in server{" "}
+        <span className="font-mono text-muted-foreground">.env</span>). Keys from{" "}
         <a
           href="https://dataforseo.com"
           target="_blank"

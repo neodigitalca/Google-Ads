@@ -108,14 +108,16 @@ describe("resolveBulkWordPressPostTitle", () => {
     expect(result).toBe(title);
   });
 
-  it("calls OpenRouter only when an API key is present", async () => {
+  it("requires an OpenRouter key for cloud models", async () => {
     await expect(
       resolveBulkWordPressPostTitle({
         apiKey: "",
+        model: "google/gemini-2.5-flash",
         focusKeyword: "hunter douglas vs alta",
         candidates: { csvTitle: "Hunter Douglas Vs Alta" },
       }),
     ).rejects.toThrow(/OpenRouter API key/);
     expect(mockCall).not.toHaveBeenCalled();
   });
+
 });

@@ -154,7 +154,12 @@ class Neo_Pulse_App_Api_Dispatcher {
 		}
 
 		if ( preg_match( '#^mcp/(DataForSEO_[a-zA-Z0-9_]+)$#', $route, $m ) && $method === 'POST' ) {
-			self::send_json( Neo_Pulse_App_Dataforseo_Route_Handlers::handle_mcp_tool( $m[1], $body ) );
+			self::run_with_dataforseo_request_credentials(
+				$body,
+				function () use ( $m, $body ) {
+					self::send_json( Neo_Pulse_App_Dataforseo_Route_Handlers::handle_mcp_tool( $m[1], $body ) );
+				}
+			);
 			return;
 		}
 
@@ -169,7 +174,12 @@ class Neo_Pulse_App_Api_Dispatcher {
 		}
 
 		if ( 0 === strpos( $route, 'dataforseo/' ) ) {
-			Neo_Pulse_App_Dataforseo_Route_Handlers::dispatch_http( substr( $route, 11 ), $method, $body );
+			self::run_with_dataforseo_request_credentials(
+				$body,
+				function () use ( $route, $method, $body ) {
+					Neo_Pulse_App_Dataforseo_Route_Handlers::dispatch_http( substr( $route, 11 ), $method, $body );
+				}
+			);
 			return;
 		}
 
@@ -195,11 +205,6 @@ class Neo_Pulse_App_Api_Dispatcher {
 
 		if ( 0 === strpos( $route, 'knowledge-model/' ) ) {
 			Neo_Pulse_App_Knowledge_Model_Route_Handlers::dispatch_http( substr( $route, 16 ), $method, $body );
-			return;
-		}
-
-		if ( 0 === strpos( $route, 'dataforseo/' ) ) {
-			Neo_Pulse_App_Dataforseo_Route_Handlers::dispatch_http( substr( $route, 11 ), $method, $body );
 			return;
 		}
 
@@ -284,6 +289,12 @@ class Neo_Pulse_App_Api_Dispatcher {
 
 		if ( $route === 'wikipedia/api' && $method === 'GET' ) {
 			Neo_Pulse_App_Wikipedia_Proxy::proxy_query();
+			return;
+		}
+
+		if ( 0 === strpos( $route, 'ollama/' ) ) {
+			@set_time_limit( 300 );
+			Neo_Pulse_App_Ollama_Route::dispatch_http( substr( $route, 7 ), $method, $body );
 			return;
 		}
 
@@ -395,6 +406,24 @@ class Neo_Pulse_App_Api_Dispatcher {
 		echo wp_json_encode( $data );
 	}
 
+	/**
+	 * Dashboard Settings DataForSEO key (header or body) for this request only.
+	 *
+	 * @param array<string,mixed> $body
+	 * @param callable():void     $fn
+	 */
+	private static function run_with_dataforseo_request_credentials( array $body, callable $fn ): void {
+		$dfs_creds = Neo_Pulse_App_Secrets::dataforseo_from_request( $body );
+		if ( $dfs_creds['password'] !== '' ) {
+			Neo_Pulse_App_Secrets::use_request_dataforseo_credentials( $dfs_creds );
+		}
+		try {
+			$fn();
+		} finally {
+			Neo_Pulse_App_Secrets::clear_request_dataforseo_credentials();
+		}
+	}
+
 	private static function apply_cors_headers(): void {
 		$origin = isset( $_SERVER['HTTP_ORIGIN'] ) ? trim( (string) wp_unslash( $_SERVER['HTTP_ORIGIN'] ) ) : '';
 		if ( $origin === '' ) {
@@ -428,7 +457,7 @@ class Neo_Pulse_App_Api_Dispatcher {
 		header( 'Access-Control-Allow-Origin: ' . $origin );
 		header( 'Vary: Origin' );
 		header( 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS' );
-		header( 'Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With' );
+		header( 'Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-DataForSEO-Api-Key' );
 		header( 'Access-Control-Allow-Credentials: true' );
 	}
 }

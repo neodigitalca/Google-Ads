@@ -173,10 +173,7 @@ function Stop-PreviousVite {
         ForEach-Object { $_.OwningProcess } |
         Select-Object -Unique |
         ForEach-Object {
-            $p = Get-Process -Id $_ -ErrorAction SilentlyContinue
-            if ($p -and ($p.ProcessName -eq "node" -or $p.ProcessName -eq "powershell")) {
-                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
-            }
+            Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
         }
     Start-Sleep -Seconds 1
 }
@@ -186,6 +183,8 @@ function Start-ViteDevServer {
         Write-Host "Port 8080 is in use. Stopping previous Vite..." -ForegroundColor Yellow
         Stop-PreviousVite
     }
+
+    Remove-Item Env:LOCAL_DEV_VITE_FORCE -ErrorAction SilentlyContinue
 
     "" | Set-Content -Path $viteLog -Encoding utf8
     $viteErrLog = Join-Path $repoRoot ".local-dev-vite.err.log"
@@ -203,9 +202,32 @@ function Start-ViteDevServer {
         -RedirectStandardError $viteErrLog
 
     Set-Content -Path $vitePidFile -Value $viteProc.Id -NoNewline
+    $script:ViteDevProcess = $viteProc
+}
+
+function Show-ViteStartupFailure {
+    Write-Host "Vite dev process exited before port 8080 was ready." -ForegroundColor Red
+    $viteErrLog = Join-Path $repoRoot ".local-dev-vite.err.log"
+    if (Test-Path $viteErrLog) {
+        Write-Host "--- .local-dev-vite.err.log ---" -ForegroundColor DarkYellow
+        Get-Content $viteErrLog -Tail 30 | ForEach-Object { Write-Host $_ }
+    } else {
+        Write-Host "No .local-dev-vite.err.log (check .local-dev-vite.log)." -ForegroundColor DarkYellow
+    }
+    exit 1
+}
+
+function Clear-VitePrebundleCache {
+    $viteCache = Join-Path $repoRoot "node_modules\.vite"
+    if (Test-Path $viteCache) {
+        Write-Warn "Clearing stale Vite prebundle cache ($viteCache)..."
+        Remove-Item -LiteralPath $viteCache -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Assert-ViteRepoRoot {
+    param([switch]$AfterCacheClearRetry)
+
     $expected = [IO.Path]::GetFullPath($repoRoot).TrimEnd('\')
     $deadline = (Get-Date).AddSeconds($timeoutSec)
     while ((Get-Date) -lt $deadline) {
@@ -218,10 +240,25 @@ function Assert-ViteRepoRoot {
                     Write-Ok "Vite is serving this repo: $expected"
                     return
                 }
+                if (-not $AfterCacheClearRetry) {
+                    Write-Host "Port 8080 repo mismatch (stale prebundle or wrong checkout). Retrying after cache clear..." -ForegroundColor Yellow
+                    Write-Host "  Expected: $expected"
+                    Write-Host "  Actual:   $served"
+                    Clear-VitePrebundleCache
+                    $env:LOCAL_DEV_VITE_FORCE = "1"
+                    Stop-PreviousVite
+                    Start-ViteDevServer
+                    if (-not (Wait-HttpOk "http://127.0.0.1:8080/" $timeoutSec)) {
+                        Write-Host "Vite did not restart on 8080." -ForegroundColor Red
+                        exit 1
+                    }
+                    Assert-ViteRepoRoot -AfterCacheClearRetry
+                    return
+                }
                 Write-Host "Port 8080 is serving a different checkout:" -ForegroundColor Red
                 Write-Host "  Expected: $expected"
                 Write-Host "  Actual:   $served"
-                Write-Host "Close the other dev server (e.g. B:\Neo Pulse\Google-Ads-main) and run start-neopulse-local.bat again."
+                Write-Host "Close the other dev server, run scripts/remove-legacy-clone.ps1, then start-neopulse-local.bat again."
                 Stop-PreviousVite
                 exit 1
             }
@@ -231,6 +268,42 @@ function Assert-ViteRepoRoot {
         Start-Sleep -Seconds 2
     }
     Write-Warn "Could not verify dev-meta.json (Vite may still be starting)."
+}
+
+function Assert-VitePipelineUi {
+    try {
+        $uiRaw = curl.exe -s "http://127.0.0.1:8080/__neo-pulse/dev-ui.json" 2>$null
+        if ($uiRaw) {
+            $ui = $uiRaw | ConvertFrom-Json
+            if ([string]$ui.aiModelsPanel -ne "pipeline-agents-v3") {
+                Write-Host "dev-ui.json: expected aiModelsPanel pipeline-agents-v3, got $($ui.aiModelsPanel)" -ForegroundColor Red
+                Stop-PreviousVite
+                exit 1
+            }
+        }
+    } catch {
+        Write-Warn "Could not read __neo-pulse/dev-ui.json"
+    }
+
+    $tsxUrl = "http://127.0.0.1:8080/src/components/manager/AiModelsSettingsContent.tsx"
+    $body = (curl.exe -s $tsxUrl 2>$null | Out-String)
+    if ($body -match "Generation defaults" -or $body -match "onModelChange") {
+        Write-Host "Port 8080 is serving legacy AI Models UI (Generation defaults / onModelChange)." -ForegroundColor Red
+        Write-Host "Use only b:\Neo Pulse\pulse and scripts/remove-legacy-clone.ps1 if Google-Ads-main still exists."
+        Clear-VitePrebundleCache
+        Stop-PreviousVite
+        exit 1
+    }
+    if ($body -match "LLMSettingsTabContent" -and ($body -match "setReportModel" -or $body -match "onReportModelChange")) {
+        Write-Ok "AI Models UI is the six-agent dashboard (LLMSettingsTabContent + report model)."
+        return
+    }
+    Write-Host "Served AiModelsSettingsContent.tsx does not look like the current six-agent AI Models UI." -ForegroundColor Red
+    Write-Host "Use only B:\Neo Pulse and scripts/remove-legacy-clone.ps1 if an old checkout is on port 8080."
+    Clear-VitePrebundleCache
+    $env:LOCAL_DEV_VITE_FORCE = "1"
+    Stop-PreviousVite
+    exit 1
 }
 
 function Start-LocalWorkerServer {
@@ -315,12 +388,34 @@ if (-not $SkipDev) {
     Stop-PreviousVite
     Start-ViteDevServer
 
-    if (-not (Wait-HttpOk "http://127.0.0.1:8080/" $timeoutSec)) {
+    $viteWaitStarted = Get-Date
+    $viteUp = $false
+    $viteDeadline = (Get-Date).AddSeconds($timeoutSec)
+    while ((Get-Date) -lt $viteDeadline) {
+        if ($script:ViteDevProcess -and $script:ViteDevProcess.HasExited) {
+            Show-ViteStartupFailure
+        }
+        $code = curl.exe -s -o NUL -w "%{http_code}" "http://127.0.0.1:8080/" 2>$null
+        if ($code -match "^(200|301|302)$") {
+            $viteUp = $true
+            break
+        }
+        $elapsed = [int](((Get-Date) - $viteWaitStarted).TotalSeconds)
+        Write-Host "  Waiting for Vite on 8080... ${elapsed}s" -ForegroundColor DarkGray
+        Start-Sleep -Seconds 2
+    }
+    if (-not $viteUp) {
         Write-Host "Vite did not start on 8080. See .local-dev-vite.log and .local-dev-vite.err.log" -ForegroundColor Red
+        $viteErrLog = Join-Path $repoRoot ".local-dev-vite.err.log"
+        if (Test-Path $viteErrLog) {
+            Write-Host "--- last lines of .local-dev-vite.err.log ---" -ForegroundColor DarkYellow
+            Get-Content $viteErrLog -Tail 25 | ForEach-Object { Write-Host $_ }
+        }
         exit 1
     }
 
     Assert-ViteRepoRoot
+    Assert-VitePipelineUi
 } else {
     Write-Warn "Skipped Vite (-SkipDev)"
 }
@@ -343,7 +438,7 @@ Write-Host "Canonical repo only: do not run Vite from B:\Neo Pulse\Google-Ads-ma
 Write-Host "First-time setup: npm run setup:local-wp"
 Write-Host "Docs: docs/local-wp-staging-dev.md"
 
-if ($OpenBrowser) {
+if ($OpenBrowser -and -not $SkipDev) {
     $chrome = @(
         "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
         "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",

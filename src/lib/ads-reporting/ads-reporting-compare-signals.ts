@@ -1,8 +1,10 @@
 import type { AdsMetrics } from "@/lib/ads-reporting/ads-reporting-types";
 import { adsPctDelta, microsToSpend } from "@/lib/ads-reporting/ads-reporting-metrics";
 
+import type { AdsReportingCompareKind } from "@/lib/ads-reporting/ads-reporting-types";
+
 export type AdsCompareSignals = {
-  compareKind: "mom" | "yoy" | "custom";
+  compareKind: AdsReportingCompareKind;
   compareLabel: string;
   primaryPattern: "spend_up_efficient" | "spend_up_soft" | "spend_down" | "mixed_or_flat";
   interpretation: string;
@@ -19,8 +21,27 @@ function signedPct(v: number | null): string {
   return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
 
+export function deriveAdsPeriodSignals(input: {
+  compareLabel: string;
+  primary: AdsMetrics;
+}): AdsCompareSignals {
+  return {
+    compareKind: "period_progress",
+    compareLabel: input.compareLabel,
+    primaryPattern: "mixed_or_flat",
+    interpretation:
+      "Period progress report. Describe performance for the report period only. Do not cite prior-period or MoM compare columns.",
+    metrics: {
+      spendPct: " - ",
+      clicksPct: " - ",
+      impressionsPct: " - ",
+      conversionsPct: " - ",
+    },
+  };
+}
+
 export function deriveAdsCompareSignals(input: {
-  compareKind: "mom" | "yoy" | "custom";
+  compareKind: Exclude<AdsReportingCompareKind, "period_progress">;
   compareLabel: string;
   primary: AdsMetrics;
   compare: AdsMetrics;

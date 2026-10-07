@@ -1,14 +1,14 @@
 /* @refresh reset */
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
+import { AgentRunsContext } from "@/contexts/agent-runs-react-context";
+import type { AgentRunsContextValue } from "@/contexts/agent-runs-context-value";
 import { useTeam } from "@/contexts/TeamContext";
 import { useActiveWordPressSite } from "@/contexts/active-wordpress-site-context";
 import { useWordPressSites } from "@/hooks/use-wordpress-sites";
@@ -115,57 +115,6 @@ function applyWorkflowBinding(
       workflowThenDelivery: binding.workflowThenDelivery === true,
     },
   };
-}
-
-type AgentRunsContextValue = {
-  runs: AgentRun[];
-  selectedRunId: number | null;
-  selectedRun: AgentRun | null;
-  sidebarOpen: boolean;
-  setSidebarOpen: (open: boolean) => void;
-  sidebarPanel: SidebarPanel;
-  setSidebarPanel: (panel: SidebarPanel) => void;
-  agentsSiteFilter: string;
-  setAgentsSiteFilter: (siteId: string) => void;
-  openSidebar: (runId?: number) => void;
-  seedOptimisticWorkflowAgent: (title: string, siteId?: string | readonly string[]) => void;
-  patchOptimisticWorkflowAgentProgress: (message: string, siteId?: string) => void;
-  selectRun: (runId: number | null) => void;
-  refreshRuns: () => Promise<void>;
-  patchRunInList: (runId: number, patch: AgentRunListPatch) => void;
-  startRun: (
-    payload: StartAgentRunPayload,
-    options?: StartRunOptions,
-  ) => Promise<{ ok: boolean; run?: AgentRun; error?: string }>;
-  startRunFromTask: (
-    task: TeamTask,
-    options?: StartRunOptions,
-  ) => Promise<{ ok: boolean; run?: AgentRun; error?: string }>;
-  dispatchWorkflowRun: (
-    workflowId: number,
-    runId: number,
-    options?: {
-      openAgentSidebar?: boolean;
-      stopAfterNodeId?: string;
-      clientSiteId?: string;
-      skipSetupSteps?: boolean;
-    },
-  ) => Promise<{ ok: boolean; error?: string }>;
-  cancelRun: (runId: number) => Promise<void>;
-  resumeRun: (runId: number) => Promise<void>;
-  clearHistory: () => Promise<void>;
-  cancelActiveRuns: () => Promise<void>;
-  hasTerminalHistory: boolean;
-};
-
-const AgentRunsContext = createContext<AgentRunsContextValue | null>(null);
-
-export function useAgentRunsContext(): AgentRunsContextValue {
-  const ctx = useContext(AgentRunsContext);
-  if (!ctx) {
-    throw new Error("useAgentRunsContext must be used within AgentRunsContextProvider");
-  }
-  return ctx;
 }
 
 type AgentRunsContextProviderProps = {

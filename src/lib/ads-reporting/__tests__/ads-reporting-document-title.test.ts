@@ -3,43 +3,60 @@ import {
   adsReportingDriveDocumentTitle,
   buildAdsReportDocumentHeading,
   generateAdsReportingDriveDocumentTitle,
+  reportPeriodFromAdsMarkdownHeading,
 } from "@/lib/ads-reporting/ads-reporting-document-title";
 
 describe("ads-reporting-document-title", () => {
-  it("builds the PPC heading from the compare period", () => {
-    expect(buildAdsReportDocumentHeading("August 1, 2026 to August 31, 2026 vs July 1–31, 2026")).toBe(
-      "Neo Digital PPC Report - August 1, 2026 to August 31, 2026",
-    );
+  it("builds client - PPC Report - month-year for compare and filter", () => {
+    expect(
+      buildAdsReportDocumentHeading(
+        "Advance Blinds",
+        "August 1, 2026 to August 31, 2026 vs July 1–31, 2026",
+        "August 2026 vs July 2026",
+      ),
+    ).toBe("Advance Blinds - PPC Report - August 2026 vs July 2026");
+    expect(
+      buildAdsReportDocumentHeading(
+        "Blind Magic",
+        "July 1, 2026 to September 30, 2026",
+        "July 2026 to September 2026",
+      ),
+    ).toBe("Blind Magic - PPC Report - July 2026 to September 2026");
   });
 
-  it("builds the Drive file name from client and PPC heading", () => {
+  it("parses period from PPC Report heading", () => {
+    expect(
+      reportPeriodFromAdsMarkdownHeading(
+        "# Blind Magic - PPC Report - August 2026 vs July 2026\n\nNeo Digital Inc",
+      ),
+    ).toBe("August 2026 vs July 2026");
+  });
+
+  it("drive title uses H1 when it matches PPC Report format", () => {
     expect(
       adsReportingDriveDocumentTitle(
-        "Blinds West: Window Coverings",
+        "Blinds West",
         [
-          "# Neo Digital PPC Report - August 1, 2026 to August 31, 2026",
+          "# Blinds West - PPC Report - August 2026 vs July 2026",
           "",
-          "## Executive Summary",
+          "Neo Digital Inc",
         ].join("\n"),
       ),
-    ).toBe("Blinds West - Neo Digital PPC Report - August 1, 2026 to August 31, 2026");
+    ).toBe("Blinds West - PPC Report - August 2026 vs July 2026");
   });
 
-  it("uses the same name from the async helper", async () => {
+  it("generateAdsReportingDriveDocumentTitle resolves from markdown H1", async () => {
     await expect(
       generateAdsReportingDriveDocumentTitle({
         siteName: "Blinds West",
-        markdown: "# Neo Digital PPC Report - August 1, 2026 to August 31, 2026\n\nBody",
+        markdown: "# Blinds West - PPC Report - August 2026 vs July 2026\n\nBody",
       }),
-    ).resolves.toBe("Blinds West - Neo Digital PPC Report - August 1, 2026 to August 31, 2026");
+    ).resolves.toBe("Blinds West - PPC Report - August 2026 vs July 2026");
   });
 
-  it("rejects a GSC heading", () => {
+  it("drive title fails when heading has no PPC Report range", () => {
     expect(() =>
-      adsReportingDriveDocumentTitle(
-        "Blinds West",
-        "# Neo Digital SEO Report - August 1, 2026 to August 31, 2026\n\nBody",
-      ),
-    ).toThrow("PPC Drive title requires a Neo Digital PPC Report heading with the current period date range.");
+      adsReportingDriveDocumentTitle("Blinds West", "# Quarterly Report\n\nBody"),
+    ).toThrow("PPC Drive title requires a PPC Report heading with the report date range.");
   });
 });

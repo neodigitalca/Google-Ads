@@ -14,25 +14,48 @@ class Neo_Pulse_App_Google_Ads_Reporting_Bundle {
 	 * @return array<string,mixed>
 	 */
 	public static function fetch_reporting_bundle( array $body ): array {
-		$customer_id = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( (string) ( $body['customerId'] ?? '' ) );
+		$customer_id = self::resolve_customer_id_from_body( $body );
 		if ( $customer_id === '' ) {
-			return self::err( 400, 'Missing required field: customerId' );
+			return self::err( 400, 'Missing Google Ads customer ID for this property.' );
 		}
 		$start = Neo_Pulse_App_Google_Ads_Credentials::validate_ymd( (string) ( $body['startDate'] ?? '' ) );
 		$end   = Neo_Pulse_App_Google_Ads_Credentials::validate_ymd( (string) ( $body['endDate'] ?? '' ) );
 		if ( $start === '' || $end === '' ) {
 			return self::err( 400, 'Invalid date range' );
 		}
+		$report_structure = (string) ( $body['reportStructure'] ?? 'compare' );
+		$period_progress  = $report_structure === 'period_progress';
+
+		$primary = self::fetch_period( $customer_id, $start, $end );
+		if ( empty( $primary['ok'] ) ) {
+			return self::err( (int) ( $primary['statusCode'] ?? 502 ), (string) ( $primary['error'] ?? 'Ads fetch failed' ) );
+		}
+
+		if ( $period_progress ) {
+			return array(
+				'success'            => true,
+				'customerId'         => $customer_id,
+				'startDate'          => $start,
+				'endDate'            => $end,
+				'compareStartDate'   => $start,
+				'compareEndDate'     => $end,
+				'account'            => $primary['account'],
+				'compareAccount'     => self::empty_account_metrics(),
+				'campaigns'          => $primary['campaigns'],
+				'compareCampaigns'   => array(),
+				'keywords'           => $primary['keywords'],
+				'compareKeywords'    => array(),
+				'searchTerms'        => $primary['searchTerms'],
+				'compareSearchTerms' => array(),
+			);
+		}
+
 		$compare_start = Neo_Pulse_App_Google_Ads_Credentials::validate_ymd( (string) ( $body['compareStartDate'] ?? '' ) );
 		$compare_end   = Neo_Pulse_App_Google_Ads_Credentials::validate_ymd( (string) ( $body['compareEndDate'] ?? '' ) );
 		if ( $compare_start === '' || $compare_end === '' ) {
 			return self::err( 400, 'Invalid comparison date range' );
 		}
 
-		$primary = self::fetch_period( $customer_id, $start, $end );
-		if ( empty( $primary['ok'] ) ) {
-			return self::err( (int) ( $primary['statusCode'] ?? 502 ), (string) ( $primary['error'] ?? 'Ads fetch failed' ) );
-		}
 		$compare = self::fetch_period( $customer_id, $compare_start, $compare_end );
 		if ( empty( $compare['ok'] ) ) {
 			return self::err( (int) ( $compare['statusCode'] ?? 502 ), (string) ( $compare['error'] ?? 'Ads compare fetch failed' ) );
@@ -53,6 +76,21 @@ class Neo_Pulse_App_Google_Ads_Reporting_Bundle {
 			'compareKeywords'    => $compare['keywords'],
 			'searchTerms'        => $primary['searchTerms'],
 			'compareSearchTerms' => $compare['searchTerms'],
+		);
+	}
+
+	/**
+	 * @return array<string,float|int>
+	 */
+	private static function empty_account_metrics(): array {
+		return array(
+			'impressions'      => 0,
+			'clicks'           => 0,
+			'costMicros'       => 0,
+			'conversions'      => 0.0,
+			'conversionsValue' => 0.0,
+			'ctr'              => 0.0,
+			'averageCpc'       => 0.0,
 		);
 	}
 
@@ -199,6 +237,27 @@ class Neo_Pulse_App_Google_Ads_Reporting_Bundle {
 			'conversions'      => (float) ( $m['conversions'] ?? 0 ),
 			'conversionsValue' => (float) ( $m['conversionsValue'] ?? 0 ),
 		);
+	}
+
+	/**
+	 * @param array<string,mixed> $body
+	 */
+	private static function resolve_customer_id_from_body( array $body ): string {
+		$customer_id = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( (string) ( $body['customerId'] ?? '' ) );
+		if ( strlen( $customer_id ) === 10 ) {
+			return $customer_id;
+		}
+		$site_id = sanitize_text_field( (string) ( $body['siteId'] ?? '' ) );
+		if ( $site_id !== '' ) {
+			$site = Neo_Pulse_App_Task_Execution_Site_Resolver::resolve_by_id( $site_id );
+			if ( is_array( $site ) ) {
+				$from_site = Neo_Pulse_App_Google_Ads_Credentials::normalize_customer_id( (string) ( $site['googleAdsCustomerId'] ?? '' ) );
+				if ( strlen( $from_site ) === 10 ) {
+					return $from_site;
+				}
+			}
+		}
+		return '';
 	}
 
 	/**

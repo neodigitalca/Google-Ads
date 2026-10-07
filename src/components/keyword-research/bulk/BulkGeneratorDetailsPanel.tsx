@@ -367,9 +367,9 @@ function BulkGeneratorIdleDetail(props: BulkGeneratorDetailsPanelProps): ReactNo
         </p>
       ) : null}
 
-      {postDestination === "local" && variant === "blog-import" && !hasBlogImportOutputFiles(props) ? (
+      {variant === "blog-import" && !hasBlogImportOutputFiles(props) ? (
         <p className="px-2.5 py-1.5 text-base text-white sm:px-3">
-          Run Play to generate the full blog locally.
+          Run Play to upload your draft and write meta (content + JSON).
         </p>
       ) : null}
 

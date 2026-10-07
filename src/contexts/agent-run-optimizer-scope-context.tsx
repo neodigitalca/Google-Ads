@@ -25,7 +25,7 @@ import { writeStoredContentOptimizerSection } from "@/components/content-optimiz
 import { writeStoredBlogGeneratorSection, readStoredBlogGeneratorSection } from "@/components/blog-generator/blog-generator-sections";
 
 const MANAGER_TAB_STORAGE_KEY = "neo-pulse-manager-tab";
-import { useWordPressOptimization } from "@/contexts/wordpress-optimization-context";
+import { useActiveWordPressSite } from "@/contexts/active-wordpress-site-context";
 
 const SCOPE_STORAGE_KEY = "neo-pulse-agent-run-optimizer-scope";
 
@@ -52,6 +52,13 @@ export function registerAgentRunOptimizerNavigation(
   handlers: AgentRunOptimizerNavigation | null,
 ): void {
   navigationHandlers = handlers;
+}
+
+/** Navigate to Generator with a section when Index has registered handlers (e.g. Properties reporting shortcut). */
+export function requestManagerGeneratorNavigation(section: string): void {
+  if (!navigationHandlers) return;
+  navigationHandlers.onManagerTabChange("generator");
+  navigationHandlers.onGeneratorSectionChange(section);
 }
 
 function readStoredScope(): AgentRunOptimizerScope | null {
@@ -121,7 +128,7 @@ const AgentRunOptimizerScopeContext = createContext<AgentRunOptimizerScopeContex
 );
 
 export function AgentRunOptimizerScopeProvider({ children }: { children: ReactNode }) {
-  const { setActiveWordPressSiteId } = useWordPressOptimization();
+  const { setActiveWordPressSiteId } = useActiveWordPressSite();
   const [scope, setScope] = useState<AgentRunOptimizerScope | null>(() => readStoredScope());
 
   const applyScope = useCallback(

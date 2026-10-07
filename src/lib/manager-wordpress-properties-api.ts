@@ -1,5 +1,5 @@
 import { backendApiUrl } from "@/lib/wordpress-api/connection";
-import { loadApiKey } from "@/lib/api";
+import { loadApiKey, loadSemrushApiKey } from "@/lib/api";
 import { getResearchModel } from "@/lib/optimization-settings-storage";
 import type { WordPressSite } from "@/components/integrations/types";
 
@@ -51,6 +51,32 @@ export async function loadWordPressPropertyPluginTokens(): Promise<
       return { ok: false, error: data.error || `HTTP ${res.status}` };
     }
     return { ok: Boolean(data.ok), tokens: data.tokens ?? [] };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function syncSemrushToWorkspace(
+  overrides?: { semrushApiKey?: string },
+): Promise<{ ok: boolean; updated?: number; error?: string }> {
+  try {
+    const res = await fetch(url("/sync-semrush"), {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        semrushApiKey: (overrides?.semrushApiKey ?? loadSemrushApiKey() ?? "").trim(),
+      }),
+    });
+    const data = (await res.json()) as {
+      ok?: boolean;
+      updated?: number;
+      error?: string;
+    };
+    if (!res.ok) {
+      return { ok: false, error: data.error || `HTTP ${res.status}` };
+    }
+    return { ok: Boolean(data.ok), updated: data.updated };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

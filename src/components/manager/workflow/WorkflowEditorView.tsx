@@ -47,7 +47,7 @@ import type {
   WorkflowRagVariable,
 } from "@/lib/workflow/workflow-types";
 import { WorkflowWorkspaceHeader } from "@/components/manager/workflow/WorkflowWorkspaceHeader";
-import { useAgentRunsContext } from "@/contexts/agent-runs-context";
+import { useAgentRunsContext } from "@/contexts/use-agent-runs-context";
 import { useActiveWordPressSite } from "@/contexts/active-wordpress-site-context";
 import { isWorkflowClientKind, isWorkflowScheduleKind, isWorkflowTriggerKind } from "@/lib/workflow/workflow-types";
 import type { WorkflowClientConfig } from "@/lib/workflow/workflow-types";

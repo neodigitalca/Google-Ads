@@ -66,6 +66,10 @@ export interface WordPressSite {
   gbpLocationId?: string;
   /** Semrush Site Audit project ID (from semrush.com/projects/{id}). Used by Meta Optimizer AUDIT fetch. */
   semrushSiteAuditProjectId?: string;
+  /** Semrush Position Tracking project ID (from semrush.com/seo/{id}/). */
+  semrushPositionTrackingProjectId?: string;
+  /** Semrush Position Tracking campaign ID (URL fid= or full {project}_{campaign}). */
+  semrushPositionTrackingCampaignId?: string;
   /**
    * Optional local `YYYY-MM-DD` anchor for editorial post/entity counts: each period is three calendar months
    * from this date. When unset, counts use the calendar quarter (Q1–Q4).
@@ -86,6 +90,9 @@ export interface WordPressSite {
    * uses this label instead of Gemini taxonomy for that site.
    */
   benchmarkCustomTag?: string;
+
+  /** Multi-select profile tags (Integrations → property Profile). */
+  profileTags?: string[];
 
   /** @deprecated Use per-sitemap exclusions (`sitemaps.disabledChildSitemapUrls`) instead. */
   sitemapsEnabledForProperty?: boolean;
@@ -121,6 +128,17 @@ export type ConnectedSiteSummary = Pick<WordPressSite, "name" | "siteUrl" | "pro
 
 export type SlackSiteConnectionStatus = NonNullable<WordPressSite['slackConnectionStatus']>;
 
+/** One GA4 period slice for Organic Search (sessionDefaultChannelGroup). */
+export interface GA4OrganicAcquisitionPeriod {
+  sessions: number;
+  engagedSessions: number;
+  engagementRate: number;
+  averageSessionDurationSec: number;
+  keyEvents: number;
+  eventCount: number;
+  eventsPerSession: number;
+}
+
 /** GA4 report data returned by POST /api/ga/report-data. All metrics are organic-only (Organic Search channel). */
 export interface GA4ReportData {
   /** Conversions from organic search sessions only. */
@@ -139,7 +157,77 @@ export interface GA4ReportData {
     /** null when prior period has no data (do not show 100%). */
     changePercent: number | null;
   };
+  /** Rich organic engagement metrics for reporting CSV (current vs compare date ranges). */
+  organicAcquisition?: {
+    current: GA4OrganicAcquisitionPeriod;
+    previous: GA4OrganicAcquisitionPeriod;
+  };
+  /**
+   * Same shape as `organicAcquisition`. Returned by some deployed `/api/ga/report-data` handlers.
+   */
+  organicTrafficAcquisition?: {
+    current: GA4OrganicAcquisitionPeriod;
+    previous: GA4OrganicAcquisitionPeriod;
+  };
+  /** Optional channel breakdown when the API returns multi-channel rows. */
+  trafficByChannel?: {
+    channels: GA4TrafficChannelRow[];
+  };
+  /** firstUserMedium = organic, monthly rows + period totals (User acquisition). */
+  organicUsersMonthly?: GA4OrganicUsersMonthlyBlock;
+  /** sessionDefaultChannelGroup = Organic Search, monthly traffic acquisition rows. */
+  organicTrafficAcquisitionMonthly?: GA4OrganicTrafficAcquisitionMonthlyBlock;
 }
+
+export type GA4OrganicTrafficAcquisitionMonthlyBlock = {
+  channel: "Organic Search";
+  dimension: "sessionDefaultChannelGroup";
+  periodStart: string;
+  periodEnd: string;
+  totals: GA4OrganicAcquisitionPeriod;
+  months: Array<
+    {
+      yearMonth: string;
+      label: string;
+    } & GA4OrganicAcquisitionPeriod
+  >;
+};
+
+export type GA4OrganicUsersMonthlyBlock = {
+  medium: "organic";
+  dimension: "firstUserMedium";
+  periodStart: string;
+  periodEnd: string;
+  totals: {
+    totalUsers: number;
+    newUsers: number;
+    userKeyEventRate: number;
+    keyEvents: number;
+  };
+  months: Array<{
+    yearMonth: string;
+    label: string;
+    totalUsers: number;
+    newUsers: number;
+    userKeyEventRate: number;
+    keyEvents: number;
+  }>;
+};
+
+/** Accept `organicAcquisition` or legacy/alternate `organicTrafficAcquisition` from GA report-data. */
+export function pickGa4OrganicAcquisition(
+  data: GA4ReportData,
+): GA4ReportData["organicAcquisition"] | undefined {
+  return data.organicAcquisition ?? data.organicTrafficAcquisition;
+}
+
+export type GA4TrafficChannelRow = {
+  channel: string;
+  sessionsCurrent: number;
+  sessionsPrevious: number;
+  change: number;
+  changePercent: number | null;
+};
 
 /** GMB (Google Business Profile) performance data from POST /api/gmb/performance - calls, directions, website clicks for two periods. */
 export interface GMBReportData {
