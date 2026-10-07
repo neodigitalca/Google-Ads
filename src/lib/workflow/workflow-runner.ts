@@ -1,6 +1,5 @@
-import type { StartAgentRunPayload, AgentRun } from "@/lib/agent-runs-types";
+import type { AgentRun } from "@/lib/agent-runs-types";
 import { fetchAgentRunDeliverableFiles } from "@/lib/agent-runs-api";
-import type { TeamTask } from "@/lib/tasks-types";
 import { resolveStepOutputFileRefsWithRetry } from "@/lib/workflow/workflow-step-file-refs";
 import {
   ackPendingWorkflowTrigger,
@@ -46,56 +45,9 @@ import {
   contentGapGoalMetFromAgentResult,
 } from "@/lib/workflow/workflow-step-dispatch";
 
+import type { WorkflowRunCallbacks } from "@/lib/workflow/workflow-run-callbacks";
 export { workflowActionStartsFromCompiledTask } from "@/lib/workflow/workflow-step-dispatch";
-
-export type WorkflowAgentBinding = {
-  workflowId: number;
-  workflowRunId: number;
-  workflowNodeId: string;
-  ragVariableKey?: string;
-  workflowThenDelivery?: boolean;
-};
-
-type WorkflowStartRunResult = {
-  ok: boolean;
-  run?: { id: number; status: string; result?: Record<string, unknown> };
-  error?: string;
-};
-
-export type WorkflowRunCallbacks = {
-  startRun: (
-    payload: StartAgentRunPayload,
-    options?: {
-      openSidebar?: boolean;
-      workflowBinding?: WorkflowAgentBinding;
-    },
-  ) => Promise<WorkflowStartRunResult>;
-  /** Waits for client harness completion. Used for downstream workflow agents after grid export. */
-  startRunAndWait?: (
-    payload: StartAgentRunPayload,
-    options?: {
-      openSidebar?: boolean;
-      workflowBinding?: WorkflowAgentBinding;
-    },
-  ) => Promise<WorkflowStartRunResult>;
-  startRunFromTask?: (
-    task: TeamTask,
-    options?: { openSidebar?: boolean; workflowBinding?: WorkflowAgentBinding },
-  ) => Promise<WorkflowStartRunResult>;
-  startRunFromTaskAndWait?: (
-    task: TeamTask,
-    options?: { openSidebar?: boolean; workflowBinding?: WorkflowAgentBinding },
-  ) => Promise<WorkflowStartRunResult>;
-  listAvailableSiteIds?: () => string[] | Promise<string[]>;
-  /** Manual workflow Test: show each agent run in the Agents sidebar as it starts. */
-  openAgentSidebar?: boolean;
-  /** Run through this node, then stop without downstream steps. */
-  stopAfterNodeId?: string;
-  /** Test: skip Client and Schedule; walk from first actionable step. */
-  skipSetupSteps?: boolean;
-  /** Update sidebar placeholders while a client audit or agent is starting. */
-  onClientProgress?: (message: string, siteId?: string) => void;
-};
+export type { WorkflowAgentBinding, WorkflowRunCallbacks } from "@/lib/workflow/workflow-run-callbacks";
 
 const workflowDispatchPromises = new Map<string, Promise<{ ok: boolean; error?: string }>>();
 const workflowRunsInProgress = new Set<string>();

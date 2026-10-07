@@ -91,7 +91,7 @@ import { findUpstreamActionAgent, linearOrderedNodes } from "@/lib/workflow/work
 import { filterWorkflowOutputsForSite, clientDeliverableOutputs } from "@/lib/workflow/workflow-rag-client";
 import { runAgentMailEmailIntake } from "@/lib/agentmail/agentmail-email-intake";
 import { isGridCsvFileRef } from "@/lib/entity-page-creator/resolve-upstream-grid-csv";
-import type { WorkflowRunCallbacks } from "@/lib/workflow/workflow-runner";
+import type { WorkflowRunCallbacks } from "@/lib/workflow/workflow-run-callbacks";
 
 type WorkflowStartRunResult = {
   ok: boolean;
