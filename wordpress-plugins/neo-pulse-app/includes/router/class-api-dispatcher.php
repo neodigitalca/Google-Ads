@@ -256,6 +256,12 @@ class Neo_Pulse_App_Api_Dispatcher {
 			return;
 		}
 
+		if ( 0 === strpos( $route, 'internal/emcp/' ) ) {
+			@set_time_limit( 180 );
+			Neo_Pulse_App_Hub_Internal_Emcp_Route_Handlers::dispatch_http( substr( $route, 14 ), $method, $body );
+			return;
+		}
+
 		if ( 0 === strpos( $route, 'auth/' ) ) {
 			Neo_Pulse_App_Auth_Route_Handlers::dispatch( substr( $route, 5 ), $method, $body );
 			return;
