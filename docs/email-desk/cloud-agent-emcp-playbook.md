@@ -51,10 +51,11 @@ Client WordPress sites in this program use **Rank Math**. Updating meta descript
 }
 ```
 
-### Proposed customer reply
+### Customer reply (after site work only)
 
-- State that the meta description was updated and quote the new description.
-- Do not mention title, URL, or slug unless the customer asked.
+- Do **not** draft or show a Gmail reply during triage or on the first Slack card.
+- After the Cursor cloud agent verifies the change, `email-desk-completion.replyDraft` becomes the Gmail draft body.
+- Quote the verified meta description; do not mention title, URL, or slug unless the customer asked.
 
 ## Allowlisted EMCP tool names (desk)
 
@@ -81,7 +82,9 @@ Neo Agent Hub / Flowbie email desk should load instructions and allowlist from:
 
 When building a **Cursor cloud agent** user message, prepend `cloudAgentInstructions` only (not `openRouterTriage.instructions`).
 
-For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions` and enforce `openRouterTriage.requiredFields` (including **`replyDraft`**). Do not inject `cloudAgentInstructions` into triage; it tells the model not to email and omits `replyDraft`.
+For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions` and enforce `requiredFields` (`actionable`, `summary`). **Reject or strip `replyDraft`** per `forbiddenFields` / `slackUi.triageForbiddenFields`. Do not inject `cloudAgentInstructions` into triage.
+
+Honor **`slackUi`**: first Slack card has no proposed reply, no `/email-desk edit-reply`, no "Work confirmed, send reply" until post-completion creates a Gmail draft link card.
 
 Set `Allowlisted EMCP tool names` from `allowlistedEmcpTools`. For meta description jobs, POST to `/api/internal/email-desk/meta-description-site-tasks` with `{ searchQuery, postId, description }` when `postId` is known, or build tasks using the template in the JSON.
 

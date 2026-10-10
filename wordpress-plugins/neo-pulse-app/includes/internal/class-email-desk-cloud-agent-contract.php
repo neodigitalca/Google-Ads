@@ -48,11 +48,37 @@ replyDraft rules: only what the customer asked; quote verified meta description 
 	public static function openrouter_triage_instructions(): string {
 		return 'Triage one inbound client email for Neo Digital Email desk.
 
-Return JSON only. You MUST include a non-empty string field replyDraft: a short Gmail reply to the sender (plain text, sign off as Neo Digital). replyDraft is required even when the work will run on a Cursor cloud agent later.
+Return JSON only. Do NOT include replyDraft, proposedReply, or any Gmail reply body. Customer replies are created only after the Cursor cloud agent finishes site work (email-desk-completion).
 
-Reply copy rules: only discuss what the customer asked (e.g. meta description updated + quote the new text). Do not mention page title, URL, or slug unless they asked.
+You MUST include: actionable (boolean), summary (short internal line), siteKey (when known), siteTasks (array when actionable).
 
 For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must use emcp-tools-rankmath-write (update-post-seo), not emcp-tools-update-post with meta_description. post_id must be a positive integer, not a slug.';
+	}
+
+	/**
+	 * @return array<string,mixed>
+	 */
+	public static function slack_ui(): array {
+		return array(
+			'version'            => 1,
+			'initialCard'        => array(
+				'showProposedReply'                  => false,
+				'showReplyBodyInSlack'               => false,
+				'showEditReplySlashCommand'          => false,
+				'showWorkConfirmedSendReplyButton'   => false,
+				'allowedSections'                    => array(
+					'inboundMessage',
+					'siteChecklist',
+					'cursorCloudAgent',
+				),
+			),
+			'postCompletionCard' => array(
+				'showReplyBodyInSlack'             => false,
+				'gmailDraftLinkOnly'               => true,
+				'showWorkConfirmedSendReplyButton' => false,
+			),
+			'triageForbiddenFields' => array( 'replyDraft', 'proposedReply' ),
+		);
 	}
 
 	public static function proposed_reply_instructions(): string {
@@ -108,25 +134,26 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 	 */
 	public static function payload(): array {
 		return array(
-			'version'                    => 3,
+			'version'                    => 4,
 			'allowlistedEmcpTools'       => self::allowlisted_emcp_tools(),
 			'cloudAgentInstructions'     => self::cloud_agent_instructions(),
 			'openRouterTriage'           => array(
 				'instructions'       => self::openrouter_triage_instructions(),
-				'requiredFields'     => array( 'replyDraft' ),
+				'requiredFields'     => array( 'actionable', 'summary' ),
+				'forbiddenFields'    => array( 'replyDraft', 'proposedReply' ),
 				'responseJsonSchema' => array(
 					'type'                 => 'object',
-					'required'             => array( 'replyDraft' ),
+					'required'             => array( 'actionable', 'summary' ),
 					'properties'           => array(
-						'replyDraft' => array(
-							'type'        => 'string',
-							'description' => 'Gmail reply body for the sender (required, non-empty).',
-						),
+						'siteKey'    => array( 'type' => 'string' ),
+						'siteTasks'  => array( 'type' => 'array' ),
+						'actionable' => array( 'type' => 'boolean' ),
+						'summary'    => array( 'type' => 'string' ),
 					),
 					'additionalProperties' => true,
 				),
 			),
-			'proposedReplyInstructions'  => self::proposed_reply_instructions(),
+			'slackUi'                    => self::slack_ui(),
 			'replyDraftInstructions'     => self::proposed_reply_instructions(),
 			'postCompletion'             => array(
 				'version'                    => 1,

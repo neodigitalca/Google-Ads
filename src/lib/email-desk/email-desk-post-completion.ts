@@ -126,10 +126,10 @@ export function buildSlackReplyDraftReadyBlocks(
   const threadUrl = ctx.gmailThreadUrl?.trim();
 
   const lines = [
-    `*Proposed reply · ${subject}*`,
+    `*Reply draft ready · ${subject}*`,
     summary,
+    `<${draftUrl}|Open reply draft in Gmail> (body is in Gmail, not in Slack)`,
     threadUrl ? `<${threadUrl}|Open thread in Gmail>` : null,
-    `<${draftUrl}|Open reply draft in Gmail>`,
     ctx.cursorRunUrl ? `<${ctx.cursorRunUrl}|Cursor cloud agent run>` : null,
   ].filter(Boolean);
 

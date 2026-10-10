@@ -89,9 +89,9 @@ class Neo_Pulse_App_Email_Desk_Post_Completion {
 		}
 
 		$lines   = array(
-			'*Proposed reply · ' . $subject . '*',
+			'*Reply draft ready · ' . $subject . '*',
 			$summary,
-			'<' . $draft . '|Open reply draft in Gmail>',
+			'<' . $draft . '|Open reply draft in Gmail> (body is in Gmail, not in Slack)',
 		);
 		if ( $thread !== '' ) {
 			array_splice( $lines, 2, 0, array( '<' . $thread . '|Open thread in Gmail>' ) );
