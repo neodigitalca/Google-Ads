@@ -96,7 +96,7 @@ After the **Cursor cloud agent** run finishes successfully:
 
 1. Parse the agent's final message for a fenced JSON block labeled `email-desk-completion` (see `postCompletion` in the contract JSON). Fields: `status`, `workSummary`, `replyDraft`.
 2. Create a **Gmail reply draft** on `sean@neodigital.ca` (Neo Agent Hub MCP `gmail-sean-neodigital`) using `replyDraft` as the body and the inbound thread id from the desk item.
-3. Post a **new Slack message** in the same channel/thread with buttons linking to the draft and the original Gmail thread.
+3. Post a **new Slack message** in the same channel/thread with a primary **EDIT RESPONSE** button (opens the Gmail draft), plus optional **Open thread**.
 
 Hub helpers (when neo-pulse-app is deployed on neodigital):
 

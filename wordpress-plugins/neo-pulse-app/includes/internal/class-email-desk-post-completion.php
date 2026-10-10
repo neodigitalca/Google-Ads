@@ -100,18 +100,28 @@ class Neo_Pulse_App_Email_Desk_Post_Completion {
 			$lines[] = '<' . $run_url . '|Cursor cloud agent run>';
 		}
 
-		$elements = array(
-			array(
-				'type'      => 'button',
-				'text'      => array(
-					'type'  => 'plain_text',
-					'text'  => 'Open reply draft',
-					'emoji' => false,
-				),
-				'url'        => $draft,
-				'action_id'  => 'email_desk_open_reply_draft',
+		$edit_url = isset( $ctx['editResponseUrl'] ) ? trim( (string) $ctx['editResponseUrl'] ) : $draft;
+		$desk_id  = isset( $ctx['deskItemId'] ) ? trim( (string) $ctx['deskItemId'] ) : '';
+
+		$edit_btn = array(
+			'type'      => 'button',
+			'style'     => 'primary',
+			'text'      => array(
+				'type'  => 'plain_text',
+				'text'  => 'EDIT RESPONSE',
+				'emoji' => false,
 			),
+			'action_id' => 'email_desk_edit_response',
 		);
+		if ( $edit_url !== '' ) {
+			$edit_btn['url'] = $edit_url;
+		} elseif ( $desk_id !== '' ) {
+			$edit_btn['value'] = $desk_id;
+		} else {
+			$edit_btn['url'] = $draft;
+		}
+
+		$elements = array( $edit_btn );
 		if ( $thread !== '' ) {
 			$elements[] = array(
 				'type'      => 'button',

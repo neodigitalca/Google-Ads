@@ -30,15 +30,49 @@ The JSON must match: status ("ok" or "failed"), workSummary (one short line of w
 
 replyDraft rules: only what the customer asked; quote verified meta description or other changed fields; do not mention title, URL, or slug unless they asked; sign off as Neo Digital. Do not send Gmail yourself.`;
 
+export const EMAIL_DESK_EDIT_RESPONSE_BUTTON_LABEL = "EDIT RESPONSE";
+
 export type EmailDeskPostCompletionHubContext = {
   clientName?: string;
   emailSubject?: string;
   inboundFrom?: string;
   gmailThreadUrl?: string;
   cursorRunUrl?: string;
+  /** Opens in Gmail when set; otherwise uses gmailDraftUrl. */
+  editResponseUrl?: string;
+  /** When set without editResponseUrl, hub handles action_id (modal / edit-reply). */
+  deskItemId?: string;
   workSummary: string;
   gmailDraftUrl: string;
 };
+
+export function buildEmailDeskEditResponseButton(ctx: {
+  gmailDraftUrl: string;
+  editResponseUrl?: string;
+  deskItemId?: string;
+}): Record<string, unknown> {
+  const editUrl = ctx.editResponseUrl?.trim() || ctx.gmailDraftUrl.trim();
+  if (editUrl) {
+    return {
+      type: "button",
+      style: "primary",
+      text: { type: "plain_text", text: EMAIL_DESK_EDIT_RESPONSE_BUTTON_LABEL, emoji: false },
+      url: editUrl,
+      action_id: "email_desk_edit_response",
+    };
+  }
+  const deskItemId = ctx.deskItemId?.trim();
+  if (!deskItemId) {
+    throw new Error("editResponseUrl or deskItemId is required for EDIT RESPONSE button");
+  }
+  return {
+    type: "button",
+    style: "primary",
+    text: { type: "plain_text", text: EMAIL_DESK_EDIT_RESPONSE_BUTTON_LABEL, emoji: false },
+    action_id: "email_desk_edit_response",
+    value: deskItemId,
+  };
+}
 
 /** Gmail web UI deep link to open a draft by API draft id. */
 export function gmailDraftWebUrl(draftId: string, userIndex = 0): string {
@@ -145,12 +179,11 @@ export function buildSlackReplyDraftReadyBlocks(
     {
       type: "actions",
       elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "Open reply draft", emoji: false },
-          url: draftUrl,
-          action_id: "email_desk_open_reply_draft",
-        },
+        buildEmailDeskEditResponseButton({
+          gmailDraftUrl: draftUrl,
+          editResponseUrl: ctx.editResponseUrl,
+          deskItemId: ctx.deskItemId,
+        }),
         ...(threadUrl
           ? [
               {
@@ -173,7 +206,13 @@ export function buildSlackReplyDraftReadyBlocks(
 
 export function emailDeskPostCompletionContractSection() {
   return {
-    version: 1,
+    version: 2,
+    editResponseButton: {
+      label: EMAIL_DESK_EDIT_RESPONSE_BUTTON_LABEL,
+      actionId: "email_desk_edit_response",
+      style: "primary",
+      defaultUrlField: "gmailDraftUrl",
+    },
     agentCompletionFence: EMAIL_DESK_COMPLETION_FENCE,
     agentCompletionJsonSchema: EMAIL_DESK_AGENT_COMPLETION_JSON_SCHEMA,
     hubSteps: [

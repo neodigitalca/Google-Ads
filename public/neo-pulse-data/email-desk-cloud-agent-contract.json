@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "allowlistedEmcpTools": [
     "emcp-tools-search-content",
     "emcp-tools-get-post",
@@ -71,7 +71,10 @@
     "postCompletionCard": {
       "showReplyBodyInSlack": false,
       "gmailDraftLinkOnly": true,
-      "showWorkConfirmedSendReplyButton": false
+      "showWorkConfirmedSendReplyButton": false,
+      "showEditResponseButton": true,
+      "editResponseButtonLabel": "EDIT RESPONSE",
+      "editResponseActionId": "email_desk_edit_response"
     },
     "triageForbiddenFields": [
       "proposedReply"
@@ -81,7 +84,13 @@
   },
   "replyDraftInstructions": "Reply only about fields the customer mentioned. No title, URL, or unchanged disclaimers unless they asked.",
   "postCompletion": {
-    "version": 1,
+    "version": 2,
+    "editResponseButton": {
+      "label": "EDIT RESPONSE",
+      "actionId": "email_desk_edit_response",
+      "style": "primary",
+      "defaultUrlField": "gmailDraftUrl"
+    },
     "agentCompletionFence": "email-desk-completion",
     "agentCompletionJsonSchema": {
       "type": "object",

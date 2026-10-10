@@ -85,6 +85,9 @@ export const EMAIL_DESK_SLACK_UI = {
     showReplyBodyInSlack: false,
     gmailDraftLinkOnly: true,
     showWorkConfirmedSendReplyButton: false,
+    showEditResponseButton: true,
+    editResponseButtonLabel: "EDIT RESPONSE",
+    editResponseActionId: "email_desk_edit_response",
   },
   triageForbiddenFields: ["proposedReply"],
   hideProposedReplyWhenReplyDraftEmpty: true,
@@ -177,7 +180,7 @@ export function isEmailDeskTriageReplyDeferred(replyDraft: unknown): boolean {
 
 export function emailDeskCloudAgentContractPayload() {
   return {
-    version: 6,
+    version: 7,
     allowlistedEmcpTools: [...EMAIL_DESK_EMCP_ALLOWLIST],
     cloudAgentInstructions: EMAIL_DESK_CLOUD_AGENT_INSTRUCTIONS,
     openRouterTriage: {

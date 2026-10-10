@@ -78,6 +78,9 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 				'showReplyBodyInSlack'             => false,
 				'gmailDraftLinkOnly'               => true,
 				'showWorkConfirmedSendReplyButton' => false,
+				'showEditResponseButton'           => true,
+				'editResponseButtonLabel'          => 'EDIT RESPONSE',
+				'editResponseActionId'             => 'email_desk_edit_response',
 			),
 			'triageForbiddenFields'          => array( 'proposedReply' ),
 			'hideProposedReplyWhenReplyDraftEmpty'  => true,
@@ -138,7 +141,7 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 	 */
 	public static function payload(): array {
 		return array(
-			'version'                    => 6,
+			'version'                    => 7,
 			'allowlistedEmcpTools'       => self::allowlisted_emcp_tools(),
 			'cloudAgentInstructions'     => self::cloud_agent_instructions(),
 			'openRouterTriage'           => array(

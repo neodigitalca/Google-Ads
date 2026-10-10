@@ -25,7 +25,8 @@ describe("email-desk-cloud-agent-contract", () => {
 
   it("exports stable contract payload", () => {
     const payload = emailDeskCloudAgentContractPayload();
-    expect(payload.version).toBe(6);
+    expect(payload.version).toBe(7);
+    expect(payload.slackUi.postCompletionCard.showEditResponseButton).toBe(true);
     expect(payload.cloudAgentInstructions).toMatch(/rankmath-write/i);
     expect(payload.cloudAgentInstructions).toMatch(/email-desk-completion/i);
     expect(payload.postCompletion?.hubSteps?.length).toBeGreaterThan(0);

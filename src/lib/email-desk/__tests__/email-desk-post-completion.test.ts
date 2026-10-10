@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSlackReplyDraftReadyBlocks,
+  EMAIL_DESK_EDIT_RESPONSE_BUTTON_LABEL,
   gmailDraftWebUrl,
   parseEmailDeskCompletionFromText,
 } from "@/lib/email-desk/email-desk-post-completion";
@@ -35,7 +36,11 @@ Done.
     });
     expect(text).toMatch(/Blind Magic/i);
     expect(blocks.length).toBeGreaterThanOrEqual(3);
-    const actions = blocks[2] as { elements?: { url?: string }[] };
+    const actions = blocks[2] as {
+      elements?: { url?: string; text?: { text?: string }; style?: string }[];
+    };
+    expect(actions.elements?.[0]?.text?.text).toBe(EMAIL_DESK_EDIT_RESPONSE_BUTTON_LABEL);
+    expect(actions.elements?.[0]?.style).toBe("primary");
     expect(actions.elements?.[0]?.url).toContain("draft-abc");
   });
 });
