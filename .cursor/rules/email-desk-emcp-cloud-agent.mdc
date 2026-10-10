@@ -12,7 +12,12 @@ alwaysApply: true
 1. Call the **site MCP server** for the client (e.g. `emcp-blindmagic-com`). Do not hunt env vars, curl endpoints, or Yoast keys.
 2. Run **only** the `siteTasks` entries (plus verification below). No audit-page-seo, generate-meta-tags, neo-pulse tool lists, or plugin guessing unless a task explicitly asks.
 
-## Client reply copy (proposed email)
+## OpenRouter triage vs Cursor cloud agent
+
+- **Triage** (Neo Agent Hub inbox/Slack): use contract field `openRouterTriage.instructions`. Output JSON **must** include non-empty **`replyDraft`**. Do not use `cloudAgentInstructions` for triage.
+- **Cloud agent** (EMCP site work): use `cloudAgentInstructions` only. Do not send Gmail.
+
+## Client reply copy (proposed email / replyDraft)
 
 - Answer **only** what the customer asked (e.g. meta description changed + the new text).
 - Do **not** mention page title, URL, slug, or "unchanged" unless they asked about those fields.

@@ -79,4 +79,8 @@ Neo Agent Hub / Flowbie email desk should load instructions and allowlist from:
 
 (Published via `node wordpress-plugins/.deploy/publish-email-desk-cloud-agent-contract.mjs`.)
 
-When building a Cursor cloud agent user message, prepend `cloudAgentInstructions` from that JSON and set `Allowlisted EMCP tool names` from `allowlistedEmcpTools`. For meta description jobs, POST to `/api/internal/email-desk/meta-description-site-tasks` with `{ searchQuery, postId, description }` when `postId` is known, or build tasks using the template in the JSON.
+When building a **Cursor cloud agent** user message, prepend `cloudAgentInstructions` only (not `openRouterTriage.instructions`).
+
+For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions` and enforce `openRouterTriage.requiredFields` (including **`replyDraft`**). Do not inject `cloudAgentInstructions` into triage; it tells the model not to email and omits `replyDraft`.
+
+Set `Allowlisted EMCP tool names` from `allowlistedEmcpTools`. For meta description jobs, POST to `/api/internal/email-desk/meta-description-site-tasks` with `{ searchQuery, postId, description }` when `postId` is known, or build tasks using the template in the JSON.
