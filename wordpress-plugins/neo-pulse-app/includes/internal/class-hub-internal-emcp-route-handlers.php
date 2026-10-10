@@ -12,12 +12,15 @@ class Neo_Pulse_App_Hub_Internal_Emcp_Route_Handlers {
 	private const ALLOWED_TOOLS = array(
 		'emcp-tools-search-content',
 		'emcp-tools-get-post',
+		'emcp-tools-list-posts',
 		'emcp-tools-update-post',
 		'emcp-tools-get-page-structure',
 		'emcp-tools-update-element',
+		'emcp-tools-rankmath-read',
+		'emcp-tools-rankmath-write',
 	);
 
-	private const ALLOWED_SITES = array( 'kwbllp' );
+	private const ALLOWED_SITES = array( 'kwbllp', 'blindmagic' );
 
 	/**
 	 * @param string              $subpath Route after internal/emcp/.
@@ -63,16 +66,24 @@ class Neo_Pulse_App_Hub_Internal_Emcp_Route_Handlers {
 		}
 
 		try {
+			$resolved = Neo_Pulse_App_Hub_Internal_Emcp_Invoke_Normalizer::normalize(
+				$tool,
+				$args,
+				function ( string $slug ) use ( $config ): int {
+					return self::resolve_post_id_by_slug( $config, $slug );
+				}
+			);
 			$data = Neo_Pulse_App_Emcp_Http_Client::call_tool(
 				$config['url'],
 				$config['authorization'],
-				$tool,
-				$args
+				$resolved['tool'],
+				$resolved['arguments']
 			);
 			Neo_Pulse_App_Api_Dispatcher::send_json(
 				array(
-					'ok'   => true,
-					'data' => $data,
+					'ok'       => true,
+					'data'     => $data,
+					'warnings' => $resolved['warnings'],
 				)
 			);
 		} catch ( Throwable $e ) {
@@ -124,6 +135,51 @@ class Neo_Pulse_App_Hub_Internal_Emcp_Route_Handlers {
 			'url'           => $url,
 			'authorization' => $auth,
 		);
+	}
+
+	/**
+	 * @param string[] $keys
+	 */
+	/**
+	 * @param array{url:string,authorization:string} $config
+	 */
+	private static function resolve_post_id_by_slug( array $config, string $slug ): int {
+		$slug = trim( $slug );
+		if ( $slug === '' ) {
+			return 0;
+		}
+		$data = Neo_Pulse_App_Emcp_Http_Client::call_tool(
+			$config['url'],
+			$config['authorization'],
+			'emcp-tools-list-posts',
+			array(
+				'post_type' => 'post',
+				'search'    => $slug,
+				'per_page'  => 10,
+			)
+		);
+		if ( ! is_array( $data ) ) {
+			return 0;
+		}
+		$items = isset( $data['items'] ) && is_array( $data['items'] ) ? $data['items'] : ( isset( $data['posts'] ) && is_array( $data['posts'] ) ? $data['posts'] : array() );
+		foreach ( $items as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$row_slug = isset( $row['slug'] ) ? trim( (string) $row['slug'] ) : '';
+			$row_id   = isset( $row['post_id'] ) ? (int) $row['post_id'] : ( isset( $row['id'] ) ? (int) $row['id'] : 0 );
+			if ( $row_id > 0 && $row_slug === $slug ) {
+				return $row_id;
+			}
+		}
+		if ( count( $items ) === 1 && is_array( $items[0] ) ) {
+			$row    = $items[0];
+			$row_id = isset( $row['post_id'] ) ? (int) $row['post_id'] : ( isset( $row['id'] ) ? (int) $row['id'] : 0 );
+			if ( $row_id > 0 ) {
+				return $row_id;
+			}
+		}
+		return 0;
 	}
 
 	/**

@@ -1,0 +1,72 @@
+---
+description: Email desk cloud agents on client WordPress via EMCP (meta, posts, Elementor). Apply when the message mentions Email desk or siteTasks JSON.
+alwaysApply: true
+---
+
+# Email desk EMCP (cloud agent)
+
+**Activation:** Use this rule when the user message includes `Email desk`, `Email desk cloud agent`, or `siteTasks JSON`. If none of those appear, skip this entire rule.
+
+## Do first (no exploration loops)
+
+1. Call the **site MCP server** for the client (e.g. `emcp-blindmagic-com`). Do not hunt env vars, curl endpoints, or Yoast keys.
+2. Run **only** the `siteTasks` entries (plus verification below). No audit-page-seo, generate-meta-tags, neo-pulse tool lists, or plugin guessing unless a task explicitly asks.
+
+## Client reply copy (proposed email)
+
+- Answer **only** what the customer asked (e.g. meta description changed + the new text).
+- Do **not** mention page title, URL, slug, or "unchanged" unless they asked about those fields.
+
+## Rank Math meta description (Neo Pulse client sites, including blindmagic)
+
+These sites use **Rank Math**, not Yoast. The live `<meta name="description">` comes from Rank Math, not ACF `meta_description` alone.
+
+**Correct flow (3 calls max):**
+
+1. **`emcp-tools-search-content`** with a short query from the blog title or URL slug.
+2. Resolve **`post_id` as an integer.** If `siteTasks` pass a slug string, get the ID from search results (`object_type` `post`, matching URL) or call **`emcp-tools-list-posts`** with `search` set to the slug (allowlisted for desk).
+3. **`emcp-tools-rankmath-write`** with:
+   - `operation`: `update-post-seo`
+   - `arguments`: `{ "post_id": <integer>, "description": "<new meta description>" }`
+4. **Verify:** **`emcp-tools-rankmath-read`** with `operation` `get-post-seo` and the same `post_id`, or fetch the public URL once and read `<meta name="description">`.
+
+**Do not:**
+
+- Pass `meta_description` on **`emcp-tools-update-post`** (ignored; does not update Rank Math).
+- Write `rank_math_description` via **`emcp-tools-update-post`** `meta` (protected key).
+- Try Yoast field names (`_yoast_wpseo_metadesc`, etc.).
+
+## Allowlisted tools (desk default set)
+
+Use these names exactly:
+
+- `emcp-tools-search-content`
+- `emcp-tools-get-post`
+- `emcp-tools-list-posts` (slug → numeric `post_id`)
+- `emcp-tools-update-post` (title, content, excerpt, non-SEO meta only)
+- `emcp-tools-get-page-structure`
+- `emcp-tools-update-element`
+- `emcp-tools-rankmath-read`
+- `emcp-tools-rankmath-write`
+
+## siteTasks authoring (for hub / automation)
+
+When generating JSON for meta description updates, prefer:
+
+```json
+{
+  "tool": "emcp-tools-rankmath-write",
+  "label": "Update Rank Math meta description",
+  "arguments": {
+    "operation": "update-post-seo",
+    "arguments": {
+      "post_id": 0,
+      "description": "..."
+    }
+  }
+}
+```
+
+If `post_id` is unknown, prepend a search task and set `post_id` from the result before write. Never put a slug in `post_id`.
+
+Canonical playbook: `docs/email-desk/cloud-agent-emcp-playbook.md`.
