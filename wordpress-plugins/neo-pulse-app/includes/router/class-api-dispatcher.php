@@ -262,6 +262,11 @@ class Neo_Pulse_App_Api_Dispatcher {
 			return;
 		}
 
+		if ( 0 === strpos( $route, 'internal/email-desk/' ) ) {
+			Neo_Pulse_App_Hub_Internal_Email_Desk_Route_Handlers::dispatch_http( substr( $route, 20 ), $method, $body );
+			return;
+		}
+
 		if ( 0 === strpos( $route, 'auth/' ) ) {
 			Neo_Pulse_App_Auth_Route_Handlers::dispatch( substr( $route, 5 ), $method, $body );
 			return;

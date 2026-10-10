@@ -70,3 +70,13 @@ emcp-tools-rankmath-write
 ```
 
 Hub server-side invoke (`POST /api/internal/emcp/invoke`) mirrors the same allowlist and rewrites legacy `update-post` + `meta_description` tasks to `rankmath-write` when configured.
+
+## Live contract URL (hub must fetch this)
+
+Neo Agent Hub / Flowbie email desk should load instructions and allowlist from:
+
+`https://neodigital.ca/wp-content/uploads/neo-pulse-data/email-desk-cloud-agent-contract.json`
+
+(Published via `node wordpress-plugins/.deploy/publish-email-desk-cloud-agent-contract.mjs`.)
+
+When building a Cursor cloud agent user message, prepend `cloudAgentInstructions` from that JSON and set `Allowlisted EMCP tool names` from `allowlistedEmcpTools`. For meta description jobs, POST to `/api/internal/email-desk/meta-description-site-tasks` with `{ searchQuery, postId, description }` when `postId` is known, or build tasks using the template in the JSON.
