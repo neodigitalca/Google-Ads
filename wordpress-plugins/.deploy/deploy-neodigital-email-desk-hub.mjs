@@ -18,6 +18,7 @@ const files = [
   "includes/internal/class-hub-internal-emcp-invoke-normalizer.php",
   "includes/internal/class-hub-internal-emcp-route-handlers.php",
   "includes/internal/class-hub-internal-email-desk-route-handlers.php",
+  "includes/internal/class-email-desk-post-completion.php",
   "includes/class-neo-pulse-app-loader.php",
   "includes/router/class-api-dispatcher.php",
 ];

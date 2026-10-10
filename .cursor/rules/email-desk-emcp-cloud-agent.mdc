@@ -15,7 +15,7 @@ alwaysApply: true
 ## OpenRouter triage vs Cursor cloud agent
 
 - **Triage** (Neo Agent Hub inbox/Slack): use contract field `openRouterTriage.instructions`. Output JSON **must** include non-empty **`replyDraft`**. Do not use `cloudAgentInstructions` for triage.
-- **Cloud agent** (EMCP site work): use `cloudAgentInstructions` only. Do not send Gmail.
+- **Cloud agent** (EMCP site work): use `cloudAgentInstructions` only. Do not send Gmail. When site work is done, output the `email-desk-completion` JSON fence so Neo Agent Hub can create the Gmail reply draft and Slack card.
 
 ## Client reply copy (proposed email / replyDraft)
 

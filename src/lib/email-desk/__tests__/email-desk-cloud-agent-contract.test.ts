@@ -25,9 +25,10 @@ describe("email-desk-cloud-agent-contract", () => {
 
   it("exports stable contract payload", () => {
     const payload = emailDeskCloudAgentContractPayload();
-    expect(payload.version).toBe(2);
+    expect(payload.version).toBe(3);
     expect(payload.cloudAgentInstructions).toMatch(/rankmath-write/i);
-    expect(payload.cloudAgentInstructions).not.toMatch(/replyDraft/i);
+    expect(payload.cloudAgentInstructions).toMatch(/email-desk-completion/i);
+    expect(payload.postCompletion?.hubSteps?.length).toBeGreaterThan(0);
     expect(payload.openRouterTriage.requiredFields).toContain("replyDraft");
     expect(payload.openRouterTriage.instructions).toMatch(/replyDraft/i);
     expect(payload.proposedReplyInstructions).toMatch(/title/i);

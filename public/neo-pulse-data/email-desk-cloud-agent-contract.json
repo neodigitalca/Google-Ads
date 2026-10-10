@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "allowlistedEmcpTools": [
     "emcp-tools-search-content",
     "emcp-tools-get-post",
@@ -10,7 +10,7 @@
     "emcp-tools-rankmath-read",
     "emcp-tools-rankmath-write"
   ],
-  "cloudAgentInstructions": "You work on one client site per task via that site's EMCP MCP server.\n\nExecute every entry in siteTasks JSON in order. Do not send Gmail or email. Do not change unrelated sites.\n\nFor Rank Math meta description updates (Neo Pulse client WordPress sites):\n1. emcp-tools-search-content to find the post (title or slug words).\n2. post_id must be a positive integer. If you only have a slug, use emcp-tools-list-posts with search set to the slug.\n3. emcp-tools-rankmath-write with operation update-post-seo and arguments post_id plus description.\n4. Verify with emcp-tools-rankmath-read get-post-seo or the public page meta description tag.\n\nDo not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.",
+  "cloudAgentInstructions": "You work on one client site per task via that site's EMCP MCP server.\n\nExecute every entry in siteTasks JSON in order. Do not send Gmail or email. Do not change unrelated sites.\n\nFor Rank Math meta description updates (Neo Pulse client WordPress sites):\n1. emcp-tools-search-content to find the post (title or slug words).\n2. post_id must be a positive integer. If you only have a slug, use emcp-tools-list-posts with search set to the slug.\n3. emcp-tools-rankmath-write with operation update-post-seo and arguments post_id plus description.\n4. Verify with emcp-tools-rankmath-read get-post-seo or the public page meta description tag.\n\nDo not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.\n\nAfter all siteTasks are done (verified or failed), end your final assistant message with exactly one fenced JSON block labeled email-desk-completion. No text after that fence.\n\nThe JSON must match: status (\"ok\" or \"failed\"), workSummary (one short line of what you did), replyDraft (plain-text customer reply when status is ok; empty string when failed).\n\nreplyDraft rules: only what the customer asked; quote verified meta description or other changed fields; do not mention title, URL, or slug unless they asked; sign off as Neo Digital. Do not send Gmail yourself.",
   "openRouterTriage": {
     "instructions": "Triage one inbound client email for Neo Digital Email desk.\n\nReturn JSON only. You MUST include a non-empty string field replyDraft: a short Gmail reply to the sender (plain text, sign off as Neo Digital). replyDraft is required even when the work will run on a Cursor cloud agent later.\n\nReply copy rules: only discuss what the customer asked (e.g. meta description updated + quote the new text). Do not mention page title, URL, or slug unless they asked.\n\nFor Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must use emcp-tools-rankmath-write (update-post-seo), not emcp-tools-update-post with meta_description. post_id must be a positive integer, not a slug.",
     "requiredFields": [
@@ -44,6 +44,56 @@
   },
   "proposedReplyInstructions": "Reply only about fields the customer mentioned. No title, URL, or unchanged disclaimers unless they asked.",
   "replyDraftInstructions": "Reply only about fields the customer mentioned. No title, URL, or unchanged disclaimers unless they asked.",
+  "postCompletion": {
+    "version": 1,
+    "agentCompletionFence": "email-desk-completion",
+    "agentCompletionJsonSchema": {
+      "type": "object",
+      "required": [
+        "status",
+        "workSummary",
+        "replyDraft"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "failed"
+          ]
+        },
+        "workSummary": {
+          "type": "string"
+        },
+        "replyDraft": {
+          "type": "string",
+          "description": "Plain-text Gmail reply body (empty when status is failed)."
+        }
+      },
+      "additionalProperties": false
+    },
+    "hubSteps": [
+      {
+        "id": "parseCursorAgentFinalMessage",
+        "parse": "email-desk-completion"
+      },
+      {
+        "id": "gmailCreateReplyDraft",
+        "account": "sean@neodigital.ca",
+        "mcpServer": "gmail-sean-neodigital",
+        "bodyField": "replyDraft",
+        "threadIdField": "gmailThreadId"
+      },
+      {
+        "id": "slackPostReplyDraftCard",
+        "template": "replyDraftReady",
+        "channelField": "slackChannelId",
+        "threadTsField": "slackThreadTs",
+        "blocksFrom": "buildSlackReplyDraftReadyBlocks"
+      }
+    ],
+    "gmailDraftWebUrlPattern": "https://mail.google.com/mail/u/0/#drafts?compose={draftId}"
+  },
   "metaDescriptionSiteTaskTemplate": [
     {
       "tool": "emcp-tools-search-content",

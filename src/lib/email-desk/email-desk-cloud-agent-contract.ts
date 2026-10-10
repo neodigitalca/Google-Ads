@@ -2,6 +2,11 @@
  * Single source of truth for Email desk Cursor cloud agent EMCP instructions and siteTasks.
  */
 
+import {
+  EMAIL_DESK_CLOUD_AGENT_COMPLETION_INSTRUCTIONS,
+  emailDeskPostCompletionContractSection,
+} from "@/lib/email-desk/email-desk-post-completion";
+
 export const EMAIL_DESK_EMCP_ALLOWLIST = [
   "emcp-tools-search-content",
   "emcp-tools-get-post",
@@ -24,7 +29,9 @@ For Rank Math meta description updates (Neo Pulse client WordPress sites):
 3. emcp-tools-rankmath-write with operation update-post-seo and arguments post_id plus description.
 4. Verify with emcp-tools-rankmath-read get-post-seo or the public page meta description tag.
 
-Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.`;
+Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.
+
+${EMAIL_DESK_CLOUD_AGENT_COMPLETION_INSTRUCTIONS}`;
 
 /** Neo Agent Hub OpenRouter triage (inbox / Slack test). Must always emit replyDraft. */
 export const EMAIL_DESK_OPENROUTER_TRIAGE_INSTRUCTIONS = `Triage one inbound client email for Neo Digital Email desk.
@@ -131,7 +138,7 @@ export const META_DESCRIPTION_SITE_TASK_TEMPLATE: EmailDeskSiteTask[] = [
 
 export function emailDeskCloudAgentContractPayload() {
   return {
-    version: 2,
+    version: 3,
     allowlistedEmcpTools: [...EMAIL_DESK_EMCP_ALLOWLIST],
     cloudAgentInstructions: EMAIL_DESK_CLOUD_AGENT_INSTRUCTIONS,
     openRouterTriage: {
@@ -141,6 +148,7 @@ export function emailDeskCloudAgentContractPayload() {
     },
     proposedReplyInstructions: EMAIL_DESK_REPLY_INSTRUCTIONS,
     replyDraftInstructions: EMAIL_DESK_REPLY_INSTRUCTIONS,
+    postCompletion: emailDeskPostCompletionContractSection(),
     metaDescriptionSiteTaskTemplate: META_DESCRIPTION_SITE_TASK_TEMPLATE,
   };
 }

@@ -36,7 +36,13 @@ For Rank Math meta description updates (Neo Pulse client WordPress sites):
 3. emcp-tools-rankmath-write with operation update-post-seo and arguments post_id plus description.
 4. Verify with emcp-tools-rankmath-read get-post-seo or the public page meta description tag.
 
-Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.';
+Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.
+
+After all siteTasks are done (verified or failed), end your final assistant message with exactly one fenced JSON block labeled email-desk-completion. No text after that fence.
+
+The JSON must match: status ("ok" or "failed"), workSummary (one short line of what you did), replyDraft (plain-text customer reply when status is ok; empty string when failed).
+
+replyDraft rules: only what the customer asked; quote verified meta description or other changed fields; do not mention title, URL, or slug unless they asked; sign off as Neo Digital. Do not send Gmail yourself.';
 	}
 
 	public static function openrouter_triage_instructions(): string {
@@ -102,7 +108,7 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 	 */
 	public static function payload(): array {
 		return array(
-			'version'                    => 2,
+			'version'                    => 3,
 			'allowlistedEmcpTools'       => self::allowlisted_emcp_tools(),
 			'cloudAgentInstructions'     => self::cloud_agent_instructions(),
 			'openRouterTriage'           => array(
@@ -122,6 +128,41 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 			),
 			'proposedReplyInstructions'  => self::proposed_reply_instructions(),
 			'replyDraftInstructions'     => self::proposed_reply_instructions(),
+			'postCompletion'             => array(
+				'version'                    => 1,
+				'agentCompletionFence'       => Neo_Pulse_App_Email_Desk_Post_Completion::COMPLETION_FENCE,
+				'agentCompletionJsonSchema'  => array(
+					'type'                 => 'object',
+					'required'             => array( 'status', 'workSummary', 'replyDraft' ),
+					'properties'           => array(
+						'status'       => array( 'type' => 'string', 'enum' => array( 'ok', 'failed' ) ),
+						'workSummary'  => array( 'type' => 'string' ),
+						'replyDraft'   => array( 'type' => 'string' ),
+					),
+					'additionalProperties' => false,
+				),
+				'hubSteps'                   => array(
+					array(
+						'id'    => 'parseCursorAgentFinalMessage',
+						'parse' => Neo_Pulse_App_Email_Desk_Post_Completion::COMPLETION_FENCE,
+					),
+					array(
+						'id'            => 'gmailCreateReplyDraft',
+						'account'       => 'sean@neodigital.ca',
+						'mcpServer'     => 'gmail-sean-neodigital',
+						'bodyField'     => 'replyDraft',
+						'threadIdField' => 'gmailThreadId',
+					),
+					array(
+						'id'             => 'slackPostReplyDraftCard',
+						'template'       => 'replyDraftReady',
+						'channelField'   => 'slackChannelId',
+						'threadTsField'  => 'slackThreadTs',
+						'blocksFrom'     => 'buildSlackReplyDraftReadyBlocks',
+					),
+				),
+				'gmailDraftWebUrlPattern'    => 'https://mail.google.com/mail/u/0/#drafts?compose={draftId}',
+			),
 			'metaDescriptionSiteTaskTemplate' => array(
 				array(
 					'tool'      => 'emcp-tools-search-content',
