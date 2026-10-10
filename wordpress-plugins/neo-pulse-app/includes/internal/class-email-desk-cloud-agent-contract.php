@@ -36,17 +36,56 @@ For Rank Math meta description updates (Neo Pulse client WordPress sites):
 3. emcp-tools-rankmath-write with operation update-post-seo and arguments post_id plus description.
 4. Verify with emcp-tools-rankmath-read get-post-seo or the public page meta description tag.
 
-Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.';
+Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_math_description via update-post meta (protected). Do not probe Yoast keys or run SEO audit tools for a simple meta change.
+
+After all siteTasks are done (verified or failed), end your final assistant message with exactly one fenced JSON block labeled email-desk-completion. No text after that fence.
+
+The JSON must match: status ("ok" or "failed"), workSummary (one short line of what you did), replyDraft (plain-text customer reply when status is ok; empty string when failed).
+
+replyDraft rules: only what the customer asked; quote verified meta description or other changed fields; do not mention title, URL, or slug unless they asked; sign off as Neo Digital. Do not send Gmail yourself.';
 	}
 
 	public static function openrouter_triage_instructions(): string {
 		return 'Triage one inbound client email for Neo Digital Email desk.
 
-Return JSON only. You MUST include a non-empty string field replyDraft: a short Gmail reply to the sender (plain text, sign off as Neo Digital). replyDraft is required even when the work will run on a Cursor cloud agent later.
+Return JSON only. You MUST include replyDraft set exactly to "__EMAIL_DESK_DEFERRED__" (required non-empty placeholder). Do not write any customer reply text at triage. Do not include proposedReply.
 
-Reply copy rules: only discuss what the customer asked (e.g. meta description updated + quote the new text). Do not mention page title, URL, or slug unless they asked.
+Customer Gmail copy is created only after the Cursor cloud agent finishes site work (email-desk-completion).
+
+You MUST also include: actionable (boolean), summary (short internal line), siteKey (when known), siteTasks (array when actionable).
 
 For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must use emcp-tools-rankmath-write (update-post-seo), not emcp-tools-update-post with meta_description. post_id must be a positive integer, not a slug.';
+	}
+
+	/**
+	 * @return array<string,mixed>
+	 */
+	public static function slack_ui(): array {
+		return array(
+			'version'            => 1,
+			'initialCard'        => array(
+				'showProposedReply'                  => false,
+				'showReplyBodyInSlack'               => false,
+				'showEditReplySlashCommand'          => false,
+				'showWorkConfirmedSendReplyButton'   => false,
+				'allowedSections'                    => array(
+					'inboundMessage',
+					'siteChecklist',
+					'cursorCloudAgent',
+				),
+			),
+			'postCompletionCard' => array(
+				'showReplyBodyInSlack'             => false,
+				'gmailDraftLinkOnly'               => true,
+				'showWorkConfirmedSendReplyButton' => false,
+				'showEditResponseButton'           => true,
+				'editResponseButtonLabel'          => 'EDIT RESPONSE',
+				'editResponseActionId'             => 'email_desk_edit_response',
+			),
+			'triageForbiddenFields'          => array( 'proposedReply' ),
+			'hideProposedReplyWhenReplyDraftEmpty'  => true,
+			'hideProposedReplyWhenReplyDraftEquals' => Neo_Pulse_App_Email_Desk_Triage_Normalize::DEFERRED_REPLY_DRAFT,
+		);
 	}
 
 	public static function proposed_reply_instructions(): string {
@@ -102,26 +141,72 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 	 */
 	public static function payload(): array {
 		return array(
-			'version'                    => 2,
+			'version'                    => 7,
 			'allowlistedEmcpTools'       => self::allowlisted_emcp_tools(),
 			'cloudAgentInstructions'     => self::cloud_agent_instructions(),
 			'openRouterTriage'           => array(
 				'instructions'       => self::openrouter_triage_instructions(),
-				'requiredFields'     => array( 'replyDraft' ),
+				'requiredFields'     => array( 'actionable', 'summary', 'replyDraft' ),
+				'forbiddenFields'    => array( 'proposedReply' ),
+				'replyDraftPolicy'   => array(
+					'mode'              => 'deferredPlaceholder',
+					'triagePlaceholder' => Neo_Pulse_App_Email_Desk_Triage_Normalize::DEFERRED_REPLY_DRAFT,
+				),
+				'normalizeTriageEndpoint' => '/api/internal/email-desk/normalize-triage-response',
 				'responseJsonSchema' => array(
 					'type'                 => 'object',
-					'required'             => array( 'replyDraft' ),
+					'required'             => array( 'actionable', 'summary', 'replyDraft' ),
 					'properties'           => array(
 						'replyDraft' => array(
 							'type'        => 'string',
-							'description' => 'Gmail reply body for the sender (required, non-empty).',
+							'minLength'   => 1,
+							'description' => 'Required. Must be __EMAIL_DESK_DEFERRED__ at triage.',
 						),
+						'siteKey'    => array( 'type' => 'string' ),
+						'siteTasks'  => array( 'type' => 'array' ),
+						'actionable' => array( 'type' => 'boolean' ),
+						'summary'    => array( 'type' => 'string' ),
 					),
 					'additionalProperties' => true,
 				),
 			),
-			'proposedReplyInstructions'  => self::proposed_reply_instructions(),
+			'slackUi'                    => self::slack_ui(),
 			'replyDraftInstructions'     => self::proposed_reply_instructions(),
+			'postCompletion'             => array(
+				'version'                    => 1,
+				'agentCompletionFence'       => Neo_Pulse_App_Email_Desk_Post_Completion::COMPLETION_FENCE,
+				'agentCompletionJsonSchema'  => array(
+					'type'                 => 'object',
+					'required'             => array( 'status', 'workSummary', 'replyDraft' ),
+					'properties'           => array(
+						'status'       => array( 'type' => 'string', 'enum' => array( 'ok', 'failed' ) ),
+						'workSummary'  => array( 'type' => 'string' ),
+						'replyDraft'   => array( 'type' => 'string' ),
+					),
+					'additionalProperties' => false,
+				),
+				'hubSteps'                   => array(
+					array(
+						'id'    => 'parseCursorAgentFinalMessage',
+						'parse' => Neo_Pulse_App_Email_Desk_Post_Completion::COMPLETION_FENCE,
+					),
+					array(
+						'id'            => 'gmailCreateReplyDraft',
+						'account'       => 'sean@neodigital.ca',
+						'mcpServer'     => 'gmail-sean-neodigital',
+						'bodyField'     => 'replyDraft',
+						'threadIdField' => 'gmailThreadId',
+					),
+					array(
+						'id'             => 'slackPostReplyDraftCard',
+						'template'       => 'replyDraftReady',
+						'channelField'   => 'slackChannelId',
+						'threadTsField'  => 'slackThreadTs',
+						'blocksFrom'     => 'buildSlackReplyDraftReadyBlocks',
+					),
+				),
+				'gmailDraftWebUrlPattern'    => 'https://mail.google.com/mail/u/0/#drafts?compose={draftId}',
+			),
 			'metaDescriptionSiteTaskTemplate' => array(
 				array(
 					'tool'      => 'emcp-tools-search-content',

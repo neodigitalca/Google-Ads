@@ -51,10 +51,11 @@ Client WordPress sites in this program use **Rank Math**. Updating meta descript
 }
 ```
 
-### Proposed customer reply
+### Customer reply (after site work only)
 
-- State that the meta description was updated and quote the new description.
-- Do not mention title, URL, or slug unless the customer asked.
+- Do **not** draft or show a Gmail reply during triage or on the first Slack card.
+- After the Cursor cloud agent verifies the change, `email-desk-completion.replyDraft` becomes the Gmail draft body.
+- Quote the verified meta description; do not mention title, URL, or slug unless the customer asked.
 
 ## Allowlisted EMCP tool names (desk)
 
@@ -81,6 +82,30 @@ Neo Agent Hub / Flowbie email desk should load instructions and allowlist from:
 
 When building a **Cursor cloud agent** user message, prepend `cloudAgentInstructions` only (not `openRouterTriage.instructions`).
 
-For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions` and enforce `openRouterTriage.requiredFields` (including **`replyDraft`**). Do not inject `cloudAgentInstructions` into triage; it tells the model not to email and omits `replyDraft`.
+For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions`. **`replyDraft` must be the sentinel `__EMAIL_DESK_DEFERRED__`** (or call `POST /api/internal/email-desk/normalize-triage-response` on the raw model JSON before validation to inject it when missing). Also require `actionable` and `summary`. Do not inject `cloudAgentInstructions` into triage.
+
+**Hub bug fix:** If validation still says `missing replyDraft`, the bot is not reading v6 contract or not normalizing. Never treat empty/missing `replyDraft` as fatal without calling normalize first.
+
+Honor **`slackUi`**: first Slack card has no proposed reply, no `/email-desk edit-reply`, no "Work confirmed, send reply" until post-completion creates a Gmail draft link card.
 
 Set `Allowlisted EMCP tool names` from `allowlistedEmcpTools`. For meta description jobs, POST to `/api/internal/email-desk/meta-description-site-tasks` with `{ searchQuery, postId, description }` when `postId` is known, or build tasks using the template in the JSON.
+
+## Post-completion (Gmail draft + Slack card)
+
+After the **Cursor cloud agent** run finishes successfully:
+
+1. Parse the agent's final message for a fenced JSON block labeled `email-desk-completion` (see `postCompletion` in the contract JSON). Fields: `status`, `workSummary`, `replyDraft`.
+2. Create a **Gmail reply draft** on `sean@neodigital.ca` (Neo Agent Hub MCP `gmail-sean-neodigital`) using `replyDraft` as the body and the inbound thread id from the desk item.
+3. Post a **new Slack message** in the same channel/thread with a primary **EDIT RESPONSE** button (opens the Gmail draft), plus optional **Open thread**.
+
+Hub helpers (when neo-pulse-app is deployed on neodigital):
+
+| Step | Route |
+|------|--------|
+| Parse agent output | `POST /api/internal/email-desk/post-completion/parse-agent-message` `{ "text": "<final agent message>" }` |
+| Build Slack card | `POST /api/internal/email-desk/post-completion/slack-reply-draft-card` `{ clientName, emailSubject, workSummary, gmailDraftUrl, gmailThreadUrl?, cursorRunUrl? }` |
+| Draft deep link | `POST /api/internal/email-desk/post-completion/gmail-draft-url` `{ "draftId": "<from Gmail API>" }` |
+
+TypeScript mirrors live in `src/lib/email-desk/email-desk-post-completion.ts` for the hosted Neo Agent Hub bot.
+
+Republish contract after changes: `node wordpress-plugins/.deploy/publish-email-desk-cloud-agent-contract.mjs`.

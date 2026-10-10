@@ -14,10 +14,11 @@ alwaysApply: true
 
 ## OpenRouter triage vs Cursor cloud agent
 
-- **Triage** (Neo Agent Hub inbox/Slack): use contract field `openRouterTriage.instructions`. Output JSON **must** include non-empty **`replyDraft`**. Do not use `cloudAgentInstructions` for triage.
-- **Cloud agent** (EMCP site work): use `cloudAgentInstructions` only. Do not send Gmail.
+- **Triage** (Neo Agent Hub inbox/Slack): use `openRouterTriage.instructions`. **`replyDraft` must be present but empty (`""`)** at triage (`replyDraftPolicy.deferredEmptyString`). Slack initial card: no proposed reply when empty (`slackUi`).
+- **Cloud agent** (EMCP site work): use `cloudAgentInstructions` only. Do not send Gmail. When site work is done, output the `email-desk-completion` JSON fence; hub creates Gmail draft and posts a **link-only** Slack card (`slackUi.postCompletionCard`).
+- **Customer reply** exists only after site work: Gmail draft from `email-desk-completion.replyDraft`, never pasted in the first Slack card.
 
-## Client reply copy (proposed email / replyDraft)
+## Client reply copy (post-completion replyDraft only)
 
 - Answer **only** what the customer asked (e.g. meta description changed + the new text).
 - Do **not** mention page title, URL, slug, or "unchanged" unless they asked about those fields.
