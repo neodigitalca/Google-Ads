@@ -301,6 +301,7 @@ class Neo_Pulse_App_Loader {
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/elementor/class-elementor-novamira-client.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/elementor/class-elementor-route-handlers.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/internal/class-emcp-http-client.php';
+		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/internal/class-email-desk-triage-normalize.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/internal/class-email-desk-post-completion.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/internal/class-email-desk-cloud-agent-contract.php';
 		require_once NEO_PULSE_APP_PLUGIN_DIR . 'includes/internal/class-hub-internal-emcp-invoke-normalizer.php';

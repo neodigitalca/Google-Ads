@@ -20,6 +20,12 @@ class Neo_Pulse_App_Hub_Internal_Email_Desk_Route_Handlers {
 			Neo_Pulse_App_Api_Dispatcher::send_json( Neo_Pulse_App_Email_Desk_Cloud_Agent_Contract::payload() );
 			return;
 		}
+		if ( strtoupper( $method ) === 'POST' && $subpath === 'normalize-triage-response' ) {
+			Neo_Pulse_App_Api_Dispatcher::send_json(
+				Neo_Pulse_App_Email_Desk_Triage_Normalize::normalize( $body )
+			);
+			return;
+		}
 		if ( strtoupper( $method ) === 'POST' && $subpath === 'post-completion/parse-agent-message' ) {
 			$text = isset( $body['text'] ) ? (string) $body['text'] : '';
 			$parsed = Neo_Pulse_App_Email_Desk_Post_Completion::parse_agent_message( $text );

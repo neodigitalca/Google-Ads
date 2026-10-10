@@ -25,14 +25,14 @@ describe("email-desk-cloud-agent-contract", () => {
 
   it("exports stable contract payload", () => {
     const payload = emailDeskCloudAgentContractPayload();
-    expect(payload.version).toBe(5);
+    expect(payload.version).toBe(6);
     expect(payload.cloudAgentInstructions).toMatch(/rankmath-write/i);
     expect(payload.cloudAgentInstructions).toMatch(/email-desk-completion/i);
     expect(payload.postCompletion?.hubSteps?.length).toBeGreaterThan(0);
     expect(payload.openRouterTriage.requiredFields).toContain("actionable");
     expect(payload.openRouterTriage.requiredFields).toContain("replyDraft");
-    expect(payload.openRouterTriage.replyDraftPolicy?.mode).toBe("deferredEmptyString");
-    expect(payload.openRouterTriage.instructions).toMatch(/empty string/i);
+    expect(payload.openRouterTriage.replyDraftPolicy?.mode).toBe("deferredPlaceholder");
+    expect(payload.openRouterTriage.instructions).toMatch(/__EMAIL_DESK_DEFERRED__/);
     expect(payload.slackUi.initialCard.showProposedReply).toBe(false);
     expect(payload.replyDraftInstructions).toMatch(/title/i);
   });

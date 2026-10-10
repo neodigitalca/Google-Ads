@@ -48,7 +48,7 @@ replyDraft rules: only what the customer asked; quote verified meta description 
 	public static function openrouter_triage_instructions(): string {
 		return 'Triage one inbound client email for Neo Digital Email desk.
 
-Return JSON only. You MUST include replyDraft as an empty string "" (required field for the hub). Do not write any customer reply text at triage. Do not include proposedReply.
+Return JSON only. You MUST include replyDraft set exactly to "__EMAIL_DESK_DEFERRED__" (required non-empty placeholder). Do not write any customer reply text at triage. Do not include proposedReply.
 
 Customer Gmail copy is created only after the Cursor cloud agent finishes site work (email-desk-completion).
 
@@ -80,7 +80,8 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 				'showWorkConfirmedSendReplyButton' => false,
 			),
 			'triageForbiddenFields'          => array( 'proposedReply' ),
-			'hideProposedReplyWhenReplyDraftEmpty' => true,
+			'hideProposedReplyWhenReplyDraftEmpty'  => true,
+			'hideProposedReplyWhenReplyDraftEquals' => Neo_Pulse_App_Email_Desk_Triage_Normalize::DEFERRED_REPLY_DRAFT,
 		);
 	}
 
@@ -137,7 +138,7 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 	 */
 	public static function payload(): array {
 		return array(
-			'version'                    => 5,
+			'version'                    => 6,
 			'allowlistedEmcpTools'       => self::allowlisted_emcp_tools(),
 			'cloudAgentInstructions'     => self::cloud_agent_instructions(),
 			'openRouterTriage'           => array(
@@ -145,16 +146,18 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 				'requiredFields'     => array( 'actionable', 'summary', 'replyDraft' ),
 				'forbiddenFields'    => array( 'proposedReply' ),
 				'replyDraftPolicy'   => array(
-					'mode'                => 'deferredEmptyString',
-					'maxLengthAtTriage'   => 0,
+					'mode'              => 'deferredPlaceholder',
+					'triagePlaceholder' => Neo_Pulse_App_Email_Desk_Triage_Normalize::DEFERRED_REPLY_DRAFT,
 				),
+				'normalizeTriageEndpoint' => '/api/internal/email-desk/normalize-triage-response',
 				'responseJsonSchema' => array(
 					'type'                 => 'object',
 					'required'             => array( 'actionable', 'summary', 'replyDraft' ),
 					'properties'           => array(
 						'replyDraft' => array(
 							'type'        => 'string',
-							'description' => 'Required. Must be empty at triage.',
+							'minLength'   => 1,
+							'description' => 'Required. Must be __EMAIL_DESK_DEFERRED__ at triage.',
 						),
 						'siteKey'    => array( 'type' => 'string' ),
 						'siteTasks'  => array( 'type' => 'array' ),

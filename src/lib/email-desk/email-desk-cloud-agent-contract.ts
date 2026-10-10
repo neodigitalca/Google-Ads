@@ -33,10 +33,15 @@ Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_
 
 ${EMAIL_DESK_CLOUD_AGENT_COMPLETION_INSTRUCTIONS}`;
 
-/** Neo Agent Hub OpenRouter triage (inbox / Slack). Site work + Cursor; replyDraft deferred (empty). */
+import {
+  EMAIL_DESK_DEFERRED_REPLY_DRAFT,
+  EMAIL_DESK_TRIAGE_REPLY_DRAFT_POLICY,
+} from "@/lib/email-desk/email-desk-triage-constants";
+
+/** Neo Agent Hub OpenRouter triage (inbox / Slack). Site work + Cursor; replyDraft deferred (sentinel). */
 export const EMAIL_DESK_OPENROUTER_TRIAGE_INSTRUCTIONS = `Triage one inbound client email for Neo Digital Email desk.
 
-Return JSON only. You MUST include replyDraft as an empty string "" (required field for the hub). Do not write any customer reply text at triage. Do not include proposedReply.
+Return JSON only. You MUST include replyDraft set exactly to "${EMAIL_DESK_DEFERRED_REPLY_DRAFT}" (required non-empty placeholder). Do not write any customer reply text at triage. Do not include proposedReply.
 
 Customer Gmail copy is created only after the Cursor cloud agent finishes site work (email-desk-completion).
 
@@ -53,8 +58,8 @@ export const EMAIL_DESK_OPENROUTER_TRIAGE_JSON_SCHEMA = {
   properties: {
     replyDraft: {
       type: "string",
-      description:
-        'Required. Must be "" at triage. Non-empty only after cloud agent completion (not in this step).',
+      minLength: 1,
+      description: `Required. Must be exactly "${EMAIL_DESK_DEFERRED_REPLY_DRAFT}" at triage.`,
     },
     siteKey: { type: "string" },
     siteTasks: { type: "array" },
@@ -64,11 +69,7 @@ export const EMAIL_DESK_OPENROUTER_TRIAGE_JSON_SCHEMA = {
   additionalProperties: true,
 } as const;
 
-/** Hub validates replyDraft exists; empty means defer to post-completion. */
-export const EMAIL_DESK_TRIAGE_REPLY_DRAFT_POLICY = {
-  mode: "deferredEmptyString",
-  maxLengthAtTriage: 0,
-} as const;
+export { EMAIL_DESK_TRIAGE_REPLY_DRAFT_POLICY } from "@/lib/email-desk/email-desk-triage-constants";
 
 /** Neo Agent Hub Slack cards: no reply text until post-completion Gmail draft exists. */
 export const EMAIL_DESK_SLACK_UI = {
@@ -87,6 +88,7 @@ export const EMAIL_DESK_SLACK_UI = {
   },
   triageForbiddenFields: ["proposedReply"],
   hideProposedReplyWhenReplyDraftEmpty: true,
+  hideProposedReplyWhenReplyDraftEquals: EMAIL_DESK_DEFERRED_REPLY_DRAFT,
 } as const;
 
 export type EmailDeskSiteTask = {
@@ -166,12 +168,16 @@ export const META_DESCRIPTION_SITE_TASK_TEMPLATE: EmailDeskSiteTask[] = [
 
 /** True when triage correctly deferred customer reply (hub must not render proposed reply). */
 export function isEmailDeskTriageReplyDeferred(replyDraft: unknown): boolean {
-  return typeof replyDraft === "string" && replyDraft.trim() === "";
+  if (typeof replyDraft !== "string") {
+    return false;
+  }
+  const t = replyDraft.trim();
+  return t === "" || t === EMAIL_DESK_DEFERRED_REPLY_DRAFT;
 }
 
 export function emailDeskCloudAgentContractPayload() {
   return {
-    version: 5,
+    version: 6,
     allowlistedEmcpTools: [...EMAIL_DESK_EMCP_ALLOWLIST],
     cloudAgentInstructions: EMAIL_DESK_CLOUD_AGENT_INSTRUCTIONS,
     openRouterTriage: {
@@ -179,6 +185,7 @@ export function emailDeskCloudAgentContractPayload() {
       requiredFields: ["actionable", "summary", "replyDraft"],
       forbiddenFields: [...EMAIL_DESK_SLACK_UI.triageForbiddenFields],
       replyDraftPolicy: EMAIL_DESK_TRIAGE_REPLY_DRAFT_POLICY,
+      normalizeTriageEndpoint: "/api/internal/email-desk/normalize-triage-response",
       responseJsonSchema: EMAIL_DESK_OPENROUTER_TRIAGE_JSON_SCHEMA,
     },
     slackUi: EMAIL_DESK_SLACK_UI,
