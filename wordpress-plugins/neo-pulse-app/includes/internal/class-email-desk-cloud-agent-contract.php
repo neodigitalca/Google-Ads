@@ -48,9 +48,11 @@ replyDraft rules: only what the customer asked; quote verified meta description 
 	public static function openrouter_triage_instructions(): string {
 		return 'Triage one inbound client email for Neo Digital Email desk.
 
-Return JSON only. Do NOT include replyDraft, proposedReply, or any Gmail reply body. Customer replies are created only after the Cursor cloud agent finishes site work (email-desk-completion).
+Return JSON only. You MUST include replyDraft as an empty string "" (required field for the hub). Do not write any customer reply text at triage. Do not include proposedReply.
 
-You MUST include: actionable (boolean), summary (short internal line), siteKey (when known), siteTasks (array when actionable).
+Customer Gmail copy is created only after the Cursor cloud agent finishes site work (email-desk-completion).
+
+You MUST also include: actionable (boolean), summary (short internal line), siteKey (when known), siteTasks (array when actionable).
 
 For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must use emcp-tools-rankmath-write (update-post-seo), not emcp-tools-update-post with meta_description. post_id must be a positive integer, not a slug.';
 	}
@@ -77,7 +79,8 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 				'gmailDraftLinkOnly'               => true,
 				'showWorkConfirmedSendReplyButton' => false,
 			),
-			'triageForbiddenFields' => array( 'replyDraft', 'proposedReply' ),
+			'triageForbiddenFields'          => array( 'proposedReply' ),
+			'hideProposedReplyWhenReplyDraftEmpty' => true,
 		);
 	}
 
@@ -134,17 +137,25 @@ For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must
 	 */
 	public static function payload(): array {
 		return array(
-			'version'                    => 4,
+			'version'                    => 5,
 			'allowlistedEmcpTools'       => self::allowlisted_emcp_tools(),
 			'cloudAgentInstructions'     => self::cloud_agent_instructions(),
 			'openRouterTriage'           => array(
 				'instructions'       => self::openrouter_triage_instructions(),
-				'requiredFields'     => array( 'actionable', 'summary' ),
-				'forbiddenFields'    => array( 'replyDraft', 'proposedReply' ),
+				'requiredFields'     => array( 'actionable', 'summary', 'replyDraft' ),
+				'forbiddenFields'    => array( 'proposedReply' ),
+				'replyDraftPolicy'   => array(
+					'mode'                => 'deferredEmptyString',
+					'maxLengthAtTriage'   => 0,
+				),
 				'responseJsonSchema' => array(
 					'type'                 => 'object',
-					'required'             => array( 'actionable', 'summary' ),
+					'required'             => array( 'actionable', 'summary', 'replyDraft' ),
 					'properties'           => array(
+						'replyDraft' => array(
+							'type'        => 'string',
+							'description' => 'Required. Must be empty at triage.',
+						),
 						'siteKey'    => array( 'type' => 'string' ),
 						'siteTasks'  => array( 'type' => 'array' ),
 						'actionable' => array( 'type' => 'boolean' ),

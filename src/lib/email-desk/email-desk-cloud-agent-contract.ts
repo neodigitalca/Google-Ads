@@ -33,12 +33,14 @@ Do not use emcp-tools-update-post meta_description (ignored). Do not write rank_
 
 ${EMAIL_DESK_CLOUD_AGENT_COMPLETION_INSTRUCTIONS}`;
 
-/** Neo Agent Hub OpenRouter triage (inbox / Slack). Site work + Cursor only; no customer reply here. */
+/** Neo Agent Hub OpenRouter triage (inbox / Slack). Site work + Cursor; replyDraft deferred (empty). */
 export const EMAIL_DESK_OPENROUTER_TRIAGE_INSTRUCTIONS = `Triage one inbound client email for Neo Digital Email desk.
 
-Return JSON only. Do NOT include replyDraft, proposedReply, or any Gmail reply body. Customer replies are created only after the Cursor cloud agent finishes site work (email-desk-completion).
+Return JSON only. You MUST include replyDraft as an empty string "" (required field for the hub). Do not write any customer reply text at triage. Do not include proposedReply.
 
-You MUST include: actionable (boolean), summary (short internal line), siteKey (when known), siteTasks (array when actionable).
+Customer Gmail copy is created only after the Cursor cloud agent finishes site work (email-desk-completion).
+
+You MUST also include: actionable (boolean), summary (short internal line), siteKey (when known), siteTasks (array when actionable).
 
 For Rank Math meta description work on Neo Pulse WordPress sites, siteTasks must use emcp-tools-rankmath-write (update-post-seo), not emcp-tools-update-post with meta_description. post_id must be a positive integer, not a slug.`;
 
@@ -47,14 +49,25 @@ export const EMAIL_DESK_REPLY_INSTRUCTIONS =
 
 export const EMAIL_DESK_OPENROUTER_TRIAGE_JSON_SCHEMA = {
   type: "object",
-  required: ["actionable", "summary"],
+  required: ["actionable", "summary", "replyDraft"],
   properties: {
+    replyDraft: {
+      type: "string",
+      description:
+        'Required. Must be "" at triage. Non-empty only after cloud agent completion (not in this step).',
+    },
     siteKey: { type: "string" },
     siteTasks: { type: "array" },
     actionable: { type: "boolean" },
     summary: { type: "string" },
   },
   additionalProperties: true,
+} as const;
+
+/** Hub validates replyDraft exists; empty means defer to post-completion. */
+export const EMAIL_DESK_TRIAGE_REPLY_DRAFT_POLICY = {
+  mode: "deferredEmptyString",
+  maxLengthAtTriage: 0,
 } as const;
 
 /** Neo Agent Hub Slack cards: no reply text until post-completion Gmail draft exists. */
@@ -72,7 +85,8 @@ export const EMAIL_DESK_SLACK_UI = {
     gmailDraftLinkOnly: true,
     showWorkConfirmedSendReplyButton: false,
   },
-  triageForbiddenFields: ["replyDraft", "proposedReply"],
+  triageForbiddenFields: ["proposedReply"],
+  hideProposedReplyWhenReplyDraftEmpty: true,
 } as const;
 
 export type EmailDeskSiteTask = {
@@ -150,15 +164,21 @@ export const META_DESCRIPTION_SITE_TASK_TEMPLATE: EmailDeskSiteTask[] = [
   },
 ];
 
+/** True when triage correctly deferred customer reply (hub must not render proposed reply). */
+export function isEmailDeskTriageReplyDeferred(replyDraft: unknown): boolean {
+  return typeof replyDraft === "string" && replyDraft.trim() === "";
+}
+
 export function emailDeskCloudAgentContractPayload() {
   return {
-    version: 4,
+    version: 5,
     allowlistedEmcpTools: [...EMAIL_DESK_EMCP_ALLOWLIST],
     cloudAgentInstructions: EMAIL_DESK_CLOUD_AGENT_INSTRUCTIONS,
     openRouterTriage: {
       instructions: EMAIL_DESK_OPENROUTER_TRIAGE_INSTRUCTIONS,
-      requiredFields: ["actionable", "summary"],
+      requiredFields: ["actionable", "summary", "replyDraft"],
       forbiddenFields: [...EMAIL_DESK_SLACK_UI.triageForbiddenFields],
+      replyDraftPolicy: EMAIL_DESK_TRIAGE_REPLY_DRAFT_POLICY,
       responseJsonSchema: EMAIL_DESK_OPENROUTER_TRIAGE_JSON_SCHEMA,
     },
     slackUi: EMAIL_DESK_SLACK_UI,

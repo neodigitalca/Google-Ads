@@ -82,7 +82,7 @@ Neo Agent Hub / Flowbie email desk should load instructions and allowlist from:
 
 When building a **Cursor cloud agent** user message, prepend `cloudAgentInstructions` only (not `openRouterTriage.instructions`).
 
-For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions` and enforce `requiredFields` (`actionable`, `summary`). **Reject or strip `replyDraft`** per `forbiddenFields` / `slackUi.triageForbiddenFields`. Do not inject `cloudAgentInstructions` into triage.
+For **OpenRouter inbox triage** (Slack `/email-desk test`, Send to Cursor), use `openRouterTriage.instructions`. **`replyDraft` is required but must be `""`** (`replyDraftPolicy.deferredEmptyString`) so the hub passes validation without showing customer copy. Also require `actionable` and `summary`. Do not inject `cloudAgentInstructions` into triage.
 
 Honor **`slackUi`**: first Slack card has no proposed reply, no `/email-desk edit-reply`, no "Work confirmed, send reply" until post-completion creates a Gmail draft link card.
 
